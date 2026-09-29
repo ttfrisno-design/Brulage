@@ -129,6 +129,29 @@ Identifiant de l'application : `fr.fri.brulages` (modifiable dans
 - Le tableau de la carte indique pour chaque joueur : non envoyée, envoyée
   sans réponse, ✓ Présent ou ✕ Absent.
 
+## Compétitions individuelles (jeunes / adultes)
+
+- Après la saisie du code, le joueur choisit : **Championnat par équipes**,
+  **Compétitions individuelles jeunes** ou **Compétitions individuelles
+  adultes**. L'administrateur arrive directement sur l'administration.
+- Le calendrier 2026-2027 des plaquettes du club est créé automatiquement
+  dans la feuille *Competitions* (une ligne par épreuve). L'onglet admin
+  **Compétitions individuelles** permet d'ajouter, supprimer une épreuve et
+  de modifier sa **date limite** (sinon : date − « délai par défaut »).
+- **Effectif** : colonne **Catégorie** (Poussin, Benjamin, Minime, Cadet,
+  Junior, Senior, V40…V80), qui détermine les compétitions proposées. Seul
+  l'en-tête est ajouté à la feuille *Joueurs* : les joueurs existants ne
+  sont pas modifiés.
+- Parcours : le joueur **demande son inscription** avant la date limite → le
+  club la **valide** (ou refuse) dans l'onglet admin → le joueur
+  **confirme sa participation** (ou se désiste) à l'approche de l'épreuve.
+  Suivi dans la feuille *Inscriptions*.
+- **Rappels** : à l'ouverture de l'appli, un encadré « 🔔 À faire » (et un
+  badge sur le bouton) signale les inscriptions dont la date limite approche
+  et les participations à confirmer (délai réglable, 10 jours par défaut).
+  L'admin peut aussi relancer par **SMS** les joueurs concernés non inscrits
+  ou non confirmés.
+
 ## Arborescence
 
 | Chemin | Rôle |
