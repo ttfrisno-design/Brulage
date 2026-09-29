@@ -101,7 +101,29 @@ const API_FUNCTIONS_ = {
   saveCompetition: saveCompetition,
   deleteCompetition: deleteCompetition,
   setCompetitionSettings: setCompetitionSettings,
+  getDataVersion: getDataVersion,
 };
+
+// Fonctions en lecture seule : toutes les autres modifient les données et
+// font avancer le "numéro de version" des données (voir getDataVersion).
+const READ_ONLY_FUNCTIONS_ = {
+  login: true, getStaticConfig: true, getPlayerData: true, getAdminData: true, listPlayers: true,
+  getCompetitions: true, getCompetitionsAdmin: true, getDataVersion: true,
+};
+
+/** Numéro de version des données, changé à chaque modification faite via
+ * l'appli. Très rapide (aucune lecture de feuille) : l'appli l'interroge
+ * toutes les 20 s et ne retélécharge les données que s'il a changé, au lieu
+ * de tout retélécharger à chaque fois. (Une modification faite directement
+ * dans le classeur n'est pas détectée : l'appli refait de toute façon un
+ * téléchargement complet toutes les 5 minutes.) */
+function getDataVersion() {
+  return PropertiesService.getScriptProperties().getProperty('DATA_VERSION') || '0';
+}
+
+function bumpDataVersion_() {
+  PropertiesService.getScriptProperties().setProperty('DATA_VERSION', String(Date.now()));
+}
 
 function doPost(e) {
   let out;
@@ -113,6 +135,7 @@ function doPost(e) {
     }
     const args = body.args || [];
     const result = fn.apply(null, args);
+    if (!READ_ONLY_FUNCTIONS_[body.fn]) bumpDataVersion_();
     out = { ok: true, result: result };
   } catch (err) {
     out = { ok: false, error: err && err.message ? err.message : String(err) };

@@ -818,11 +818,51 @@
       // des affectations ont été modifiées mais pas encore validées : cela
       // évitait des écarts (une saisie en cours écrasée par la synchro).
       if (Object.keys(STATE.pendingAssignments).length > 0) { return; }
-      if (STATE.session.isAdmin) { loadAdminData(true); }
-      else if (STATE.view === 'home' || STATE.view === 'compet') { loadHomeData(); }
-      else if (STATE.session.isCaptain) { loadCaptainData(true); }
-      else { loadPlayerData(true); }
+      checkForUpdates();
     }, 20000);
+    // Version actuelle des données, pour ne retélécharger ensuite que si
+    // quelque chose a changé.
+    callServer('getDataVersion', []).then(function (v) { STATE.dataVersion = v; }).catch(function () {});
+    STATE.lastFullRefresh = Date.now();
+  }
+
+  // Synchronisation : on demande d'abord au serveur le numéro de version des
+  // données (réponse minuscule) et on ne retélécharge la vue affichée que
+  // s'il a changé — ou toutes les 5 minutes par sécurité (modifications
+  // faites directement dans le classeur).
+  var FULL_REFRESH_MS = 5 * 60 * 1000;
+  function checkForUpdates() {
+    if (STATE.checkingUpdates) return;
+    STATE.checkingUpdates = true;
+    callServer('getDataVersion', []).then(function (v) {
+      var stale = Date.now() - (STATE.lastFullRefresh || 0) > FULL_REFRESH_MS;
+      if (v !== STATE.dataVersion || stale) {
+        STATE.dataVersion = v;
+        refreshCurrentView();
+      }
+    }).catch(function () {
+      // Serveur pas encore mis à jour (fonction inconnue) ou réseau
+      // indisponible : on garde l'ancien comportement.
+      refreshCurrentView();
+    }).then(function () { STATE.checkingUpdates = false; });
+  }
+
+  function refreshCurrentView() {
+    STATE.lastFullRefresh = Date.now();
+    if (STATE.session.isAdmin) { loadAdminData(true); }
+    else if (STATE.view === 'home' || STATE.view === 'compet') { loadHomeData(); }
+    else if (STATE.session.isCaptain) { loadCaptainData(true); }
+    else if (STATE.view === 'team') { loadPlayerData(true); }
+  }
+
+  // Évite de redessiner (et de faire perdre la saisie / la position en cours)
+  // quand les données reçues du serveur sont identiques à celles affichées.
+  STATE.lastRaw = {};
+  function isUnchanged(key, data) {
+    var str = JSON.stringify(data);
+    if (STATE.lastRaw[key] === str) return true;
+    STATE.lastRaw[key] = str;
+    return false;
   }
 
   // Try restoring session
@@ -968,9 +1008,11 @@
       // Affichage immédiat depuis le cache local pendant que la version
       // à jour arrive du serveur, pour ne pas laisser un écran vide.
       var cached = loadCache(key);
-      if (cached) { STATE.playerData = cached; renderPlayerView(); }
+      if (cached) { STATE.playerData = cached; STATE.lastRaw[key] = JSON.stringify(cached); renderPlayerView(); }
+      else { delete STATE.lastRaw[key]; }
     }
     callServer('getPlayerData', [STATE.session.playerId, STATE.phase]).then(function (data) {
+      if (isUnchanged(key, data) && STATE.playerData) return;
       STATE.playerData = data;
       // Une saisie pas encore confirmée par le serveur (toujours en file
       // d'attente locale) ne doit pas être écrasée par une synchronisation
@@ -1062,9 +1104,11 @@
     var key = 'admin_phase' + STATE.phase;
     if (!silent) {
       var cached = loadCache(key);
-      if (cached) { STATE.adminData = cached; renderBurnTable(); }
+      if (cached) { STATE.adminData = cached; STATE.lastRaw[key] = JSON.stringify(cached); renderBurnTable(); }
+      else { delete STATE.lastRaw[key]; }
     }
     callServer('getAdminData', [STATE.phase]).then(function (data) {
+      if (isUnchanged(key, data) && STATE.adminData) return;
       STATE.adminData = data;
       saveCache(key, data);
       renderBurnTable();
@@ -1268,15 +1312,19 @@
       if (cachedOwn && cachedTeam) {
         STATE.captainOwnData = cachedOwn;
         STATE.captainTeamData = cachedTeam;
+        STATE.lastRaw[keyOwn + keyTeam] = JSON.stringify([cachedOwn, cachedTeam]);
         renderCaptainOwnDates();
         renderCaptainGroupLegend();
         renderCaptainTeamTable();
+      } else {
+        delete STATE.lastRaw[keyOwn + keyTeam];
       }
     }
     Promise.all([
       callServer('getPlayerData', [STATE.session.playerId, STATE.phase]),
       callServer('getAdminData', [STATE.phase]),
     ]).then(function (results) {
+      if (isUnchanged(keyOwn + keyTeam, results) && STATE.captainOwnData) return;
       STATE.captainOwnData = results[0];
       STATE.captainTeamData = results[1];
       applyPendingAvailability(STATE.session.playerId, STATE.phase, STATE.captainOwnData.availability);
@@ -1504,7 +1552,16 @@
   }
 
   function loadRoster() {
+    // Effectif gardé sur l'appareil : affiché tout de suite, puis mis à jour.
+    var cached = loadCache('roster');
+    if (cached) { STATE.lastRaw.roster = JSON.stringify(cached); renderRoster(cached); }
     callServer('listPlayers', []).then(function (players) {
+      saveCache('roster', players);
+      if (isUnchanged('roster', players)) return;
+      // Ne pas redessiner sous les doigts de l'administrateur (saisie en
+      // cours ou enregistrement pas encore terminé).
+      var container = document.getElementById('rosterTable');
+      if (cached && (container.contains(document.activeElement) || container.querySelector('.save-pending'))) return;
       renderRoster(players);
     }).catch(onGsError);
   }
@@ -1582,6 +1639,8 @@
     // du même joueur (ex. la catégorie après le téléphone) renvoyait
     // l'ancienne valeur du premier champ et l'effaçait dans le classeur.
     container.dataset.players = JSON.stringify(players);
+    saveCache('roster', players);
+    STATE.lastRaw.roster = container.dataset.players;
     var args = [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '', p['Catégorie'] || ''];
     el.classList.remove('save-ok', 'save-err');
     el.classList.add('save-pending');
@@ -1862,15 +1921,28 @@
   }
 
   function loadHomeData() {
-    var cached = loadCache('compet_' + STATE.session.playerId);
-    if (cached && !STATE.compet) { STATE.compet = cached; renderHome(); }
+    var keyC = 'compet_' + STATE.session.playerId;
+    var keyP = 'player_' + STATE.session.playerId + '_phase' + STATE.phase;
+    if (!STATE.compet) {
+      var cached = loadCache(keyC);
+      var cachedP = loadCache(keyP);
+      if (cached) {
+        STATE.compet = cached;
+        STATE.homePlayerData = STATE.homePlayerData || cachedP;
+        STATE.lastRaw.home = JSON.stringify([cached, cachedP]);
+        if (STATE.view === 'home') renderHome();
+        if (STATE.view === 'compet') renderCompetView();
+      }
+    }
     Promise.all([
       callServer('getCompetitions', [STATE.session.playerId]),
       callServer('getPlayerData', [STATE.session.playerId, STATE.phase]),
     ]).then(function (res) {
+      saveCache(keyC, res[0]);
+      saveCache(keyP, res[1]);
+      if (isUnchanged('home', res) && STATE.compet && STATE.homePlayerData) return;
       STATE.compet = res[0];
       STATE.homePlayerData = res[1];
-      saveCache('compet_' + STATE.session.playerId, res[0]);
       if (STATE.view === 'home') renderHome();
       if (STATE.view === 'compet') renderCompetView();
     }).catch(onGsError);
@@ -2083,7 +2155,11 @@
   // COMPÉTITIONS INDIVIDUELLES — onglet administrateur
   // ---------------------------------------------------------------------------
   function loadAdminCompet() {
+    var cached = loadCache('adminCompet');
+    if (cached && !STATE.adminCompet) { STATE.adminCompet = cached; STATE.lastRaw.adminCompet = JSON.stringify(cached); renderAdminCompet(); }
     callServer('getCompetitionsAdmin', []).then(function (res) {
+      saveCache('adminCompet', res);
+      if (isUnchanged('adminCompet', res) && STATE.adminCompet) return;
       STATE.adminCompet = res;
       renderAdminCompet();
     }).catch(onGsError);
