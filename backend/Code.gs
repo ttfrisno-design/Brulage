@@ -102,6 +102,7 @@ const API_FUNCTIONS_ = {
   deleteCompetition: deleteCompetition,
   setCompetitionSettings: setCompetitionSettings,
   getDataVersion: getDataVersion,
+  saveRencontre: saveRencontre,
 };
 
 // Fonctions en lecture seule : toutes les autres modifient les données et
@@ -202,7 +203,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V3';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V5';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -334,6 +335,39 @@ function ensureSheetsNow_() {
     insc = ss.insertSheet('Inscriptions');
     insc.getRange(1, 1, 1, 6).setValues([['CompetitionID', 'JoueurID', 'Statut', 'DemandeLe', 'Participation', 'ParticipationLe']]);
     insc.setFrozenRows(1);
+  }
+
+  // --- Rencontres ---
+  // Adversaire et lieu (Domicile = Isneauville / Extérieur) de chaque match
+  // des équipes FRI, utilisés dans le message de convocation. Pré-rempli
+  // avec les calendriers de poule de la phase 1 2026-2027 (FRI2 à FRI6) ;
+  // complété / corrigé depuis la carte « Envoyer les convocations ».
+  let renc = ss.getSheetByName('Rencontres');
+  if (!renc) {
+    renc = ss.insertSheet('Rencontres');
+    renc.getRange(1, 1, 1, 6).setValues([['Phase', 'Equipe', 'Date', 'Heure', 'Adversaire', 'Lieu']]);
+    renc.getRange(2, 3, 998, 2).setNumberFormat('@');
+    renc.setFrozenRows(1);
+    const seedRenc = defaultRencontres_();
+    renc.getRange(2, 1, seedRenc.length, 6).setValues(seedRenc);
+  } else {
+    // Feuille déjà existante : on ajoute seulement les matchs du calendrier
+    // intégré qui n'y sont pas encore (nouvelles poules), sans jamais
+    // modifier ni écraser les lignes existantes.
+    const existing = {};
+    if (renc.getLastRow() > 1) {
+      renc.getRange(2, 1, renc.getLastRow() - 1, 3).getValues().forEach(function (r) {
+        let d = r[2];
+        if (d instanceof Date) d = Utilities.formatDate(d, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+        existing[Number(r[0]) + '|' + Number(r[1]) + '|' + d] = true;
+      });
+    }
+    const missing = defaultRencontres_().filter(function (r) { return !existing[r[0] + '|' + r[1] + '|' + r[2]]; });
+    if (missing.length) {
+      const start = renc.getLastRow() + 1;
+      renc.getRange(start, 3, missing.length, 2).setNumberFormat('@');
+      renc.getRange(start, 1, missing.length, 6).setValues(missing);
+    }
   }
 
   // --- Convocations ---
@@ -609,7 +643,20 @@ function getStaticConfig() {
       journeeByDate[dateVal] = String(journee).trim();
     }
   });
-  return { teams: TEAMS, dates: dates, journeeByDate: journeeByDate };
+  // rencontres : "phase|équipe|date" -> { adversaire, lieu, heure }
+  const rencontres = {};
+  const rencSheet = ss_().getSheetByName('Rencontres');
+  if (rencSheet && rencSheet.getLastRow() > 1) {
+    rencSheet.getRange(2, 1, rencSheet.getLastRow() - 1, 6).getValues().forEach(function (r) {
+      let d = r[2];
+      if (d instanceof Date) d = Utilities.formatDate(d, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+      if (!r[0] || !r[1] || !d) return;
+      let h = r[3];
+      if (h instanceof Date) h = Utilities.formatDate(h, Session.getScriptTimeZone(), 'HH:mm');
+      rencontres[Number(r[0]) + '|' + Number(r[1]) + '|' + d] = { adversaire: String(r[4] || ''), lieu: String(r[5] || ''), heure: String(h || '') };
+    });
+  }
+  return { teams: TEAMS, dates: dates, journeeByDate: journeeByDate, rencontres: rencontres };
 }
 
 function updateDates(phase, group, dates) {
@@ -983,6 +1030,88 @@ function resetPhaseAssignments(phase) {
     }
   }
   return { ok: true };
+}
+
+// ----------------------------------------------------------------------------------
+// RENCONTRES (adversaire / domicile ou extérieur)
+// ----------------------------------------------------------------------------------
+
+/** Calendriers de poule phase 1 2026-2027 (FFTT) des équipes FRI1 à FRI7
+ * (FRI8 : poule pas encore connue). */
+function defaultRencontres_() {
+  return [
+    [1, 1, '20/09/2026', '09:00', 'CP QUEVILLAIS 5', 'Extérieur'],
+    [1, 1, '04/10/2026', '09:00', 'EVREUX EC 2', 'Domicile'],
+    [1, 1, '18/10/2026', '09:00', 'Safran NS 1', 'Extérieur'],
+    [1, 1, '08/11/2026', '09:00', 'RACING CLUB PORT HAVRE 1', 'Domicile'],
+    [1, 1, '22/11/2026', '09:00', 'AS ST ETIENNE ROUVRAY 1', 'Extérieur'],
+    [1, 1, '06/12/2026', '09:00', 'ALCL GD QUEVILLY 4', 'Extérieur'],
+    [1, 1, '13/12/2026', '09:00', 'AS HONG LANDIN 3', 'Domicile'],
+    [1, 2, '25/09/2026', '20:00', 'BLAINVILLE CREV 1', 'Extérieur'],
+    [1, 2, '09/10/2026', '20:00', 'ASC BONSECOURS 3', 'Domicile'],
+    [1, 2, '30/10/2026', '20:00', 'US C BOIS GUILLAUME 5', 'Extérieur'],
+    [1, 2, '13/11/2026', '20:00', 'S SOTTEVILLAIS 2', 'Domicile'],
+    [1, 2, '27/11/2026', '20:00', 'FRANQUEVILLE ST 4', 'Extérieur'],
+    [1, 2, '11/12/2026', '20:00', 'ASM AMFREVILLE 1', 'Domicile'],
+    [1, 2, '18/12/2026', '20:00', 'CP QUEVILLAIS 7', 'Extérieur'],
+    [1, 3, '25/09/2026', '20:00', 'AA COURONNE 3', 'Extérieur'],
+    [1, 3, '09/10/2026', '20:00', 'FRANQUEVILLE ST 6', 'Domicile'],
+    [1, 3, '30/10/2026', '20:00', 'LE TRAIT YAINVI 2', 'Extérieur'],
+    [1, 3, '13/11/2026', '20:00', 'S SOTTEVILLAIS 4', 'Domicile'],
+    [1, 3, '27/11/2026', '20:00', 'ASTT 3', 'Extérieur'],
+    [1, 3, '11/12/2026', '20:00', 'US C BOIS GUILL 9', 'Domicile'],
+    [1, 3, '18/12/2026', '20:00', 'MT ST AIGNAN TT 5', 'Extérieur'],
+    [1, 4, '25/09/2026', '20:00', 'JP VALLIQUERVIL 2', 'Domicile'],
+    [1, 4, '09/10/2026', '20:00', 'TT DU CAILLY 1', 'Extérieur'],
+    [1, 4, '30/10/2026', '20:00', 'ASM AMFREVILLE 2', 'Domicile'],
+    [1, 4, '13/11/2026', '20:00', 'SAINT PIERRAISE ENT 10', 'Extérieur'],
+    [1, 4, '27/11/2026', '20:00', 'CP YVETOT 5', 'Domicile'],
+    [1, 4, '11/12/2026', '20:00', 'FJ FAUVILLE 2', 'Extérieur'],
+    [1, 4, '18/12/2026', '20:00', 'SPO ROUEN 10', 'Domicile'],
+    [1, 5, '02/10/2026', '20:00', 'ASC BONSECOURS 5', 'Domicile'],
+    [1, 5, '16/10/2026', '20:00', 'TT DU CAILLY 3', 'Extérieur'],
+    [1, 5, '06/11/2026', '20:00', 'AMFTT 4', 'Domicile'],
+    [1, 5, '20/11/2026', '20:00', 'TT BULLY 5', 'Extérieur'],
+    [1, 5, '04/12/2026', '20:00', 'LA CRIQUE TT 2', 'Domicile'],
+    [1, 5, '08/01/2027', '20:00', 'AL DARNETAL 3', 'Domicile'],
+    [1, 5, '15/01/2027', '20:00', 'FRANQUEVILLE ST 7', 'Extérieur'],
+    [1, 6, '02/10/2026', '20:00', 'CP BUCHY (6)', 'Extérieur'],
+    [1, 6, '16/10/2026', '20:00', 'CP QUEVILLAIS 14', 'Domicile'],
+    [1, 6, '06/11/2026', '20:00', 'G C O BIHOREL 2', 'Extérieur'],
+    [1, 6, '20/11/2026', '20:00', 'LA CRIQUE TT 4', 'Domicile'],
+    [1, 6, '04/12/2026', '20:00', 'TTT 1', 'Extérieur'],
+    [1, 6, '08/01/2027', '20:00', 'AMFTT 7', 'Extérieur'],
+    [1, 6, '15/01/2027', '20:00', 'MESNIL-ESNARDTT (3)', 'Domicile'],
+    [1, 7, '02/10/2026', '20:00', 'CP BUCHY 7', 'Domicile'],
+    [1, 7, '16/10/2026', '20:00', 'TT DU CAILLY 5', 'Extérieur'],
+    [1, 7, '06/11/2026', '20:00', 'G C O BIHOREL 4', 'Domicile'],
+    [1, 7, '20/11/2026', '20:00', 'TT BULLY 6', 'Extérieur'],
+    [1, 7, '04/12/2026', '20:00', 'CAMA TT 8', 'Domicile'],
+    [1, 7, '08/01/2027', '20:00', 'RAQUETTE NEUFCH 8', 'Domicile'],
+    [1, 7, '15/01/2027', '20:00', 'AMFTT 6', 'Extérieur'],
+  ];
+}
+
+/** Enregistre (ou corrige) l'adversaire et le lieu d'un match. */
+function saveRencontre(phase, teamId, date, adversaire, lieu) {
+  ensureSheets_();
+  if (lieu && lieu !== 'Domicile' && lieu !== 'Extérieur') throw new Error('Lieu invalide.');
+  const sheet = ss_().getSheetByName('Rencontres');
+  const values = sheet.getDataRange().getValues();
+  let row = -1;
+  for (let i = 1; i < values.length; i++) {
+    let d = values[i][2];
+    if (d instanceof Date) d = Utilities.formatDate(d, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+    if (Number(values[i][0]) === Number(phase) && Number(values[i][1]) === Number(teamId) && d === date) { row = i + 1; break; }
+  }
+  if (row < 0) {
+    row = sheet.getLastRow() + 1;
+    const team = TEAMS.find(function (t) { return t.id === Number(teamId); }) || {};
+    sheet.getRange(row, 3, 1, 2).setNumberFormat('@');
+    sheet.getRange(row, 1, 1, 4).setValues([[Number(phase), Number(teamId), date, team.time || '']]);
+  }
+  sheet.getRange(row, 5, 1, 2).setValues([[String(adversaire || ''), String(lieu || '')]]);
+  return getStaticConfig();
 }
 
 // ----------------------------------------------------------------------------------

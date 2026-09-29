@@ -1714,7 +1714,8 @@
       if (!team) return;
       var args = c.phase + ',\'' + c.date + '\'';
       html += '<div class="convoc-item">' +
-        '<div class="convoc-title">Vous êtes convoqué(e) : <b>' + escHtml(matchLabel(team, c.date)) + '</b></div>' +
+        '<div class="convoc-title">Vous êtes convoqué(e) : <b>' + escHtml(matchLabel(team, c.date)) + '</b>' +
+          (function () { var r = rencontreFor(c.phase, c.teamId, c.date); return r ? ' ' + escHtml(rencontreLabel(r.adversaire, r.lieu)) : ''; })() + '</div>' +
         (c.message ? '<div class="convoc-msg">' + escHtml(c.message) + '</div>' : '') +
         '<div class="convoc-actions">' +
           '<button class="convoc-btn yes' + (c.response === 'Présent' ? ' active' : '') + '" onclick="answerMyConvocation(\'' + containerId + '\',' + args + ',\'Présent\')">✓ Présent</button>' +
@@ -1763,8 +1764,27 @@
       .sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); });
   }
 
-  function defaultConvocMessage(team, date, players) {
-    return 'Convocation ' + matchLabel(team, date) + '.\n' +
+  // Adversaire / lieu d'un match (feuille Rencontres), ou null.
+  function rencontreFor(phase, teamId, date) {
+    var r = (STATE.config && STATE.config.rencontres) || {};
+    return r[phase + '|' + teamId + '|' + date] || null;
+  }
+  var CLUB_ADDRESS = 'Centre sportif du Cheval Rouge, 1535 route de Neufchâtel, Isneauville';
+  function rencontreLabel(adv, lieu) {
+    if (!adv && !lieu) return '';
+    return (adv ? 'contre ' + adv : '') +
+      (lieu === 'Domicile' ? (adv ? ', ' : '') + 'à domicile (Isneauville)'
+        : lieu === 'Extérieur' ? (adv ? ', ' : '') + 'à l\'extérieur' : '');
+  }
+
+  function defaultConvocMessage(team, date, players, adv, lieu) {
+    var r = rencontreFor(STATE.phase, team.id, date);
+    var heure = (r && r.heure) || team.time;
+    var where = lieu === 'Domicile' ? 'À domicile : ' + CLUB_ADDRESS + '.'
+      : lieu === 'Extérieur' ? 'À l\'extérieur, chez ' + (adv || 'l\'équipe adverse') + '.' : '';
+    return 'Convocation ' + team.name + ' (' + team.division + ') — ' + team.day.toLowerCase() + ' ' + date + (heure ? ' à ' + heure : '') +
+      (adv ? ' contre ' + adv : '') + '.\n' +
+      (where ? where + '\n' : '') +
       'Équipe : ' + players.map(function (p) { return p.prenom + ' ' + p.nom; }).join(', ') + '.\n' +
       'Merci de confirmer ta présence dans l\'appli Brûlages FRI.';
   }
@@ -1812,6 +1832,22 @@
     html += '</div></div>';
 
     if (date) {
+      // Adversaire et lieu : pré-remplis depuis la feuille Rencontres,
+      // modifiables (et enregistrés à l'envoi).
+      var matchKey = teamId + '|' + date;
+      if (draft.matchKey !== matchKey) {
+        var rc = rencontreFor(STATE.phase, teamId, date) || {};
+        draft.matchKey = matchKey;
+        draft.adv = rc.adversaire || '';
+        draft.lieu = rc.lieu || '';
+      }
+      html += '<div class="convoc-form" style="margin-top:8px;">' +
+        '<div><label>Adversaire</label><input type="text" value="' + escAttr(draft.adv) + '" placeholder="ex. FRANQUEVILLE ST 6" oninput="onConvocMatchInfo(\'' + containerId + '\', \'adv\', this.value)"></div>' +
+        '<div><label>Lieu</label><select onchange="onConvocMatchInfo(\'' + containerId + '\', \'lieu\', this.value)">' +
+          '<option value=""' + (!draft.lieu ? ' selected' : '') + '>—</option>' +
+          '<option value="Domicile"' + (draft.lieu === 'Domicile' ? ' selected' : '') + '>Domicile (Isneauville)</option>' +
+          '<option value="Extérieur"' + (draft.lieu === 'Extérieur' ? ' selected' : '') + '>Extérieur (club adverse)</option>' +
+        '</select></div></div>';
       var players = selectedPlayersFor(dataset, teamId, date);
       if (pendingCount() > 0) {
         html += '<div class="error">Des affectations ne sont pas encore validées : cliquez d\'abord sur « Valider et enregistrer ».</div>';
@@ -1833,7 +1869,7 @@
         });
         html += '</tbody></table>';
         var msgKey = teamId + '|' + date;
-        var message = (draft.edited && draft.msgKey === msgKey) ? draft.message : defaultConvocMessage(team, date, players);
+        var message = (draft.edited && draft.msgKey === msgKey) ? draft.message : defaultConvocMessage(team, date, players, draft.adv, draft.lieu);
         draft.msgKey = msgKey;
         draft.message = message;
         html += '<label>Message</label><textarea class="convoc-text" rows="4" oninput="onConvocMessage(\'' + containerId + '\', this.value)">' + escHtml(message) + '</textarea>' +
@@ -1862,6 +1898,19 @@
     d.date = date; d.edited = false;
     refreshConvocSender(containerId);
   }
+  // Adversaire / lieu modifiés : on régénère le message (sauf s'il a été
+  // retouché à la main) sans redessiner la carte, pour garder la saisie.
+  function onConvocMatchInfo(containerId, field, value) {
+    var d = STATE.convocDraft[containerId];
+    d[field] = value;
+    if (d.edited) return;
+    var team = teamById(d.teamId);
+    var players = selectedPlayersFor(convocDataset(), d.teamId, d.date);
+    d.message = defaultConvocMessage(team, d.date, players, d.adv, d.lieu);
+    var ta = document.querySelector('#' + containerId + ' textarea');
+    if (ta) ta.value = d.message;
+  }
+
   function onConvocMessage(containerId, value) {
     var d = STATE.convocDraft[containerId];
     d.message = value; d.edited = true;
@@ -1873,7 +1922,19 @@
     if (!confirm('Envoyer la convocation ' + team.name + ' du ' + d.date + ' aux joueurs sélectionnés ?')) return;
     var resultEl = document.getElementById(containerId + '-result');
     if (resultEl) resultEl.textContent = 'Envoi…';
-    callServer('sendConvocations', [STATE.phase, d.date, d.teamId, d.message]).then(function (players) {
+    // Adversaire / lieu saisis ou corrigés : enregistrés dans la feuille
+    // Rencontres pour les prochaines fois.
+    var rc = rencontreFor(STATE.phase, d.teamId, d.date) || {};
+    var saveMatch = (d.adv || '') !== (rc.adversaire || '') || (d.lieu || '') !== (rc.lieu || '')
+      ? callServer('saveRencontre', [STATE.phase, d.teamId, d.date, d.adv || '', d.lieu || '']).then(function (cfg) {
+          STATE.config = cfg;
+          STATE.session.config = cfg;
+          try { localStorage.setItem('fri_session', JSON.stringify(STATE.session)); } catch (e) { /* pas bloquant */ }
+        })
+      : Promise.resolve();
+    saveMatch.then(function () {
+      return callServer('sendConvocations', [STATE.phase, d.date, d.teamId, d.message]);
+    }).then(function (players) {
       var phones = players.map(function (p) { return p.phone; }).filter(function (p) { return normalizePhone(p); });
       var missing = players.filter(function (p) { return !normalizePhone(p.phone); }).map(function (p) { return p.name; });
       var uri = phones.length ? smsUri(phones, d.message) : '';
