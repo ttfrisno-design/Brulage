@@ -736,6 +736,38 @@
     return list;
   }
 
+  // Un joueur est brûlé pour tout un championnat (D1/D2 = groupe B,
+  // D3/D4 = groupe C) quand il est brûlé pour TOUTES les équipes de ce
+  // groupe. Il ne peut alors plus y jouer : inutile de lui demander ses
+  // disponibilités pour ces dates.
+  function burnedGroups(burned) {
+    var res = {};
+    ['A', 'B', 'C'].forEach(function (grp) {
+      var teams = STATE.config.teams.filter(function (t) { return t.group === grp; });
+      res[grp] = teams.length > 0 && teams.every(function (t) { return burned && burned[t.id]; });
+    });
+    return res;
+  }
+
+  // Dates à proposer pour la saisie des disponibilités : on retire celles
+  // d'un championnat pour lequel le joueur est brûlé, sauf celles où il a
+  // déjà été affecté (matchs joués avant d'être brûlé, gardés pour info).
+  function availabilityDates(data) {
+    var groups = burnedGroups(data.burned);
+    return allDatesFlat().filter(function (row) {
+      return !groups[row.group] || data.assignments[row.date];
+    });
+  }
+
+  // Complément du bandeau "brûlé" : indique quels championnats ont été
+  // retirés de la liste des disponibilités.
+  function hiddenGroupsNote(data) {
+    var groups = burnedGroups(data.burned);
+    var hidden = ['B', 'C'].filter(function (g) { return groups[g]; })
+      .map(function (g) { return g === 'B' ? 'D1/D2' : 'D3/D4'; });
+    return hidden.length ? '<br>Les dates ' + hidden.join(' et ') + ' ne vous sont plus proposées.' : '';
+  }
+
   function parseFrDate(s) {
     var parts = String(s).split('/');
     if (parts.length < 3) return 0;
@@ -768,14 +800,14 @@
     if (burnedTeams.length) {
       bannerEl.innerHTML = '<div class="burn-banner">⚠️ Vous êtes <b>brûlé</b> pour : ' +
         burnedTeams.map(function (t) { return t.name; }).join(', ') +
-        ' (vous ne pouvez plus y jouer sur cette phase).</div>';
+        ' (vous ne pouvez plus y jouer sur cette phase).' + hiddenGroupsNote(data) + '</div>';
     } else {
       bannerEl.innerHTML = '';
     }
 
     var listEl = document.getElementById('playerDatesList');
     listEl.innerHTML = '';
-    allDatesFlat().forEach(function (row) {
+    availabilityDates(data).forEach(function (row) {
       // Par défaut (aucune réponse encore enregistrée), un joueur est
       // considéré disponible ; il peut se rendre indisponible en un clic.
       var status = data.availability[row.date] || 'Disponible';
@@ -1072,7 +1104,7 @@
     if (burnedTeams.length) {
       bannerEl.innerHTML = '<div class="burn-banner">⚠️ Vous êtes <b>brûlé</b> pour : ' +
         burnedTeams.map(function (t) { return t.name; }).join(', ') +
-        ' (vous ne pouvez plus y jouer sur cette phase).</div>';
+        ' (vous ne pouvez plus y jouer sur cette phase).' + hiddenGroupsNote(data) + '</div>';
     } else {
       bannerEl.innerHTML = '';
     }
@@ -1085,7 +1117,7 @@
     // compact et plus lisible, notamment sur mobile où les colonnes
     // s'empilent dans cet ordre.
     ['A', 'B', 'C'].forEach(function (grp) {
-      var rows = allDatesFlat().filter(function (row) { return row.group === grp; });
+      var rows = availabilityDates(data).filter(function (row) { return row.group === grp; });
       if (!rows.length) return;
 
       var col = document.createElement('div');
