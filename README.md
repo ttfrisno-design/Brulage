@@ -69,7 +69,7 @@ npm run open:ios        # ouvre Xcode           -> bouton ▶ Run
 
 À chaque modification de `www/`, relancer `npx cap sync`.
 
-Icônes et écran de démarrage : générés depuis `assets/` (logo FRI) avec
+Icônes et écran de démarrage : générés depuis `assets/` (icône : logo TTFRI `assets/logo-ttfri.gif`) avec
 `npm run icons`.
 
 ## 4. Publication dans les stores
