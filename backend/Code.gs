@@ -113,7 +113,16 @@ function doPost(e) {
 // PROVISIONING DES FEUILLES
 // ----------------------------------------------------------------------------------
 
+// Classeur ouvert une seule fois par exécution (openById est lent et était
+// appelé à chaque lecture de feuille).
+let ssCache_ = null;
+
 function ss_() {
+  if (!ssCache_) ssCache_ = openSpreadsheet_();
+  return ssCache_;
+}
+
+function openSpreadsheet_() {
   // SpreadsheetApp.getActiveSpreadsheet() renvoie null lorsque le script
   // s'exécute en tant qu'application web (il n'y a pas de classeur "actif"
   // ouvert par la personne qui déclenche la requête). On ouvre donc
@@ -151,7 +160,38 @@ function getDataSpreadsheetUrl() {
   return url;
 }
 
+// Vérification/réparation des feuilles : coûteuse (dizaines d'écritures de
+// format, relecture et dédoublonnage de toutes les feuilles), elle était
+// relancée à CHAQUE appel — et même deux fois pour login(). Avec un
+// démarrage à froid d'Apps Script, une connexion pouvait dépasser le délai
+// d'attente de l'application et échouer ("Le serveur met trop de temps à
+// répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
+// une fois par heure (mémorisé dans le cache du script).
+let sheetsChecked_ = false;
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V1';
+
 function ensureSheets_() {
+  if (sheetsChecked_) return;
+  const cache = CacheService.getScriptCache();
+  if (cache.get(SHEETS_CHECK_CACHE_KEY_)) {
+    sheetsChecked_ = true;
+    return;
+  }
+  ensureSheetsNow_();
+  sheetsChecked_ = true;
+  cache.put(SHEETS_CHECK_CACHE_KEY_, '1', 3600);
+}
+
+/** À lancer manuellement depuis l'éditeur Apps Script (menu Exécuter) après
+ * avoir modifié ou supprimé une feuille à la main, pour forcer tout de suite
+ * la vérification/réparation au lieu d'attendre l'heure suivante. */
+function forceSheetsCheck() {
+  CacheService.getScriptCache().remove(SHEETS_CHECK_CACHE_KEY_);
+  sheetsChecked_ = false;
+  ensureSheets_();
+}
+
+function ensureSheetsNow_() {
   const ss = ss_();
 
   // --- Config ---
