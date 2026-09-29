@@ -1,0 +1,17 @@
+{
+  "name": "Brûlages FRI - Tennis de Table",
+  "short_name": "Brûlages FRI",
+  "description": "Disponibilités, feuilles de match et brûlages du FRI Tennis de Table",
+  "lang": "fr",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#1565c0",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ]
+}
