@@ -267,6 +267,10 @@
     .adm-ep-limit { width: 110px !important; padding: 4px 6px !important; font-size: 12px !important; }
     table.insc-table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 6px 0; }
     table.insc-table td, table.insc-table th { border-bottom: 1px solid var(--border); padding: 6px 4px; text-align: left; }
+    /* Effectif : état d'enregistrement de chaque champ modifié */
+    table.roster .save-pending { border-color: #d97706 !important; background: #fff7ed; }
+    table.roster .save-ok { border-color: var(--green) !important; }
+    table.roster .save-err { border-color: var(--red) !important; background: var(--red-bg); }
     footer.hint { text-align: center; color: var(--muted); font-size: 12px; margin: 20px 0; }
     @media (max-width: 640px) {
       main { padding: 10px; }
@@ -1562,13 +1566,36 @@
 
   function escAttr(v) { return String(v == null ? '' : v).replace(/"/g, '&quot;'); }
 
+  // Enregistrements de l'effectif envoyés l'un après l'autre (jamais en
+  // parallèle), pour qu'une requête lente ou retentée ne puisse pas
+  // écraser une modification plus récente.
+  var playerSaveChain = Promise.resolve();
+
   function editPlayer(id, el) {
-    var players = JSON.parse(document.getElementById('rosterTable').dataset.players);
+    var container = document.getElementById('rosterTable');
+    var players = JSON.parse(container.dataset.players);
     var p = players.find(function (pp) { return Number(pp.ID) === Number(id); });
     var field = el.dataset.field;
     var value = el.type === 'checkbox' ? el.checked : el.value;
     p[field] = value;
-    callServer('updatePlayer', [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '', p['Catégorie'] || '']).catch(onGsError);
+    // On garde la fiche à jour localement : sinon la modification suivante
+    // du même joueur (ex. la catégorie après le téléphone) renvoyait
+    // l'ancienne valeur du premier champ et l'effaçait dans le classeur.
+    container.dataset.players = JSON.stringify(players);
+    var args = [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '', p['Catégorie'] || ''];
+    el.classList.remove('save-ok', 'save-err');
+    el.classList.add('save-pending');
+    playerSaveChain = playerSaveChain.then(function () {
+      return callServer('updatePlayer', args).then(function (res) {
+        if (res && res.ok === false) throw new Error('Joueur introuvable dans le classeur.');
+        el.classList.remove('save-pending');
+        el.classList.add('save-ok');
+      }).catch(function (err) {
+        el.classList.remove('save-pending');
+        el.classList.add('save-err');
+        onGsError(err);
+      });
+    });
   }
 
   function addPlayer() {
