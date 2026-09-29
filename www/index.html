@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="theme-color" content="#1565c0">
+  <title>Brûlages FRI</title>
+  <style>
+    :root {
+      --green: #2e7d32; --green-bg: #d7f4d9;
+      --red: #c62828; --red-bg: #fbd6d6;
+      --gray-bg: #eef0f2;
+      --burn-bg: #ffe0b2; --burn-border: #ef6c00;
+      --primary: #1565c0; --primary-dark: #0d47a1;
+      --ink: #1c2530; --muted: #6b7684; --border: #dfe3e8;
+      --card: #ffffff; --bg: #f4f6f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      margin: 0; background: var(--bg); color: var(--ink); font-size: 14px;
+    }
+    header.app {
+      background: var(--primary); color: #fff; padding: 12px 18px;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    }
+    /* Application mobile : on respecte les zones "sûres" (encoche de
+       l'iPhone, barre d'état Android) pour que l'en-tête ne passe pas dessous. */
+    header.app {
+      padding-top: calc(12px + env(safe-area-inset-top));
+      padding-left: calc(18px + env(safe-area-inset-left));
+      padding-right: calc(18px + env(safe-area-inset-right));
+    }
+    footer.hint { padding-bottom: env(safe-area-inset-bottom); }
+    html { -webkit-text-size-adjust: 100%; }
+    header.app h1 { font-size: 17px; margin: 0; font-weight: 600; }
+    header.app img.logo-fri { border-radius: 6px; background: #fff; padding: 2px; }
+    .sponsors-banner { max-width: 1200px; margin: 24px auto 0; padding: 0 16px; text-align: center; }
+    .sponsors-title { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 8px; }
+    header.app .who { font-size: 13px; opacity: .9; }
+    header.app button.logout {
+      background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.4); color: #fff;
+      padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;
+    }
+    main { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 16px; margin-bottom: 16px;
+    }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    h3 { font-size: 14px; margin: 16px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+    input[type=text], input[type=password], input[type=number], select {
+      width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 15px;
+    }
+    button.primary {
+      background: var(--primary); color: #fff; border: none; padding: 10px 16px; border-radius: 6px;
+      font-size: 14px; cursor: pointer; margin-top: 14px;
+    }
+    button.primary:hover { background: var(--primary-dark); }
+    button.secondary {
+      background: #fff; color: var(--primary); border: 1px solid var(--primary); padding: 8px 12px;
+      border-radius: 6px; cursor: pointer; font-size: 13px;
+    }
+    button.small { padding: 4px 8px; font-size: 12px; border-radius: 5px; border: 1px solid var(--border); background: #fff; cursor: pointer; }
+    .error { color: var(--red); font-size: 13px; margin-top: 8px; }
+    .toggle-admin { text-align: center; margin-top: 14px; font-size: 13px; }
+    .toggle-admin a { color: var(--primary); cursor: pointer; text-decoration: underline; }
+    .hidden { display: none !important; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 6px; border-bottom: 2px solid var(--border); margin-bottom: 14px; flex-wrap: wrap; }
+    .tabs button {
+      background: none; border: none; padding: 9px 14px; cursor: pointer; font-size: 14px;
+      color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -2px;
+    }
+    .tabs button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+
+    /* Player availability list */
+    .date-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 6px; border-bottom: 1px solid var(--border);
+    }
+    .date-row:last-child { border-bottom: none; }
+    .date-row .info { flex: 1; }
+    .date-row .date { font-weight: 600; }
+    .date-row .teams { font-size: 12px; color: var(--muted); }
+    .date-row .assigned {
+      font-size: 12px; margin-top: 2px; padding: 2px 8px; border-radius: 20px; display: inline-block;
+      background: var(--gray-bg); color: var(--ink);
+    }
+    .avail-toggle { display: flex; gap: 6px; }
+    .avail-btn {
+      width: 40px; height: 40px; border-radius: 8px; border: 2px solid var(--border); cursor: pointer;
+      font-size: 18px; background: #fff; display: flex; align-items: center; justify-content: center;
+    }
+    .avail-btn.green.active { background: var(--green-bg); border-color: var(--green); }
+    .avail-btn.red.active { background: var(--red-bg); border-color: var(--red); }
+
+    .burn-banner {
+      background: var(--burn-bg); border: 1px solid var(--burn-border); border-radius: 8px;
+      padding: 10px 12px; font-size: 13px; margin-bottom: 14px;
+    }
+    .burn-banner b { color: var(--burn-border); }
+
+    /* Admin burn table */
+    .table-scroll { overflow-x: auto; }
+    table.burn-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+    table.burn-table th, table.burn-table td {
+      border: 1px solid var(--border); padding: 4px 6px; text-align: center; white-space: nowrap;
+    }
+    table.burn-table th.player-col, table.burn-table td.player-col {
+      text-align: left; position: sticky; left: 0; background: #fff; z-index: 2; min-width: 150px;
+    }
+    table.burn-table thead th { background: #f0f3f7; position: sticky; top: 0; z-index: 1; }
+    table.burn-table thead th.player-col { z-index: 3; }
+    table.burn-table td.group-a { background: #f5fbff; }
+    table.burn-table td.group-b { background: #fff8f2; }
+    table.burn-table td.group-c { background: #f6fff5; }
+    table.burn-table .date-head { font-weight: 600; }
+    table.burn-table .grp-head { font-size: 10px; color: var(--muted); font-weight: 400; }
+    select.assign-select {
+      width: 56px; font-size: 12px; padding: 2px; border-radius: 4px; border: 1px solid var(--border);
+    }
+    td.avail-green select.assign-select { background: var(--green-bg); }
+    td.avail-red select.assign-select { background: var(--red-bg); }
+    td.avail-none select.assign-select { background: #fff; }
+    td.burned-cell { background: var(--burn-bg) !important; }
+    td.burned-cell select.assign-select { border-color: var(--burn-border); }
+    .team-count-badge {
+      display: inline-block; min-width: 18px; padding: 1px 4px; border-radius: 8px; background: var(--gray-bg);
+      font-size: 11px; margin: 0 1px;
+    }
+    .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin-bottom: 10px; color: var(--muted); }
+    .legend span.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: middle; }
+
+    /* Roster management */
+    table.roster { border-collapse: collapse; width: 100%; font-size: 13px; }
+    table.roster th, table.roster td { border-bottom: 1px solid var(--border); padding: 8px 6px; text-align: left; }
+    table.roster input, table.roster select { padding: 6px; font-size: 13px; }
+
+    /* Cadre par équipe (effectif + tableau de brûlage) */
+    .team-frame {
+      border: 2px solid var(--team-border, var(--border));
+      background: var(--team-bg, transparent);
+      border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;
+    }
+    .team-frame h3.team-frame-title {
+      margin: 0 0 8px; color: var(--team-border, var(--muted)); text-transform: none;
+      letter-spacing: normal; font-size: 14px; font-weight: 700;
+    }
+    .team-frame table.roster { background: #fff; }
+    .add-player-row { display: grid; grid-template-columns: 1fr 1fr 1fr 100px auto auto; gap: 8px; align-items: end; }
+    .add-player-row .checkbox-field { display: flex; align-items: center; gap: 6px; padding-bottom: 9px; }
+    .add-player-row .checkbox-field label { margin: 0; }
+    .add-player-row label { margin: 0 0 4px; }
+
+    .dates-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+    .dates-grid input { font-size: 13px; padding: 6px; }
+
+    /* Disponibilités du capitaine réparties en 3 colonnes (R3 / D1-D2 / D3-D4)
+       pour une vue plus compacte ; les colonnes s'empilent sur mobile dans
+       le même ordre (R3, puis D1-D2, puis D3-D4). */
+    .avail-groups { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: start; }
+    .avail-group-col { min-width: 0; }
+    .avail-group-col h4 {
+      margin: 0 0 6px; font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .02em; color: var(--muted);
+    }
+    .avail-group-col .date-row { flex-wrap: wrap; row-gap: 6px; padding: 8px 0; }
+    .avail-group-col .date-row .info { min-width: 0; }
+    .avail-group-col .date-row .date { font-size: 13px; }
+    .avail-group-col .date-row .teams { font-size: 11px; }
+
+    .validate-bar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      background: #fffaf0; border: 1px solid #fcd9a0; border-radius: 8px;
+      padding: 8px 12px; margin: 10px 0;
+    }
+    .btn-validate {
+      background: #16a34a; color: #fff; border: none; border-radius: 6px;
+      padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn-validate:hover { background: #15803d; }
+    .btn-validate:disabled, .btn-cancel:disabled { opacity: .4; cursor: default; }
+    .btn-validate:disabled:hover { background: #16a34a; }
+    .btn-cancel {
+      background: transparent; color: var(--muted); border: 1px solid var(--muted);
+      border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+    }
+    .assign-select.pending { outline: 2px dashed #d97706; background: #fff7ed; }
+    .sync-pending { font-size: 12px; }
+    /* Case verrouillée : le joueur est déjà affecté à une autre date de la
+       même journée (ex. J1), impossible de le jouer deux fois ce jour-là. */
+    td.journee-lock {
+      background: repeating-linear-gradient(45deg, #eceff1, #eceff1 6px, #e0e3e5 6px, #e0e3e5 12px) !important;
+    }
+    td.journee-lock span { color: #78838a; font-style: italic; }
+    /* Ligne séparant les joueurs "domicile" des joueurs venus d'une autre
+       équipe (composition réelle de l'équipe ce jour-là). */
+    tr.guest-separator td {
+      background: #f5f5f5; color: var(--muted); font-size: 11px; font-style: italic;
+      padding: 4px 8px; border-top: 1px dashed #ccc; border-bottom: 1px dashed #ccc;
+    }
+
+    footer.hint { text-align: center; color: var(--muted); font-size: 12px; margin: 20px 0; }
+    @media (max-width: 640px) {
+      main { padding: 10px; }
+      .add-player-row { grid-template-columns: 1fr; }
+      .avail-groups { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============ LOGIN ============ -->
+  <div id="loginView">
+    <header class="app">
+      <img class="logo-fri" data-logo="fri" alt="FRI" style="height:42px;">
+      <h1>Brûlages FRI - Tennis de Table</h1>
+    </header>
+    <main style="max-width:420px;">
+      <div class="card">
+        <h2 id="loginTitle">Connexion</h2>
+        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Saisissez votre code personnel à 6 chiffres.</p>
+        <label>Code</label>
+        <input type="password" id="loginPin" inputmode="numeric" maxlength="6" autocomplete="off" autofocus style="letter-spacing:4px;font-size:20px;text-align:center;" onkeydown="if (event.key === 'Enter') doLogin();">
+        <button class="primary" id="loginBtn" onclick="doLogin()">Se connecter</button>
+        <div class="error hidden" id="loginError"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ PLAYER VIEW ============ -->
+  <div id="playerView" class="hidden">
+    <header class="app">
+      <img class="logo-fri" data-logo="fri" alt="FRI" style="height:36px;">
+      <h1>Brûlages FRI</h1>
+      <div class="who">
+        <span id="playerWho"></span>
+        <button class="logout" onclick="logout()">Déconnexion</button>
+      </div>
+    </header>
+    <main>
+      <div class="tabs" id="phaseTabsPlayer"></div>
+      <div id="burnBannerPlayer"></div>
+      <div class="card">
+        <h2>Mes disponibilités</h2>
+        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">
+          Indiquez si vous êtes disponible pour chaque date de match. Un administrateur vous affectera ensuite à une équipe.
+        </p>
+        <div id="playerDatesList"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ CAPTAIN VIEW ============ -->
+  <div id="captainView" class="hidden">
+    <header class="app">
+      <img class="logo-fri" data-logo="fri" alt="FRI" style="height:36px;">
+      <h1>Brûlages FRI — Capitaine</h1>
+      <div class="who">
+        <span id="captainWho"></span>
+        <button class="logout" onclick="logout()">Déconnexion</button>
+      </div>
+    </header>
+    <main>
+      <div class="tabs" id="phaseTabsCaptain"></div>
+      <div id="burnBannerCaptain"></div>
+      <div class="card">
+        <h2 id="captainTeamTitle">Feuille de match de mon équipe</h2>
+        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">
+          Indiquez qui a joué dans votre équipe à chaque date. Les cases grisées sont déjà affectées à une autre équipe.
+        </p>
+        <div class="legend" id="captainGroupColorLegend"></div>
+        <div class="validate-bar" id="captainValidateBar"></div>
+        <div id="captainTeamTableContainer"></div>
+      </div>
+      <div class="card">
+        <h2>Mes disponibilités</h2>
+        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">
+          Indiquez si vous êtes disponible pour chaque date de match.
+        </p>
+        <div id="captainOwnDatesList"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ ADMIN VIEW ============ -->
+  <div id="adminView" class="hidden">
+    <header class="app">
+      <img class="logo-fri" data-logo="fri" alt="FRI" style="height:36px;">
+      <h1>Brûlages FRI — Administration</h1>
+      <div class="who">
+        <button class="logout" onclick="logout()">Déconnexion</button>
+      </div>
+    </header>
+    <main>
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="tab-burn" onclick="switchAdminTab('tab-burn')">Tableau de brûlage</button>
+        <button class="tab-btn" data-tab="tab-roster" onclick="switchAdminTab('tab-roster')">Effectif</button>
+        <button class="tab-btn" data-tab="tab-dates" onclick="switchAdminTab('tab-dates')">Dates &amp; Réglages</button>
+      </div>
+
+      <div id="tab-burn" class="admin-tab">
+        <div class="tabs" id="phaseTabsAdmin"></div>
+        <div class="card">
+          <div class="legend">
+            <span><span class="swatch" style="background:var(--green-bg);border:1px solid var(--green);"></span>Disponible</span>
+            <span><span class="swatch" style="background:var(--red-bg);border:1px solid var(--red);"></span>Indisponible</span>
+            <span><span class="swatch" style="background:var(--burn-bg);border:1px solid var(--burn-border);"></span>Brûlé (ne peut plus jouer dans cette équipe)</span>
+          </div>
+          <div class="legend" id="groupColorLegend"></div>
+          <div class="legend" id="teamColorLegend"></div>
+          <div class="validate-bar" id="adminValidateBar"></div>
+          <div id="burnTableContainer"></div>
+          <button class="secondary" style="margin-top:12px;" onclick="confirmResetPhase()">Réinitialiser les brûlages de cette phase</button>
+        </div>
+      </div>
+
+      <div id="tab-roster" class="admin-tab hidden">
+        <div class="card">
+          <h2>Ajouter un joueur</h2>
+          <div class="add-player-row">
+            <div><label>Nom</label><input type="text" id="newNom"></div>
+            <div><label>Prénom</label><input type="text" id="newPrenom"></div>
+            <div>
+              <label>Équipe domicile</label>
+              <select id="newTeam"></select>
+            </div>
+            <div><label>PIN</label><input type="text" id="newPin" placeholder="1234"></div>
+            <div class="checkbox-field"><input type="checkbox" id="newCapitaine"><label for="newCapitaine" style="display:inline;">Capitaine</label></div>
+            <div><button class="primary" style="margin-top:0;" onclick="addPlayer()">Ajouter</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Effectif</h2>
+          <div id="rosterTable"></div>
+        </div>
+      </div>
+
+      <div id="tab-dates" class="admin-tab hidden">
+        <div class="card">
+          <h2>Code administrateur</h2>
+          <label>Nouveau code PIN admin</label>
+          <input type="text" id="newAdminPin" style="max-width:200px;">
+          <button class="secondary" style="margin-top:10px;" onclick="saveAdminPin()">Enregistrer</button>
+        </div>
+        <div class="card" id="datesEditor"></div>
+      </div>
+    </main>
+  </div>
+
+  <div class="sponsors-banner">
+    <p class="sponsors-title">Merci à nos sponsors</p>
+    <img data-logo="sponsors" alt="Sponsors du FRI Tennis de Table" style="width:100%;max-width:900px;display:block;margin:0 auto;border-radius:8px;">
+  </div>
+
+  <footer class="hint">FRI — Foyer Rural d'Isneauville · Gestion des brûlages</footer>
+
+<script src="config.js"></script>
+<script>
+  // URL du déploiement Apps Script (se termine par /exec), utilisée pour les
+  // appels fetch() vers doPost — voir callServer() plus bas. Dans
+  // l'application mobile, elle est définie dans config.js (APP_CONFIG).
+  var SERVER_URL = (window.APP_CONFIG && window.APP_CONFIG.SERVER_URL) || '';
+
+  // Logos embarqués dans l'application : logo FRI (en-tête) et bandeau
+  // sponsors (bas de page).
+  document.querySelectorAll('img[data-logo="fri"]').forEach(function (img) { img.src = 'assets/logo-fri.png'; });
+  document.querySelectorAll('img[data-logo="sponsors"]').forEach(function (img) { img.src = 'assets/sponsors.jpg'; });
+
+  // ---------------------------------------------------------------------------
+  // ÉTAT GLOBAL
+  // ---------------------------------------------------------------------------
+  var STATE = {
+    config: null,        // { teams, dates }
+    session: null,       // { isAdmin, playerId, name, homeTeam }
+    phase: 1,
+    playerData: null,    // vue joueur
+    adminData: null,     // vue admin
+    captainOwnData: null,  // vue capitaine — ses propres disponibilités
+    captainTeamData: null, // vue capitaine — feuille de match de son équipe
+    pollTimer: null,
+    // Affectations modifiées localement mais pas encore enregistrées côté
+    // serveur (clé "playerId|date" -> teamId ou '' pour "aucune équipe").
+    // Rien n'est envoyé au serveur tant que le bouton "Valider" n'est pas
+    // cliqué, pour éviter que la synchronisation automatique (poll toutes
+    // les 20s) n'écrase des saisies en cours ou ne crée des conflits.
+    pendingAssignments: {},
+  };
+
+  var GROUP_LABEL = { A: 'Régional 3 (Dim.)', B: 'Départemental 1/2 (Ven. 20h)', C: 'Départemental 3/4 (Ven. 20h)' };
+  var GROUP_COLORS = { A: '#1565c0', B: '#ef6c00', C: '#2e7d32' };
+
+  // Une couleur par équipe, pour encadrer/distinguer visuellement les
+  // colonnes du tableau de brûlage (bordure + fond léger de la même teinte).
+  var TEAM_COLORS = {
+    1: { border: '#1565c0', bg: '#e3f0fd' }, // FRI1 — bleu
+    2: { border: '#6a1b9a', bg: '#f1e3fb' }, // FRI2 — violet
+    3: { border: '#00838f', bg: '#dff5f7' }, // FRI3 — turquoise
+    4: { border: '#ad1457', bg: '#fbe3ee' }, // FRI4 — rose
+    5: { border: '#ef6c00', bg: '#fff0dc' }, // FRI5 — orange
+    6: { border: '#2e7d32', bg: '#e2f5e3' }, // FRI6 — vert
+    7: { border: '#795548', bg: '#efe6e2' }, // FRI7 — marron
+    8: { border: '#37474f', bg: '#e7ebed' }, // FRI8 — gris-bleu
+  };
+
+  // ---------------------------------------------------------------------------
+  // CACHE LOCAL — pour un affichage instantané, sans attendre le réseau
+  // ---------------------------------------------------------------------------
+  // Les dernières données reçues du serveur sont gardées dans localStorage
+  // (persiste même après fermeture du navigateur). Au chargement d'une vue,
+  // on affiche d'abord la version en cache (si elle existe) pendant que la
+  // version à jour est demandée au serveur en arrière-plan, puis on
+  // rafraîchit l'affichage dès qu'elle arrive. Cela réduit le temps
+  // d'attente perçu, sans jamais empêcher la vérification côté serveur.
+  function cacheKey(name) { return 'fri_cache_' + name; }
+  function saveCache(name, data) {
+    try { localStorage.setItem(cacheKey(name), JSON.stringify({ t: Date.now(), data: data })); } catch (e) { /* stockage indisponible : tant pis, pas bloquant */ }
+  }
+  function loadCache(name) {
+    try {
+      var raw = localStorage.getItem(cacheKey(name));
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      return (parsed && parsed.data !== undefined) ? parsed.data : null;
+    } catch (e) { return null; }
+  }
+
+  // ---------------------------------------------------------------------------
+  // FILE D'ATTENTE DES DISPONIBILITÉS — pour ne jamais perdre une saisie
+  // ---------------------------------------------------------------------------
+  // Sur mobile (iPhone en particulier), les requêtes réseau échouent plus
+  // souvent (changement Wifi/4G, mise en veille, verrouillage de l'écran).
+  // Plutôt que d'annuler la saisie affichée dès qu'un envoi échoue (ce qui
+  // faisait "revenir la case en vert" et perdait le clic du joueur), on
+  // garde la modification affichée et on la met en file d'attente locale
+  // (persistée, donc conservée même si la page se recharge) jusqu'à ce
+  // qu'elle soit effectivement enregistrée côté serveur.
+  function outboxKey(playerId, phase, date) { return playerId + '|' + phase + '|' + date; }
+  function loadAvailOutbox() {
+    try {
+      var raw = localStorage.getItem('fri_avail_outbox');
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) { return {}; }
+  }
+  function saveAvailOutbox(outbox) {
+    try { localStorage.setItem('fri_avail_outbox', JSON.stringify(outbox)); } catch (e) { /* pas bloquant */ }
+  }
+  function queueAvailability(playerId, phase, date, status) {
+    var outbox = loadAvailOutbox();
+    outbox[outboxKey(playerId, phase, date)] = { playerId: playerId, phase: phase, date: date, status: status };
+    saveAvailOutbox(outbox);
+  }
+  function unqueueAvailability(playerId, phase, date) {
+    var outbox = loadAvailOutbox();
+    delete outbox[outboxKey(playerId, phase, date)];
+    saveAvailOutbox(outbox);
+  }
+  function isAvailabilityPending(playerId, phase, date) {
+    return !!loadAvailOutbox()[outboxKey(playerId, phase, date)];
+  }
+  function applyPendingAvailability(playerId, phase, availability) {
+    var outbox = loadAvailOutbox();
+    Object.keys(outbox).forEach(function (k) {
+      var e = outbox[k];
+      if (String(e.playerId) === String(playerId) && String(e.phase) === String(phase)) {
+        availability[e.date] = e.status;
+      }
+    });
+    return availability;
+  }
+
+  var availFlushInFlight = false;
+  function flushAvailabilityOutbox() {
+    if (availFlushInFlight) return;
+    var outbox = loadAvailOutbox();
+    var keys = Object.keys(outbox);
+    if (!keys.length) return;
+    availFlushInFlight = true;
+    var chain = Promise.resolve();
+    keys.forEach(function (k) {
+      var e = outbox[k];
+      chain = chain.then(function () {
+        return callServer('setAvailability', [e.playerId, e.phase, e.date, e.status])
+          .then(function () { unqueueAvailability(e.playerId, e.phase, e.date); })
+          .catch(function () { /* toujours en échec : reste en file, on retentera plus tard */ });
+      });
+    });
+    chain.then(function () {
+      availFlushInFlight = false;
+      if (!STATE.session) return;
+      // Retire les icônes "en attente" pour ce qui vient d'être envoyé.
+      if (STATE.session.isCaptain) { renderCaptainOwnDates(); }
+      else if (!STATE.session.isAdmin) { renderPlayerView(); }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // APPELS SERVEUR — via fetch() plutôt que google.script.run
+  // ---------------------------------------------------------------------------
+  // google.script.run passe par un iframe caché et du postMessage interne :
+  // dans nos tests, le serveur termine correctement (visible dans l'onglet
+  // Exécutions) mais la réponse ne revenait pas toujours jusqu'au navigateur.
+  // On appelle donc le même script via une requête réseau standard (fetch),
+  // qui suit le même chemin fiable que le chargement de la page elle-même.
+  // SERVER_URL est injecté par le serveur au chargement (voir doGet/scriptUrl).
+  function callServer(fnName, args, attempt) {
+    attempt = attempt || 1;
+    // Délai maximal par tentative : sur mobile (changement réseau Wifi/4G,
+    // mise en veille de l'écran...) une requête peut rester bloquée sans
+    // jamais échouer ni réussir ; on l'abandonne pour pouvoir retenter.
+    // 25s (et non 15s) car Apps Script peut légitimement mettre plus de
+    // 15s à répondre (démarrage à froid, feuille volumineuse) — un délai
+    // trop court finissait par abandonner des requêtes qui auraient réussi.
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timeoutId = controller ? setTimeout(function () { controller.abort(); }, 25000) : null;
+    return fetch(SERVER_URL, {
+      method: 'POST',
+      mode: 'cors',
+      credentials: 'omit',
+      cache: 'no-store',
+      signal: controller ? controller.signal : undefined,
+      body: JSON.stringify({ fn: fnName, args: args || [] }),
+    }).then(function (resp) {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (!resp.ok) throw new Error('Erreur réseau HTTP ' + resp.status);
+      return resp.json();
+    }).then(function (payload) {
+      if (!payload || !payload.ok) {
+        // Erreur applicative explicite renvoyée par le serveur (ex. code
+        // incorrect, PIN déjà utilisé) : inutile de retenter, le résultat
+        // serait identique — on la distingue donc d'un aléa réseau.
+        var appErr = new Error((payload && payload.error) || 'Réponse serveur invalide.');
+        appErr.isAppError = true;
+        throw appErr;
+      }
+      return payload.result;
+    }).catch(function (err) {
+      if (timeoutId) clearTimeout(timeoutId);
+      // Le message brut du navigateur pour un abandon par timeout
+      // ("signal is aborted without reason", "The user aborted a
+      // request"...) n'est pas compréhensible pour un utilisateur : on le
+      // remplace par un message clair, tout en gardant le comportement de
+      // nouvel essai automatique.
+      if (err && (err.name === 'AbortError' || /aborted/i.test(err.message || ''))) {
+        err = new Error('Le serveur met trop de temps à répondre.');
+      }
+      // Aléa réseau (ex. "Failed to fetch", coupure Wifi/4G, HTTP 404/500
+      // passagers, délai dépassé) : jusqu'à 5 nouvelles tentatives
+      // automatiques, espacées d'un délai croissant, avant de remonter
+      // l'erreur à l'appelant. Plus généreux que par le passé car les
+      // connexions mobiles (iPhone en particulier) coupent plus souvent.
+      if (!err.isAppError && attempt < 6) {
+        return new Promise(function (resolve) { setTimeout(resolve, Math.min(attempt * 900, 4000)); })
+          .then(function () { return callServer(fnName, args, attempt + 1); });
+      }
+      throw err;
+    });
+  }
+  function onGsError(error) {
+    console.error('Erreur serveur :', error);
+    alert('Erreur : ' + (error && error.message ? error.message : error));
+  }
+
+  // ---------------------------------------------------------------------------
+  // LOGIN
+  // ---------------------------------------------------------------------------
+  // Connexion simplifiée : un seul code à 6 chiffres, pour joueur comme pour
+  // administrateur (le serveur détermine le rôle selon le code saisi).
+  function doLogin() {
+    var pin = document.getElementById('loginPin').value.trim();
+    var errEl = document.getElementById('loginError');
+    errEl.classList.add('hidden');
+
+    if (!SERVER_URL || /REMPLACER/.test(SERVER_URL)) {
+      errEl.textContent = "Application mal configurée : l'URL du serveur (config.js) est vide.";
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (!pin) {
+      errEl.textContent = 'Merci de saisir votre code.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    var btn = document.getElementById('loginBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Connexion...'; }
+
+    callServer('login', [pin])
+      .then(function (res) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Se connecter'; }
+        if (!res || !res.ok) {
+          errEl.textContent = (res && res.error) || 'Connexion refusée.';
+          errEl.classList.remove('hidden');
+          return;
+        }
+        STATE.session = res;
+        STATE.config = res.config; // renvoyée par login() elle-même, pas d'appel séparé
+        localStorage.setItem('fri_session', JSON.stringify(res));
+        saveCache('config', res.config);
+        enterApp();
+      })
+      .catch(function (err) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Se connecter'; }
+        errEl.textContent = 'Erreur de connexion au serveur : ' + (err && err.message ? err.message : err);
+        errEl.classList.remove('hidden');
+      });
+  }
+
+  function logout() {
+    localStorage.removeItem('fri_session');
+    if (STATE.pollTimer) clearInterval(STATE.pollTimer);
+    location.reload();
+  }
+
+  function enterApp() {
+    // Garde-fou : la configuration (équipes/dates) peut ne pas être encore
+    // arrivée si la connexion a lieu très vite après le chargement de la
+    // page. On attend qu'elle soit là avant d'afficher quoi que ce soit,
+    // sinon les listes (effectif, tableau de brûlage...) resteraient vides.
+    if (!STATE.config) {
+      var waited = 0;
+      var wait = setInterval(function () {
+        waited += 50;
+        if (STATE.config) {
+          clearInterval(wait);
+          enterApp();
+        } else if (waited > 8000) {
+          clearInterval(wait);
+          alert("La configuration n'a pas pu être chargée (délai dépassé). Rechargez la page et réessayez.");
+          location.reload();
+        }
+      }, 50);
+      return;
+    }
+    document.getElementById('loginView').classList.add('hidden');
+    if (STATE.session.isAdmin) {
+      document.getElementById('adminView').classList.remove('hidden');
+      renderPhaseTabs('phaseTabsAdmin', loadAdminData);
+      populateTeamSelect();
+      loadAdminData();
+      loadRoster();
+      renderDatesEditor();
+    } else if (STATE.session.isCaptain) {
+      document.getElementById('captainView').classList.remove('hidden');
+      document.getElementById('captainWho').textContent = STATE.session.name;
+      renderPhaseTabs('phaseTabsCaptain', loadCaptainData);
+      loadCaptainData();
+    } else {
+      document.getElementById('playerView').classList.remove('hidden');
+      document.getElementById('playerWho').textContent = STATE.session.name;
+      renderPhaseTabs('phaseTabsPlayer', loadPlayerData);
+      loadPlayerData();
+    }
+    // Une disponibilité saisie hors-ligne ou dont l'envoi a échoué reste en
+    // attente : on retente dès l'entrée dans l'appli, puis à chaque tick.
+    flushAvailabilityOutbox();
+    if (STATE.pollTimer) clearInterval(STATE.pollTimer);
+    STATE.pollTimer = setInterval(function () {
+      flushAvailabilityOutbox();
+      // On ne rafraîchit pas automatiquement le tableau de brûlage tant que
+      // des affectations ont été modifiées mais pas encore validées : cela
+      // évitait des écarts (une saisie en cours écrasée par la synchro).
+      if (Object.keys(STATE.pendingAssignments).length > 0) { return; }
+      if (STATE.session.isAdmin) { loadAdminData(true); }
+      else if (STATE.session.isCaptain) { loadCaptainData(true); }
+      else { loadPlayerData(true); }
+    }, 20000);
+  }
+
+  // Try restoring session
+  (function tryRestore() {
+    var saved = localStorage.getItem('fri_session');
+    if (saved) {
+      STATE.session = JSON.parse(saved);
+      if (STATE.session.config) {
+        // La session sauvegardée contient déjà la config (renvoyée par
+        // login()) : aucun appel serveur supplémentaire nécessaire.
+        STATE.config = STATE.session.config;
+        // Application mobile : la session est conservée d'un lancement à
+        // l'autre (localStorage), la config enregistrée peut donc dater de
+        // plusieurs jours — on la rafraîchit en arrière-plan (dates
+        // modifiées par l'administrateur entre-temps).
+        callServer('getStaticConfig', []).then(function (cfg) {
+          STATE.config = cfg;
+          STATE.session.config = cfg;
+          localStorage.setItem('fri_session', JSON.stringify(STATE.session));
+          saveCache('config', cfg);
+        }).catch(function () { /* hors-ligne : on garde la version enregistrée */ });
+      } else {
+        // Ancienne session sans config (avant cette mise à jour) : si une
+        // version est en cache local, on l'utilise tout de suite pour ne
+        // pas attendre le réseau, puis on la rafraîchit en arrière-plan.
+        var cachedConfig = loadCache('config');
+        if (cachedConfig) { STATE.config = cachedConfig; }
+        callServer('getStaticConfig', []).then(function (cfg) {
+          STATE.config = cfg;
+          saveCache('config', cfg);
+        }).catch(onGsError);
+      }
+      enterApp(); // enterApp() attend lui-même STATE.config si besoin
+    }
+  })();
+
+  // Avertit avant de quitter la page si des affectations n'ont pas encore
+  // été validées, pour éviter de les perdre par mégarde.
+  window.addEventListener('beforeunload', function (e) {
+    if (pendingCount() > 0) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
+  // Retente l'envoi des disponibilités en attente dès que la connexion
+  // revient, ou dès que l'appli revient au premier plan (verrouillage
+  // d'écran, changement d'appli sur iPhone) — c'est justement dans ces
+  // moments-là que les envois avaient le plus de chances d'avoir échoué.
+  window.addEventListener('online', flushAvailabilityOutbox);
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') { flushAvailabilityOutbox(); }
+  });
+
+  // ---------------------------------------------------------------------------
+  // ONGLETS DE PHASE
+  // ---------------------------------------------------------------------------
+  function renderPhaseTabs(containerId, onSwitch) {
+    var el = document.getElementById(containerId);
+    el.innerHTML = '';
+    [1, 2].forEach(function (p) {
+      var btn = document.createElement('button');
+      btn.textContent = 'Phase ' + p;
+      btn.className = (STATE.phase === p ? 'active' : '');
+      btn.onclick = function () {
+        STATE.phase = p;
+        renderPhaseTabs(containerId, onSwitch);
+        onSwitch();
+      };
+      el.appendChild(btn);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // VUE JOUEUR
+  // ---------------------------------------------------------------------------
+  function allDatesFlat() {
+    // Retourne [{date, group, teams:[team,...]}] triées chronologiquement
+    var list = [];
+    ['A', 'B', 'C'].forEach(function (grp) {
+      var dates = STATE.config.dates[STATE.phase][grp] || [];
+      var teams = STATE.config.teams.filter(function (t) { return t.group === grp; });
+      dates.forEach(function (d) {
+        if (!d) return;
+        list.push({ date: d, group: grp, teams: teams });
+      });
+    });
+    list.sort(function (a, b) { return parseFrDate(a.date) - parseFrDate(b.date); });
+    return list;
+  }
+
+  function parseFrDate(s) {
+    var parts = String(s).split('/');
+    if (parts.length < 3) return 0;
+    return new Date(parts[2], parts[1] - 1, parts[0]).getTime();
+  }
+
+  function loadPlayerData(silent) {
+    var key = 'player_' + STATE.session.playerId + '_phase' + STATE.phase;
+    if (!silent) {
+      // Affichage immédiat depuis le cache local pendant que la version
+      // à jour arrive du serveur, pour ne pas laisser un écran vide.
+      var cached = loadCache(key);
+      if (cached) { STATE.playerData = cached; renderPlayerView(); }
+    }
+    callServer('getPlayerData', [STATE.session.playerId, STATE.phase]).then(function (data) {
+      STATE.playerData = data;
+      // Une saisie pas encore confirmée par le serveur (toujours en file
+      // d'attente locale) ne doit pas être écrasée par une synchronisation
+      // qui arriverait entre-temps avec l'ancienne valeur.
+      applyPendingAvailability(STATE.session.playerId, STATE.phase, STATE.playerData.availability);
+      saveCache(key, data);
+      renderPlayerView();
+    }).catch(onGsError);
+  }
+
+  function renderPlayerView() {
+    var data = STATE.playerData;
+    var burnedTeams = STATE.config.teams.filter(function (t) { return data.burned[t.id]; });
+    var bannerEl = document.getElementById('burnBannerPlayer');
+    if (burnedTeams.length) {
+      bannerEl.innerHTML = '<div class="burn-banner">⚠️ Vous êtes <b>brûlé</b> pour : ' +
+        burnedTeams.map(function (t) { return t.name; }).join(', ') +
+        ' (vous ne pouvez plus y jouer sur cette phase).</div>';
+    } else {
+      bannerEl.innerHTML = '';
+    }
+
+    var listEl = document.getElementById('playerDatesList');
+    listEl.innerHTML = '';
+    allDatesFlat().forEach(function (row) {
+      // Par défaut (aucune réponse encore enregistrée), un joueur est
+      // considéré disponible ; il peut se rendre indisponible en un clic.
+      var status = data.availability[row.date] || 'Disponible';
+      var assignedTeamId = data.assignments[row.date];
+      var assignedTeam = assignedTeamId ? STATE.config.teams.find(function (t) { return t.id === assignedTeamId; }) : null;
+
+      var pending = isAvailabilityPending(STATE.session.playerId, STATE.phase, row.date);
+      var div = document.createElement('div');
+      div.className = 'date-row';
+      var teamNames = row.teams.map(function (t) { return t.name; }).join(', ');
+      div.innerHTML =
+        '<div class="info">' +
+          '<div class="date">' + row.date + (pending ? ' <span class="sync-pending" title="Envoi en cours…">⏳</span>' : '') + '</div>' +
+          '<div class="teams">' + teamNames + '</div>' +
+          (assignedTeam ? '<div class="assigned">Affecté(e) : ' + assignedTeam.name + '</div>' : '') +
+        '</div>' +
+        '<div class="avail-toggle">' +
+          '<button class="avail-btn green ' + (status === 'Disponible' ? 'active' : '') + '" title="Disponible" onclick="setAvail(\'' + row.date + '\',\'Disponible\', this)">✓</button>' +
+          '<button class="avail-btn red ' + (status === 'Indisponible' ? 'active' : '') + '" title="Indisponible" onclick="setAvail(\'' + row.date + '\',\'Indisponible\', this)">✕</button>' +
+        '</div>';
+      listEl.appendChild(div);
+    });
+  }
+
+  function setAvail(date, status, btnEl) {
+    // Par défaut (rien d'enregistré), un joueur est "Disponible" ; cliquer
+    // sur le bouton déjà actif (visuellement, y compris ce défaut) bascule
+    // vers le statut inverse plutôt que de revenir à un état "vide" — ainsi
+    // "Indisponible" cliqué à nouveau redevient "Disponible", jamais un
+    // état neutre confus.
+    var previous = STATE.playerData.availability[date] || '';
+    var currentDisplayed = previous || 'Disponible';
+    var newStatus = (currentDisplayed === status)
+      ? (status === 'Disponible' ? 'Indisponible' : 'Disponible')
+      : status;
+    STATE.playerData.availability[date] = newStatus;
+    queueAvailability(STATE.session.playerId, STATE.phase, date, newStatus);
+    renderPlayerView();
+    callServer('setAvailability', [STATE.session.playerId, STATE.phase, date, newStatus]).then(function () {
+      unqueueAvailability(STATE.session.playerId, STATE.phase, date);
+      renderPlayerView();
+    }).catch(function (err) {
+      // L'envoi a échoué malgré les tentatives automatiques : on NE
+      // revient PLUS en arrière (cela faisait perdre le clic et "revenir
+      // la case en vert"). Le choix reste affiché et en attente (⏳) ; il
+      // sera automatiquement renvoyé dès que la connexion redevient stable.
+      console.warn('Disponibilité en attente d\'envoi :', err);
+      renderPlayerView();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // VUE ADMIN — TABLEAU DE BRÛLAGE
+  // ---------------------------------------------------------------------------
+  function switchAdminTab(tabId) {
+    document.querySelectorAll('.admin-tab').forEach(function (el) { el.classList.add('hidden'); });
+    document.getElementById(tabId).classList.remove('hidden');
+    document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tabId); });
+  }
+
+  function loadAdminData(silent) {
+    var key = 'admin_phase' + STATE.phase;
+    if (!silent) {
+      var cached = loadCache(key);
+      if (cached) { STATE.adminData = cached; renderBurnTable(); }
+    }
+    callServer('getAdminData', [STATE.phase]).then(function (data) {
+      STATE.adminData = data;
+      saveCache(key, data);
+      renderBurnTable();
+    }).catch(onGsError);
+  }
+
+  function renderTeamColorLegend() {
+    var el = document.getElementById('teamColorLegend');
+    if (!el) return;
+    el.innerHTML = STATE.config.teams.map(function (t) {
+      var c = TEAM_COLORS[t.id] || { border: '#999', bg: '#f5f5f5' };
+      return '<span><span class="swatch" style="background:' + c.bg + ';border:1px solid ' + c.border + ';"></span>' + t.name + '</span>';
+    }).join('');
+  }
+
+  function renderGroupColorLegend() {
+    var el = document.getElementById('groupColorLegend');
+    if (!el) return;
+    el.innerHTML = ['A', 'B', 'C'].map(function (g) {
+      return '<span><span class="swatch" style="background:#fff;border:2px solid ' + GROUP_COLORS[g] + ';"></span>' + GROUP_LABEL[g] + '</span>';
+    }).join('');
+  }
+
+  function burnTableHeaderHtml(dates, lastTeamId) {
+    var html = '<tr><th class="player-col">Joueur</th>';
+    dates.forEach(function (d) {
+      var gc = GROUP_COLORS[d.group] || '#999';
+      html += '<th class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';"><div class="date-head">' + d.date + '</div><div class="grp-head">' + GROUP_LABEL[d.group] + '</div></th>';
+    });
+    TEAMS_forHeader().forEach(function (t) {
+      var c = TEAM_COLORS[t.id] || { border: '#999', bg: '#f5f5f5' };
+      var right = t.id === lastTeamId ? ('border-right:3px solid ' + c.border + ';') : '';
+      html += '<th style="border-left:3px solid ' + c.border + ';border-top:3px solid ' + c.border + ';' + right + 'background:' + c.bg + ';">' + t.name + '</th>';
+    });
+    html += '</tr>';
+    return html;
+  }
+
+  function burnTableRowHtml(p, dates, lastTeamId, isLastRow, restrictToTeamId, viewOnly, showHomeTeamBadge) {
+    // Pour un joueur "invité" (affiché dans le cadre d'une équipe qui n'est
+    // pas la sienne, parce qu'il a été sélectionné pour y jouer un jour
+    // donné), on rappelle son équipe d'origine à côté de son nom.
+    var homeBadge = '';
+    if (showHomeTeamBadge) {
+      var homeTeam = STATE.config.teams.find(function (t) { return t.id === p.homeTeam; });
+      if (homeTeam) { homeBadge = ' <span style="font-size:11px;color:var(--muted);font-weight:400;">(' + homeTeam.name + ')</span>'; }
+    }
+    var html = '<tr><td class="player-col">' + p.prenom + ' ' + p.nom + homeBadge + '</td>';
+
+    // Une même "journée" (colonne F de la feuille Dates, ex. "J1") peut
+    // regrouper plusieurs dates réelles (une par groupe) : un joueur ne
+    // peut être affecté qu'à une seule d'entre elles. On repère donc, pour
+    // CE joueur, à quelle date il est déjà affecté pour chaque journée.
+    var journeeByDate = STATE.config.journeeByDate || {};
+    var usedJournees = {}; // libellé de journée -> date déjà affectée à ce joueur
+    Object.keys(p.assignments || {}).forEach(function (dt) {
+      var j = journeeByDate[dt];
+      if (j) { usedJournees[j] = dt; }
+    });
+
+    dates.forEach(function (d) {
+      // Même défaut que côté joueur : sans réponse enregistrée, on
+      // considère le joueur disponible.
+      var status = p.availability[d.date] || 'Disponible';
+      var assigned = p.assignments[d.date] || '';
+      var availClass = status === 'Disponible' ? 'avail-green' : (status === 'Indisponible' ? 'avail-red' : 'avail-none');
+      var burnedNow = assigned && p.burned[assigned];
+      var gc = GROUP_COLORS[d.group] || '#999';
+      var journee = journeeByDate[d.date];
+      // Verrouillé si ce joueur est déjà affecté à une AUTRE date de la
+      // même journée (peu importe l'équipe) : impossible de le jouer deux
+      // fois la même journée.
+      var journeeLocked = journee && usedJournees[journee] && usedJournees[journee] !== d.date;
+      html += '<td class="group-' + d.group.toLowerCase() + ' ' + availClass + (burnedNow ? ' burned-cell' : '') + (journeeLocked ? ' journee-lock' : '') + '" style="border:2px solid ' + gc + ';">';
+
+      if (viewOnly || journeeLocked || (restrictToTeamId && assigned && assigned !== restrictToTeamId)) {
+        // Lecture seule : soit une équipe qu'un capitaine ne fait que
+        // consulter, soit une date verrouillée (déjà joué cette journée),
+        // soit (vue capitaine sur sa propre équipe) une case déjà affectée
+        // à une AUTRE équipe qu'il ne doit pas écraser.
+        var otherTeam = assigned ? STATE.config.teams.find(function (t) { return t.id === assigned; }) : null;
+        var lockLabel = journeeLocked ? ('Déjà ' + journee + ' (' + usedJournees[journee] + ')') : (otherTeam ? otherTeam.name : '—');
+        html += '<span style="font-size:11px;color:var(--muted);" title="' + (journeeLocked ? 'Ce joueur est déjà affecté le ' + usedJournees[journee] + ' pour la même journée (' + journee + ')' : '') + '">' + lockLabel + '</span>';
+      } else {
+        var isPending = !!STATE.pendingAssignments[pendingKey(p.id, d.date)];
+        html += '<select class="assign-select' + (isPending ? ' pending' : '') + '" title="' + (isPending ? 'Modification non enregistrée' : '') + '" onchange="onAssignChange(\'' + p.id + '\',\'' + d.date + '\',this.value)">' +
+          '<option value="">—</option>';
+        // Le capitaine, comme l'administrateur, peut affecter un joueur de
+        // son équipe à n'importe quelle équipe FRI1 à FRI8 (pas seulement
+        // la sienne), par exemple pour un joueur qui dépanne une autre équipe.
+        var teamOptions = STATE.config.teams;
+        teamOptions.forEach(function (t) {
+          var isBurned = p.burned[t.id] && assigned !== t.id;
+          html += '<option value="' + t.id + '" ' + (assigned === t.id ? 'selected' : '') + '>' +
+            t.name + (isBurned ? ' 🔥' : '') + '</option>';
+        });
+        html += '</select>';
+      }
+      html += '</td>';
+    });
+
+    TEAMS_forHeader().forEach(function (t) {
+      var c = TEAM_COLORS[t.id] || { border: '#999', bg: '#f5f5f5' };
+      var count = p.matchesByTeam[t.id] || 0;
+      var extra = (t.id === lastTeamId ? 'border-right:3px solid ' + c.border + ';' : '') +
+        (isLastRow ? 'border-bottom:3px solid ' + c.border + ';' : '');
+      html += '<td style="border-left:3px solid ' + c.border + ';' + extra + 'background:' + c.bg + ';">' +
+        '<span class="team-count-badge" style="background:' + c.border + ';color:#fff;">' + count + '</span></td>';
+    });
+
+    html += '</tr>';
+    return html;
+  }
+
+  function renderBurnTable() {
+    renderGroupColorLegend();
+    renderTeamColorLegend();
+    renderValidateBar('adminValidateBar');
+    var dates = allDatesFlat();
+    var container = document.getElementById('burnTableContainer');
+    var lastTeamId = STATE.config.teams[STATE.config.teams.length - 1].id;
+
+    // Un cadre par équipe (même principe que l'onglet Effectif), avec un
+    // espace entre chaque cadre, pour bien distinguer les joueurs d'une
+    // équipe de ceux de l'équipe suivante.
+    var colspan = dates.length + 1 + TEAMS_forHeader().length;
+    var html = '';
+    STATE.config.teams.forEach(function (t) {
+      var teamPlayers = STATE.adminData
+        .filter(function (p) { return p.homeTeam === t.id; })
+        .sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); });
+      var guestPlayers = guestPlayersForTeam(STATE.adminData, t.id);
+      var c = TEAM_COLORS[t.id] || { border: '#999', bg: '#f9f9f9' };
+      html += '<div class="team-frame" style="--team-border:' + c.border + ';--team-bg:transparent;">' +
+        '<h3 class="team-frame-title">' + t.name + ' — ' + t.division +
+        ' <span style="font-weight:400;color:var(--muted);">(' + teamPlayers.length + ' joueur' + (teamPlayers.length > 1 ? 's' : '') + ')</span></h3>';
+      if (teamPlayers.length || guestPlayers.length) {
+        html += '<div class="table-scroll"><table class="burn-table"><thead>' + burnTableHeaderHtml(dates, lastTeamId) + '</thead><tbody>';
+        teamPlayers.forEach(function (p, pIdx) {
+          html += burnTableRowHtml(p, dates, lastTeamId, pIdx === teamPlayers.length - 1 && !guestPlayers.length);
+        });
+        if (guestPlayers.length) {
+          // Composition réelle : joueurs venus d'une autre équipe pour
+          // renforcer celle-ci un jour donné — affichés en lecture seule
+          // (l'affectation se modifie depuis le cadre de leur équipe
+          // d'origine, pas ici, pour éviter deux commandes contradictoires).
+          html += '<tr class="guest-separator"><td colspan="' + colspan + '">Joueur(s) venu(s) d\'une autre équipe ce jour-là</td></tr>';
+          guestPlayers.forEach(function (p, pIdx) {
+            html += burnTableRowHtml(p, dates, lastTeamId, pIdx === guestPlayers.length - 1, null, true, true);
+          });
+        }
+        html += '</tbody></table></div>';
+      } else {
+        html += '<p style="color:var(--muted);font-size:13px;margin:0;">Aucun joueur dans cette équipe.</p>';
+      }
+      html += '</div>';
+    });
+
+    // Sécurité : joueurs sans équipe domicile reconnue.
+    var orphans = STATE.adminData.filter(function (p) {
+      return !STATE.config.teams.some(function (t) { return t.id === p.homeTeam; });
+    });
+    if (orphans.length) {
+      html += '<div class="team-frame" style="--team-border:#999;--team-bg:transparent;">' +
+        '<h3 class="team-frame-title">Équipe non définie</h3>' +
+        '<div class="table-scroll"><table class="burn-table"><thead>' + burnTableHeaderHtml(dates, lastTeamId) + '</thead><tbody>';
+      orphans.forEach(function (p, pIdx) { html += burnTableRowHtml(p, dates, lastTeamId, pIdx === orphans.length - 1); });
+      html += '</tbody></table></div></div>';
+    }
+
+    container.innerHTML = html;
+  }
+
+  function TEAMS_forHeader() { return STATE.config.teams; }
+
+  // Joueurs dont l'équipe domicile n'est PAS teamId, mais qui ont été
+  // sélectionnés pour jouer dans teamId au moins une fois (renfort venu
+  // d'une autre équipe). Affichés en plus dans le cadre de teamId pour
+  // voir la composition réelle de l'équipe ce jour-là (ex. un joueur de
+  // FRI1 sélectionné en FRI2 apparaît aussi dans le cadre FRI2).
+  function guestPlayersForTeam(dataset, teamId) {
+    return dataset
+      .filter(function (p) {
+        return p.homeTeam !== teamId && Object.keys(p.assignments || {}).some(function (dt) {
+          return Number(p.assignments[dt]) === teamId;
+        });
+      })
+      .sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); });
+  }
+
+  // ---------------------------------------------------------------------------
+  // VUE CAPITAINE — ses propres disponibilités + feuille de match de son équipe
+  // ---------------------------------------------------------------------------
+  function loadCaptainData(silent) {
+    var keyOwn = 'captainOwn_' + STATE.session.playerId + '_phase' + STATE.phase;
+    var keyTeam = 'captainTeam_phase' + STATE.phase;
+    if (!silent) {
+      var cachedOwn = loadCache(keyOwn);
+      var cachedTeam = loadCache(keyTeam);
+      if (cachedOwn && cachedTeam) {
+        STATE.captainOwnData = cachedOwn;
+        STATE.captainTeamData = cachedTeam;
+        renderCaptainOwnDates();
+        renderCaptainGroupLegend();
+        renderCaptainTeamTable();
+      }
+    }
+    Promise.all([
+      callServer('getPlayerData', [STATE.session.playerId, STATE.phase]),
+      callServer('getAdminData', [STATE.phase]),
+    ]).then(function (results) {
+      STATE.captainOwnData = results[0];
+      STATE.captainTeamData = results[1];
+      applyPendingAvailability(STATE.session.playerId, STATE.phase, STATE.captainOwnData.availability);
+      saveCache(keyOwn, results[0]);
+      saveCache(keyTeam, results[1]);
+      renderCaptainOwnDates();
+      renderCaptainGroupLegend();
+      renderCaptainTeamTable();
+    }).catch(onGsError);
+  }
+
+  function renderCaptainOwnDates() {
+    var data = STATE.captainOwnData;
+    var burnedTeams = STATE.config.teams.filter(function (t) { return data.burned[t.id]; });
+    var bannerEl = document.getElementById('burnBannerCaptain');
+    if (burnedTeams.length) {
+      bannerEl.innerHTML = '<div class="burn-banner">⚠️ Vous êtes <b>brûlé</b> pour : ' +
+        burnedTeams.map(function (t) { return t.name; }).join(', ') +
+        ' (vous ne pouvez plus y jouer sur cette phase).</div>';
+    } else {
+      bannerEl.innerHTML = '';
+    }
+
+    var listEl = document.getElementById('captainOwnDatesList');
+    listEl.innerHTML = '';
+    listEl.classList.add('avail-groups');
+
+    // Regroupées par journée (R3 / D1-D2 / D3-D4) en 3 colonnes, plus
+    // compact et plus lisible, notamment sur mobile où les colonnes
+    // s'empilent dans cet ordre.
+    ['A', 'B', 'C'].forEach(function (grp) {
+      var rows = allDatesFlat().filter(function (row) { return row.group === grp; });
+      if (!rows.length) return;
+
+      var col = document.createElement('div');
+      col.className = 'avail-group-col';
+      col.innerHTML = '<h4>' + GROUP_LABEL[grp] + '</h4>';
+
+      rows.forEach(function (row) {
+        var status = data.availability[row.date] || 'Disponible';
+        var assignedTeamId = data.assignments[row.date];
+        var assignedTeam = assignedTeamId ? STATE.config.teams.find(function (t) { return t.id === assignedTeamId; }) : null;
+        var pending = isAvailabilityPending(STATE.session.playerId, STATE.phase, row.date);
+
+        var div = document.createElement('div');
+        div.className = 'date-row';
+        div.innerHTML =
+          '<div class="info">' +
+            '<div class="date">' + row.date + (pending ? ' <span class="sync-pending" title="Envoi en cours…">⏳</span>' : '') + '</div>' +
+            (assignedTeam ? '<div class="assigned">Affecté(e) : ' + assignedTeam.name + '</div>' : '') +
+          '</div>' +
+          '<div class="avail-toggle">' +
+            '<button class="avail-btn green ' + (status === 'Disponible' ? 'active' : '') + '" title="Disponible" onclick="setCaptainOwnAvail(\'' + row.date + '\',\'Disponible\')">✓</button>' +
+            '<button class="avail-btn red ' + (status === 'Indisponible' ? 'active' : '') + '" title="Indisponible" onclick="setCaptainOwnAvail(\'' + row.date + '\',\'Indisponible\')">✕</button>' +
+          '</div>';
+        col.appendChild(div);
+      });
+
+      listEl.appendChild(col);
+    });
+  }
+
+  function setCaptainOwnAvail(date, status) {
+    var previous = STATE.captainOwnData.availability[date] || '';
+    var currentDisplayed = previous || 'Disponible';
+    var newStatus = (currentDisplayed === status)
+      ? (status === 'Disponible' ? 'Indisponible' : 'Disponible')
+      : status;
+    STATE.captainOwnData.availability[date] = newStatus;
+    queueAvailability(STATE.session.playerId, STATE.phase, date, newStatus);
+    renderCaptainOwnDates();
+    callServer('setAvailability', [STATE.session.playerId, STATE.phase, date, newStatus]).then(function () {
+      unqueueAvailability(STATE.session.playerId, STATE.phase, date);
+      renderCaptainOwnDates();
+    }).catch(function (err) {
+      // Idem que côté joueur : on garde le choix affiché (en attente ⏳)
+      // plutôt que de l'annuler, et on retentera automatiquement.
+      console.warn('Disponibilité en attente d\'envoi :', err);
+      renderCaptainOwnDates();
+    });
+  }
+
+  function renderCaptainGroupLegend() {
+    var el = document.getElementById('captainGroupColorLegend');
+    if (!el) return;
+    el.innerHTML = ['A', 'B', 'C'].map(function (g) {
+      return '<span><span class="swatch" style="background:#fff;border:2px solid ' + GROUP_COLORS[g] + ';"></span>' + GROUP_LABEL[g] + '</span>';
+    }).join('');
+  }
+
+  function renderCaptainTeamTable() {
+    renderValidateBar('captainValidateBar');
+    var teamId = STATE.session.captainTeamId;
+    var titleEl = document.getElementById('captainTeamTitle');
+    if (titleEl) {
+      titleEl.textContent = 'Feuilles de match — mon équipe modifiable, les autres en consultation';
+    }
+    var lastTeamId = STATE.config.teams[STATE.config.teams.length - 1].id;
+
+    // Comme pour l'admin : un cadre par équipe. Le capitaine peut modifier
+    // uniquement la feuille de sa propre équipe ; les autres équipes
+    // s'affichent en lecture seule (consultation).
+    var html = '';
+    STATE.config.teams.forEach(function (t) {
+      var isOwnTeam = t.id === teamId;
+      // Chaque équipe n'affiche que les dates de sa propre journée (groupe).
+      var dates = allDatesFlat().filter(function (d) { return d.group === t.group; });
+      var teamPlayers = STATE.captainTeamData
+        .filter(function (p) { return p.homeTeam === t.id; })
+        .sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); });
+      var guestPlayers = guestPlayersForTeam(STATE.captainTeamData, t.id);
+      var c = TEAM_COLORS[t.id] || { border: '#999', bg: '#f9f9f9' };
+      var badge = isOwnTeam
+        ? ' <span style="font-weight:600;color:' + c.border + ';">— mon équipe (modifiable)</span>'
+        : ' <span style="font-weight:400;color:var(--muted);">— consultation seule</span>';
+      html += '<div class="team-frame" style="--team-border:' + c.border + ';--team-bg:transparent;">' +
+        '<h3 class="team-frame-title">' + t.name + ' — ' + t.division + badge +
+        ' <span style="font-weight:400;color:var(--muted);">(' + teamPlayers.length + ' joueur' + (teamPlayers.length > 1 ? 's' : '') + ')</span></h3>';
+      if (teamPlayers.length || guestPlayers.length) {
+        var colspan = dates.length + 1 + TEAMS_forHeader().length;
+        html += '<div class="table-scroll"><table class="burn-table"><thead>' + burnTableHeaderHtml(dates, lastTeamId) + '</thead><tbody>';
+        teamPlayers.forEach(function (p, pIdx) {
+          html += burnTableRowHtml(p, dates, lastTeamId, pIdx === teamPlayers.length - 1 && !guestPlayers.length, teamId, !isOwnTeam);
+        });
+        if (guestPlayers.length) {
+          // Composition réelle de l'équipe ce jour-là : joueurs venus d'une
+          // autre équipe (toujours en lecture seule ici, quelle que soit
+          // l'équipe — l'affectation se modifie depuis leur équipe d'origine).
+          html += '<tr class="guest-separator"><td colspan="' + colspan + '">Joueur(s) venu(s) d\'une autre équipe ce jour-là</td></tr>';
+          guestPlayers.forEach(function (p, pIdx) {
+            html += burnTableRowHtml(p, dates, lastTeamId, pIdx === guestPlayers.length - 1, null, true, true);
+          });
+        }
+        html += '</tbody></table></div>';
+      } else {
+        html += '<p style="color:var(--muted);font-size:13px;margin:0;">Aucun joueur dans cette équipe.</p>';
+      }
+      html += '</div>';
+    });
+    document.getElementById('captainTeamTableContainer').innerHTML = html;
+  }
+
+  function pendingKey(playerId, date) { return playerId + '|' + date; }
+
+  function onAssignChange(playerId, date, value) {
+    // Utilisé à la fois par la vue admin (STATE.adminData) et par la vue
+    // capitaine (STATE.captainTeamData). On ne sauvegarde plus immédiatement
+    // au serveur à chaque changement (cela créait des aléas avec la
+    // synchronisation automatique) : la modification est gardée localement
+    // et affichée comme "non enregistrée", jusqu'à l'appui sur "Valider".
+    var isCaptainCtx = STATE.session && !STATE.session.isAdmin && STATE.session.isCaptain;
+    var dataset = isCaptainCtx ? STATE.captainTeamData : STATE.adminData;
+    var p = dataset.find(function (pl) { return String(pl.id) === String(playerId); });
+    if (!p) return;
+    if (value) { p.assignments[date] = Number(value); } else { delete p.assignments[date]; }
+    STATE.pendingAssignments[pendingKey(playerId, date)] = { playerId: playerId, date: date, value: value ? Number(value) : '' };
+    if (isCaptainCtx) { renderCaptainTeamTable(); } else { renderBurnTable(); }
+  }
+
+  function pendingCount() { return Object.keys(STATE.pendingAssignments).length; }
+
+  function renderValidateBar(elId) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    var n = pendingCount();
+    // Le bouton reste toujours visible (grisé/désactivé s'il n'y a rien à
+    // enregistrer) plutôt que de disparaître complètement, pour qu'il soit
+    // facile à retrouver — y compris s'il n'y a jamais eu de modification.
+    var label = n === 0
+      ? '<span style="color:var(--muted);font-size:13px;">Aucune modification en attente.</span>'
+      : '<span style="color:#b45309;font-weight:600;font-size:13px;">' + n + ' modification' + (n > 1 ? 's' : '') + ' non enregistrée' + (n > 1 ? 's' : '') + '</span>';
+    el.innerHTML = label +
+      ' <button class="btn-validate" onclick="saveAssignments()" ' + (n === 0 ? 'disabled' : '') + '>✅ Valider et enregistrer</button>' +
+      ' <button class="btn-cancel" onclick="cancelPendingAssignments()" ' + (n === 0 ? 'disabled' : '') + '>Annuler</button>';
+  }
+
+  function cancelPendingAssignments() {
+    // Abandonne les modifications non enregistrées et recharge les
+    // données depuis le serveur pour revenir à l'état réellement enregistré.
+    STATE.pendingAssignments = {};
+    if (STATE.session.isAdmin) { loadAdminData(); } else { loadCaptainData(); }
+  }
+
+  function saveAssignments() {
+    var entries = Object.keys(STATE.pendingAssignments).map(function (k) { return STATE.pendingAssignments[k]; });
+    if (!entries.length) return;
+    var isCaptainCtx = STATE.session && !STATE.session.isAdmin && STATE.session.isCaptain;
+    var barId = isCaptainCtx ? 'captainValidateBar' : 'adminValidateBar';
+    var el = document.getElementById(barId);
+    if (el) { el.innerHTML = '<span style="color:var(--muted);font-size:13px;">Enregistrement en cours…</span>'; }
+
+    // Un seul appel serveur pour tout le lot (au lieu d'un aller-retour
+    // réseau par case modifiée, qui pouvait prendre plus d'une minute dès
+    // qu'il y avait beaucoup de changements) : le serveur applique et
+    // enregistre toutes les modifications en une seule fois.
+    var payload = entries.map(function (e) {
+      return { playerId: e.playerId, phase: STATE.phase, date: e.date, teamId: e.value };
+    });
+    callServer('setAssignments', [payload]).then(function () {
+      STATE.pendingAssignments = {};
+      if (isCaptainCtx) { loadCaptainData(); } else { loadAdminData(); }
+    }).catch(function (err) {
+      alert("Certaines affectations n'ont pas pu être enregistrées.\n\n" + (err && err.message ? err.message : err));
+      if (el) { renderValidateBar(barId); }
+    });
+  }
+
+  function confirmResetPhase() {
+    if (!confirm('Réinitialiser toutes les affectations (brûlages) de la Phase ' + STATE.phase + ' ? Cette action est irréversible.')) return;
+    STATE.pendingAssignments = {};
+    callServer('resetPhaseAssignments', [STATE.phase]).then(function () { loadAdminData(); }).catch(onGsError);
+  }
+
+  // ---------------------------------------------------------------------------
+  // VUE ADMIN — EFFECTIF
+  // ---------------------------------------------------------------------------
+  function populateTeamSelect() {
+    var sel = document.getElementById('newTeam');
+    sel.innerHTML = STATE.config.teams.map(function (t) {
+      return '<option value="' + t.id + '">' + t.name + ' — ' + t.division + '</option>';
+    }).join('');
+  }
+
+  function loadRoster() {
+    callServer('listPlayers', []).then(function (players) {
+      renderRoster(players);
+    }).catch(onGsError);
+  }
+
+  function renderRoster(players) {
+    var container = document.getElementById('rosterTable');
+    container.dataset.players = JSON.stringify(players);
+
+    var rowHtml = function (p) {
+      return '<tr>' +
+        '<td><input type="text" value="' + escAttr(p.Nom) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Nom"></td>' +
+        '<td><input type="text" value="' + escAttr(p.Prénom) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Prénom"></td>' +
+        '<td><select onchange="editPlayer(' + p.ID + ',this)" data-field="EquipeDomicile">' +
+          STATE.config.teams.map(function (t) { return '<option value="' + t.id + '" ' + (Number(p.EquipeDomicile) === t.id ? 'selected' : '') + '>' + t.name + '</option>'; }).join('') +
+        '</select></td>' +
+        '<td><input type="text" value="' + escAttr(p.PIN) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="PIN" style="width:70px;"></td>' +
+        '<td><input type="checkbox" ' + (p.Actif === false || p.Actif === 'FAUX' ? '' : 'checked') + ' onchange="editPlayer(' + p.ID + ',this)" data-field="Actif"></td>' +
+        '<td><input type="checkbox" ' + (p.Capitaine === true || p.Capitaine === 'VRAI' ? 'checked' : '') + ' onchange="editPlayer(' + p.ID + ',this)" data-field="Capitaine" title="Peut saisir le tableau de brûlage de son équipe"></td>' +
+        '<td><button class="small" onclick="removePlayer(' + p.ID + ')">Supprimer</button></td>' +
+        '</tr>';
+    };
+
+    // Un cadre coloré par équipe, pour visualiser d'un coup d'œil qui joue
+    // dans quelle équipe (même code couleur que le tableau de brûlage).
+    var html = '';
+    STATE.config.teams.forEach(function (t) {
+      var teamPlayers = players.filter(function (p) { return Number(p.EquipeDomicile) === t.id; });
+      var c = TEAM_COLORS[t.id] || { border: '#999', bg: '#f9f9f9' };
+      html += '<div class="team-frame" style="--team-border:' + c.border + ';--team-bg:' + c.bg + ';">' +
+        '<h3 class="team-frame-title">' + t.name + ' — ' + t.division + ' <span style="font-weight:400;color:var(--muted);">(' + teamPlayers.length + ' joueur' + (teamPlayers.length > 1 ? 's' : '') + ')</span></h3>';
+      if (teamPlayers.length) {
+        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+        teamPlayers.forEach(function (p) { html += rowHtml(p); });
+        html += '</tbody></table>';
+      } else {
+        html += '<p style="color:var(--muted);font-size:13px;margin:0;">Aucun joueur pour le moment.</p>';
+      }
+      html += '</div>';
+    });
+
+    // Sécurité : joueurs sans équipe domicile reconnue (donnée corrompue/absente).
+    var orphans = players.filter(function (p) {
+      return !STATE.config.teams.some(function (t) { return t.id === Number(p.EquipeDomicile); });
+    });
+    if (orphans.length) {
+      html += '<div class="team-frame" style="--team-border:#999;--team-bg:#f5f5f5;">' +
+        '<h3 class="team-frame-title">Équipe non définie</h3>' +
+        '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+      orphans.forEach(function (p) { html += rowHtml(p); });
+      html += '</tbody></table></div>';
+    }
+
+    container.innerHTML = html;
+  }
+
+  function escAttr(v) { return String(v == null ? '' : v).replace(/"/g, '&quot;'); }
+
+  function editPlayer(id, el) {
+    var players = JSON.parse(document.getElementById('rosterTable').dataset.players);
+    var p = players.find(function (pp) { return Number(pp.ID) === Number(id); });
+    var field = el.dataset.field;
+    var value = el.type === 'checkbox' ? el.checked : el.value;
+    p[field] = value;
+    callServer('updatePlayer', [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine]).catch(onGsError);
+  }
+
+  function addPlayer() {
+    var nom = document.getElementById('newNom').value.trim();
+    var prenom = document.getElementById('newPrenom').value.trim();
+    var team = document.getElementById('newTeam').value;
+    var pin = document.getElementById('newPin').value.trim();
+    var capitaine = document.getElementById('newCapitaine').checked;
+    if (!nom || !prenom || !pin) { alert('Merci de renseigner le nom, le prénom et le PIN.'); return; }
+    callServer('addPlayer', [nom, prenom, team, pin, capitaine]).then(function () {
+      document.getElementById('newNom').value = '';
+      document.getElementById('newPrenom').value = '';
+      document.getElementById('newPin').value = '';
+      document.getElementById('newCapitaine').checked = false;
+      loadRoster();
+    }).catch(onGsError);
+  }
+
+  function removePlayer(id) {
+    if (!confirm('Supprimer ce joueur ?')) return;
+    callServer('deletePlayer', [id]).then(loadRoster).catch(onGsError);
+  }
+
+  // ---------------------------------------------------------------------------
+  // VUE ADMIN — DATES & RÉGLAGES
+  // ---------------------------------------------------------------------------
+  function renderDatesEditor() {
+    var el = document.getElementById('datesEditor');
+    var html = '<h2>Dates des matchs</h2>';
+    [1, 2].forEach(function (phase) {
+      html += '<h3>Phase ' + phase + '</h3>';
+      ['A', 'B', 'C'].forEach(function (grp) {
+        html += '<label>' + GROUP_LABEL[grp] + '</label><div class="dates-grid" id="dates-' + phase + '-' + grp + '">';
+        var dates = STATE.config.dates[phase][grp] || [];
+        for (var i = 0; i < 7; i++) {
+          html += '<input type="text" placeholder="jj/mm/aaaa" value="' + escAttr(dates[i] || '') + '">';
+        }
+        html += '</div>';
+      });
+      html += '<button class="secondary" style="margin-top:8px;" onclick="saveDates(' + phase + ')">Enregistrer les dates — Phase ' + phase + '</button><hr style="margin:18px 0;border:none;border-top:1px solid var(--border);">';
+    });
+    el.innerHTML = html;
+  }
+
+  function saveDates(phase) {
+    // Chaque date est vérifiée et normalisée par le serveur (format
+    // strict JJ/MM/AAAA, quel que soit ce qui a été tapé) ; on attend la
+    // confirmation de chaque groupe avant d'annoncer le succès, et on
+    // réaffiche les dates telles qu'enregistrées (donc bien normalisées).
+    var calls = ['A', 'B', 'C'].map(function (grp) {
+      var inputs = document.querySelectorAll('#dates-' + phase + '-' + grp + ' input');
+      var values = Array.prototype.map.call(inputs, function (i) { return i.value.trim(); });
+      return callServer('updateDates', [phase, grp, values]).then(function (cfg) { STATE.config = cfg; });
+    });
+    Promise.all(calls)
+      .then(function () {
+        renderDatesEditor();
+        alert('Dates enregistrées (format JJ/MM/AAAA).');
+      })
+      .catch(function (err) {
+        renderDatesEditor(); // on réaffiche ce qui a effectivement été enregistré (groupes valides)
+        alert('Erreur : ' + (err && err.message ? err.message : err));
+      });
+  }
+
+  function saveAdminPin() {
+    var pin = document.getElementById('newAdminPin').value.trim();
+    if (!pin) { alert('Merci de saisir un code.'); return; }
+    callServer('setAdminPin', [pin]).then(function () {
+      alert('Code administrateur mis à jour.');
+      document.getElementById('newAdminPin').value = '';
+    }).catch(onGsError);
+  }
+</script>
+</body>
+</html>

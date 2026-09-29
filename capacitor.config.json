@@ -1,0 +1,18 @@
+{
+  "appId": "fr.fri.brulages",
+  "appName": "Brûlages FRI",
+  "webDir": "www",
+  "backgroundColor": "#f4f6f8",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 800,
+      "backgroundColor": "#1565c0",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#1565c0",
+      "overlaysWebView": false
+    }
+  }
+}
