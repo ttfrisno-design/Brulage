@@ -203,7 +203,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V4';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V5';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -350,6 +350,24 @@ function ensureSheetsNow_() {
     renc.setFrozenRows(1);
     const seedRenc = defaultRencontres_();
     renc.getRange(2, 1, seedRenc.length, 6).setValues(seedRenc);
+  } else {
+    // Feuille déjà existante : on ajoute seulement les matchs du calendrier
+    // intégré qui n'y sont pas encore (nouvelles poules), sans jamais
+    // modifier ni écraser les lignes existantes.
+    const existing = {};
+    if (renc.getLastRow() > 1) {
+      renc.getRange(2, 1, renc.getLastRow() - 1, 3).getValues().forEach(function (r) {
+        let d = r[2];
+        if (d instanceof Date) d = Utilities.formatDate(d, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+        existing[Number(r[0]) + '|' + Number(r[1]) + '|' + d] = true;
+      });
+    }
+    const missing = defaultRencontres_().filter(function (r) { return !existing[r[0] + '|' + r[1] + '|' + r[2]]; });
+    if (missing.length) {
+      const start = renc.getLastRow() + 1;
+      renc.getRange(start, 3, missing.length, 2).setNumberFormat('@');
+      renc.getRange(start, 1, missing.length, 6).setValues(missing);
+    }
   }
 
   // --- Convocations ---
@@ -1018,9 +1036,17 @@ function resetPhaseAssignments(phase) {
 // RENCONTRES (adversaire / domicile ou extérieur)
 // ----------------------------------------------------------------------------------
 
-/** Calendriers de poule phase 1 2026-2027 (FFTT) des équipes FRI2 à FRI6. */
+/** Calendriers de poule phase 1 2026-2027 (FFTT) des équipes FRI1 à FRI7
+ * (FRI8 : poule pas encore connue). */
 function defaultRencontres_() {
   return [
+    [1, 1, '20/09/2026', '09:00', 'CP QUEVILLAIS 5', 'Extérieur'],
+    [1, 1, '04/10/2026', '09:00', 'EVREUX EC 2', 'Domicile'],
+    [1, 1, '18/10/2026', '09:00', 'Safran NS 1', 'Extérieur'],
+    [1, 1, '08/11/2026', '09:00', 'RACING CLUB PORT HAVRE 1', 'Domicile'],
+    [1, 1, '22/11/2026', '09:00', 'AS ST ETIENNE ROUVRAY 1', 'Extérieur'],
+    [1, 1, '06/12/2026', '09:00', 'ALCL GD QUEVILLY 4', 'Extérieur'],
+    [1, 1, '13/12/2026', '09:00', 'AS HONG LANDIN 3', 'Domicile'],
     [1, 2, '25/09/2026', '20:00', 'BLAINVILLE CREV 1', 'Extérieur'],
     [1, 2, '09/10/2026', '20:00', 'ASC BONSECOURS 3', 'Domicile'],
     [1, 2, '30/10/2026', '20:00', 'US C BOIS GUILLAUME 5', 'Extérieur'],
@@ -1056,6 +1082,13 @@ function defaultRencontres_() {
     [1, 6, '04/12/2026', '20:00', 'TTT 1', 'Extérieur'],
     [1, 6, '08/01/2027', '20:00', 'AMFTT 7', 'Extérieur'],
     [1, 6, '15/01/2027', '20:00', 'MESNIL-ESNARDTT (3)', 'Domicile'],
+    [1, 7, '02/10/2026', '20:00', 'CP BUCHY 7', 'Domicile'],
+    [1, 7, '16/10/2026', '20:00', 'TT DU CAILLY 5', 'Extérieur'],
+    [1, 7, '06/11/2026', '20:00', 'G C O BIHOREL 4', 'Domicile'],
+    [1, 7, '20/11/2026', '20:00', 'TT BULLY 6', 'Extérieur'],
+    [1, 7, '04/12/2026', '20:00', 'CAMA TT 8', 'Domicile'],
+    [1, 7, '08/01/2027', '20:00', 'RAQUETTE NEUFCH 8', 'Domicile'],
+    [1, 7, '15/01/2027', '20:00', 'AMFTT 6', 'Extérieur'],
   ];
 }
 
