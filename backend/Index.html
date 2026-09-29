@@ -823,7 +823,10 @@
           saveCache('config', cfg);
         }).catch(onGsError);
       }
-      enterApp(); // enterApp() attend lui-même STATE.config si besoin
+      // Différé : cette restauration s'exécute pendant le chargement du
+      // script, avant que les fonctions et constantes définies plus bas
+      // (écran d'accueil, compétitions...) ne soient initialisées.
+      setTimeout(enterApp, 0); // enterApp() attend lui-même STATE.config si besoin
     }
   })();
 
