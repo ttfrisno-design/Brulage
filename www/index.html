@@ -154,7 +154,7 @@
       letter-spacing: normal; font-size: 14px; font-weight: 700;
     }
     .team-frame table.roster { background: #fff; }
-    .add-player-row { display: grid; grid-template-columns: 1fr 1fr 1fr 100px auto auto; gap: 8px; align-items: end; }
+    .add-player-row { display: grid; grid-template-columns: 1fr 1fr 1fr 100px 140px 110px auto auto; gap: 8px; align-items: end; }
     .add-player-row .checkbox-field { display: flex; align-items: center; gap: 6px; padding-bottom: 9px; }
     .add-player-row .checkbox-field label { margin: 0; }
     .add-player-row label { margin: 0 0 4px; }
@@ -207,6 +207,66 @@
       padding: 4px 8px; border-top: 1px dashed #ccc; border-bottom: 1px dashed #ccc;
     }
 
+    /* Convocations */
+    .convoc-card { border-color: #1565c0; background: #f3f8ff; }
+    .convoc-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .convoc-item:last-child { border-bottom: none; }
+    .convoc-msg { white-space: pre-line; font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .convoc-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+    .convoc-btn { border: 2px solid var(--border); background: #fff; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+    .convoc-btn.yes.active { background: var(--green-bg); border-color: var(--green); }
+    .convoc-btn.no.active { background: var(--red-bg); border-color: var(--red); }
+    .convoc-status { font-size: 12px; color: var(--burn-border); }
+    .convoc-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .convoc-fixed { padding: 9px 0; font-weight: 600; }
+    .convoc-table { margin: 12px 0 4px; }
+    .convoc-text { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: 13px; }
+    .convoc-ok { color: var(--green); font-weight: 600; }
+    .convoc-ko { color: var(--red); }
+    .sms-link { display: inline-block; margin-left: 6px; padding: 6px 12px; border-radius: 6px; background: var(--green); color: #fff; text-decoration: none; font-weight: 600; }
+    button.primary:disabled { opacity: .5; cursor: default; }
+    @media (max-width: 640px) { .convoc-form { grid-template-columns: 1fr; } }
+    /* Accueil et compétitions individuelles */
+    .home-choices { display: grid; gap: 12px; }
+    .home-choice {
+      position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left;
+      background: var(--card); border: 2px solid var(--border); border-radius: 12px; padding: 16px 18px; cursor: pointer; font: inherit; color: var(--ink);
+    }
+    .home-choice:hover { border-color: var(--primary); }
+    .home-icon { font-size: 26px; }
+    .home-label { font-size: 16px; font-weight: 700; }
+    .home-sub { font-size: 13px; color: var(--muted); }
+    .home-badge { position: absolute; top: 12px; right: 14px; min-width: 24px; padding: 2px 8px; border-radius: 12px; background: var(--red); color: #fff; font-weight: 700; font-size: 13px; text-align: center; }
+    .reminder-card { border-color: #ef6c00; background: #fff8ef; }
+    .reminder-item { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+    .reminder-item:last-child { border-bottom: none; }
+    .compet-group h2 { margin-bottom: 4px; }
+    .compet-meta { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+    .compet-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--border); }
+    .compet-row .when { font-weight: 600; }
+    .compet-row .where { font-size: 12px; color: var(--muted); }
+    .compet-row .limit { font-size: 12px; color: var(--muted); }
+    .compet-row .limit.soon { color: #c2410c; font-weight: 600; }
+    .compet-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; background: var(--gray-bg); }
+    .pill.ok { background: var(--green-bg); color: var(--green); font-weight: 600; }
+    .pill.wait { background: #fff3cd; color: #8a6d00; }
+    .pill.ko { background: var(--red-bg); color: var(--red); }
+    .btn-sm { border: 1px solid var(--primary); background: #fff; color: var(--primary); border-radius: 6px; padding: 6px 10px; font-size: 13px; cursor: pointer; }
+    .btn-sm.fill { background: var(--primary); color: #fff; }
+    .btn-sm.green { border-color: var(--green); color: var(--green); }
+    .btn-sm.green.fill { background: var(--green); color: #fff; }
+    .btn-sm.red { border-color: var(--red); color: var(--red); }
+    .compet-settings, .compet-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 12px; }
+    .compet-settings input, .compet-form input, .compet-form select { width: 100%; }
+    .cat-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; }
+    .cat-checks label { display: inline-flex; gap: 4px; align-items: center; margin: 0; color: var(--ink); }
+    details.adm-ep { border-top: 1px solid var(--border); padding: 8px 0; }
+    details.adm-ep summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    details.adm-ep .ep-body { padding: 8px 0 4px 12px; }
+    .adm-ep-limit { width: 110px !important; padding: 4px 6px !important; font-size: 12px !important; }
+    table.insc-table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 6px 0; }
+    table.insc-table td, table.insc-table th { border-bottom: 1px solid var(--border); padding: 6px 4px; text-align: left; }
     footer.hint { text-align: center; color: var(--muted); font-size: 12px; margin: 20px 0; }
     @media (max-width: 640px) {
       main { padding: 10px; }
@@ -235,6 +295,56 @@
     </main>
   </div>
 
+  <!-- ============ ACCUEIL (choix joueur / capitaine) ============ -->
+  <div id="homeView" class="hidden">
+    <header class="app">
+      <img class="logo-fri" data-logo="fri" alt="FRI" style="height:36px;">
+      <h1>Brûlages FRI</h1>
+      <div class="who">
+        <span id="homeWho"></span>
+        <button class="logout" onclick="logout()">Déconnexion</button>
+      </div>
+    </header>
+    <main style="max-width:720px;">
+      <div id="homeReminders"></div>
+      <div id="homeConvoc"></div>
+      <h2 style="margin:6px 0 12px;">Que voulez-vous consulter ?</h2>
+      <div class="home-choices">
+        <button class="home-choice" onclick="openTeamView()">
+          <span class="home-icon">🏓</span><span class="home-label">Championnat par équipes</span>
+          <span class="home-sub">Disponibilités, feuilles de match, brûlages</span>
+          <span class="home-badge hidden" id="badgeTeam"></span>
+        </button>
+        <button class="home-choice" onclick="openCompetView('Jeunes')">
+          <span class="home-icon">🧒</span><span class="home-label">Compétitions individuelles jeunes</span>
+          <span class="home-sub">Challenge 500, Circuit Jeunes, Critérium…</span>
+          <span class="home-badge hidden" id="badgeJeunes"></span>
+        </button>
+        <button class="home-choice" onclick="openCompetView('Adultes')">
+          <span class="home-icon">🧑</span><span class="home-label">Compétitions individuelles adultes</span>
+          <span class="home-sub">Critérium, Coupe de Rouen, Vétérans…</span>
+          <span class="home-badge hidden" id="badgeAdultes"></span>
+        </button>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ COMPÉTITIONS INDIVIDUELLES (joueur) ============ -->
+  <div id="competView" class="hidden">
+    <header class="app">
+      <img class="logo-fri" data-logo="fri" alt="FRI" style="height:36px;">
+      <h1 id="competHeader">Compétitions</h1>
+      <div class="who">
+        <button class="logout" onclick="showHome()">← Accueil</button>
+        <button class="logout" onclick="logout()">Déconnexion</button>
+      </div>
+    </header>
+    <main style="max-width:820px;">
+      <div id="competIntro"></div>
+      <div id="competList"></div>
+    </main>
+  </div>
+
   <!-- ============ PLAYER VIEW ============ -->
   <div id="playerView" class="hidden">
     <header class="app">
@@ -242,10 +352,12 @@
       <h1>Brûlages FRI</h1>
       <div class="who">
         <span id="playerWho"></span>
+        <button class="logout" onclick="showHome()">← Accueil</button>
         <button class="logout" onclick="logout()">Déconnexion</button>
       </div>
     </header>
     <main>
+      <div id="convocPlayer"></div>
       <div class="tabs" id="phaseTabsPlayer"></div>
       <div id="burnBannerPlayer"></div>
       <div class="card">
@@ -265,10 +377,12 @@
       <h1>Brûlages FRI — Capitaine</h1>
       <div class="who">
         <span id="captainWho"></span>
+        <button class="logout" onclick="showHome()">← Accueil</button>
         <button class="logout" onclick="logout()">Déconnexion</button>
       </div>
     </header>
     <main>
+      <div id="convocCaptain"></div>
       <div class="tabs" id="phaseTabsCaptain"></div>
       <div id="burnBannerCaptain"></div>
       <div class="card">
@@ -280,6 +394,7 @@
         <div class="validate-bar" id="captainValidateBar"></div>
         <div id="captainTeamTableContainer"></div>
       </div>
+      <div class="card" id="convocSenderCaptain"></div>
       <div class="card">
         <h2>Mes disponibilités</h2>
         <p style="color:var(--muted);font-size:13px;margin-top:-6px;">
@@ -303,6 +418,7 @@
       <div class="tabs">
         <button class="tab-btn active" data-tab="tab-burn" onclick="switchAdminTab('tab-burn')">Tableau de brûlage</button>
         <button class="tab-btn" data-tab="tab-roster" onclick="switchAdminTab('tab-roster')">Effectif</button>
+        <button class="tab-btn" data-tab="tab-compet" onclick="switchAdminTab('tab-compet'); loadAdminCompet();">Compétitions individuelles</button>
         <button class="tab-btn" data-tab="tab-dates" onclick="switchAdminTab('tab-dates')">Dates &amp; Réglages</button>
       </div>
 
@@ -320,6 +436,7 @@
           <div id="burnTableContainer"></div>
           <button class="secondary" style="margin-top:12px;" onclick="confirmResetPhase()">Réinitialiser les brûlages de cette phase</button>
         </div>
+        <div class="card" id="convocSenderAdmin"></div>
       </div>
 
       <div id="tab-roster" class="admin-tab hidden">
@@ -333,6 +450,8 @@
               <select id="newTeam"></select>
             </div>
             <div><label>PIN</label><input type="text" id="newPin" placeholder="1234"></div>
+            <div><label>Téléphone</label><input type="tel" id="newPhone" placeholder="06 12 34 56 78"></div>
+            <div><label>Catégorie</label><select id="newCategorie"><option value="">—</option><option>Poussin</option><option>Benjamin</option><option>Minime</option><option>Cadet</option><option>Junior</option><option>Senior</option><option>V40</option><option>V50</option><option>V60</option><option>V70</option><option>V80</option></select></div>
             <div class="checkbox-field"><input type="checkbox" id="newCapitaine"><label for="newCapitaine" style="display:inline;">Capitaine</label></div>
             <div><button class="primary" style="margin-top:0;" onclick="addPlayer()">Ajouter</button></div>
           </div>
@@ -343,6 +462,38 @@
         </div>
       </div>
 
+      <div id="tab-compet" class="admin-tab hidden">
+        <div class="card">
+          <h2>Réglages des inscriptions</h2>
+          <div class="compet-settings">
+            <div><label>Date limite par défaut (jours avant l'épreuve)</label><input type="number" id="setDelai" min="0"></div>
+            <div><label>Rappel aux joueurs (jours avant la date limite / l'épreuve)</label><input type="number" id="setRappel" min="0"></div>
+          </div>
+          <button class="secondary" style="margin-top:10px;" onclick="saveCompetSettings()">Enregistrer les réglages</button>
+          <p style="color:var(--muted);font-size:12px;margin-bottom:0;">Une épreuve sans date limite propre utilise « date de l'épreuve − délai par défaut ».</p>
+        </div>
+        <div class="card">
+          <h2>Ajouter une épreuve</h2>
+          <div class="compet-form">
+            <div><label>Type</label><select id="ncType"><option>Jeunes</option><option>Adultes</option><option>Tous</option></select></div>
+            <div><label>Compétition</label><input type="text" id="ncNom" list="ncNoms" placeholder="Critérium Fédéral"><datalist id="ncNoms"></datalist></div>
+            <div><label>Épreuve</label><input type="text" id="ncEpreuve" placeholder="Tour 1"></div>
+            <div><label>Date</label><input type="text" id="ncDate" placeholder="jj/mm/aaaa"></div>
+            <div><label>Date limite (optionnelle)</label><input type="text" id="ncLimite" placeholder="jj/mm/aaaa"></div>
+            <div><label>Lieu</label><input type="text" id="ncLieu"></div>
+            <div><label>Tarif</label><input type="text" id="ncTarif"></div>
+            <div><label>Infos</label><input type="text" id="ncInfos"></div>
+          </div>
+          <label>Catégories (aucune cochée = toutes celles du type)</label>
+          <div id="ncCats" class="cat-checks"></div>
+          <button class="primary" onclick="addCompetition()">Ajouter</button>
+        </div>
+        <div class="card">
+          <h2>Épreuves et inscriptions</h2>
+          <label style="display:inline-flex;gap:6px;align-items:center;margin:0 0 10px;"><input type="checkbox" id="showPastCompet" onchange="renderAdminCompet()"> Afficher les épreuves passées</label>
+          <div id="adminCompetList"></div>
+        </div>
+      </div>
       <div id="tab-dates" class="admin-tab hidden">
         <div class="card">
           <h2>Code administrateur</h2>
@@ -496,8 +647,8 @@
       availFlushInFlight = false;
       if (!STATE.session) return;
       // Retire les icônes "en attente" pour ce qui vient d'être envoyé.
-      if (STATE.session.isCaptain) { renderCaptainOwnDates(); }
-      else if (!STATE.session.isAdmin) { renderPlayerView(); }
+      if (STATE.session.isCaptain) { if (STATE.captainOwnData) renderCaptainOwnDates(); }
+      else if (!STATE.session.isAdmin && STATE.playerData) { renderPlayerView(); }
     });
   }
 
@@ -648,16 +799,10 @@
       loadAdminData();
       loadRoster();
       renderDatesEditor();
-    } else if (STATE.session.isCaptain) {
-      document.getElementById('captainView').classList.remove('hidden');
-      document.getElementById('captainWho').textContent = STATE.session.name;
-      renderPhaseTabs('phaseTabsCaptain', loadCaptainData);
-      loadCaptainData();
     } else {
-      document.getElementById('playerView').classList.remove('hidden');
-      document.getElementById('playerWho').textContent = STATE.session.name;
-      renderPhaseTabs('phaseTabsPlayer', loadPlayerData);
-      loadPlayerData();
+      // Joueur ou capitaine : écran d'accueil (championnat par équipes ou
+      // compétitions individuelles jeunes / adultes).
+      showHome();
     }
     // Une disponibilité saisie hors-ligne ou dont l'envoi a échoué reste en
     // attente : on retente dès l'entrée dans l'appli, puis à chaque tick.
@@ -670,6 +815,7 @@
       // évitait des écarts (une saisie en cours écrasée par la synchro).
       if (Object.keys(STATE.pendingAssignments).length > 0) { return; }
       if (STATE.session.isAdmin) { loadAdminData(true); }
+      else if (STATE.view === 'home' || STATE.view === 'compet') { loadHomeData(); }
       else if (STATE.session.isCaptain) { loadCaptainData(true); }
       else { loadPlayerData(true); }
     }, 20000);
@@ -839,6 +985,8 @@
     } else {
       bannerEl.innerHTML = '';
     }
+
+    renderMyConvocations('convocPlayer', data);
 
     var listEl = document.getElementById('playerDatesList');
     listEl.innerHTML = '';
@@ -1081,6 +1229,7 @@
     }
 
     container.innerHTML = html;
+    renderConvocSender('convocSenderAdmin', STATE.adminData, null);
   }
 
   function TEAMS_forHeader() { return STATE.config.teams; }
@@ -1143,6 +1292,8 @@
     } else {
       bannerEl.innerHTML = '';
     }
+
+    renderMyConvocations('convocCaptain', data);
 
     var listEl = document.getElementById('captainOwnDatesList');
     listEl.innerHTML = '';
@@ -1261,6 +1412,7 @@
       html += '</div>';
     });
     document.getElementById('captainTeamTableContainer').innerHTML = html;
+    renderConvocSender('convocSenderCaptain', STATE.captainTeamData, teamId);
   }
 
   function pendingKey(playerId, date) { return playerId + '|' + date; }
@@ -1362,6 +1514,10 @@
           STATE.config.teams.map(function (t) { return '<option value="' + t.id + '" ' + (Number(p.EquipeDomicile) === t.id ? 'selected' : '') + '>' + t.name + '</option>'; }).join('') +
         '</select></td>' +
         '<td><input type="text" value="' + escAttr(p.PIN) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="PIN" style="width:70px;"></td>' +
+        '<td><input type="tel" value="' + escAttr(p['Téléphone']) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Téléphone" style="width:120px;" placeholder="06…"></td>' +
+        '<td><select onchange="editPlayer(' + p.ID + ',this)" data-field="Catégorie" style="width:95px;"><option value="">—</option>' +
+          ALL_CATEGORIES.map(function (c) { return '<option' + (p['Catégorie'] === c ? ' selected' : '') + '>' + c + '</option>'; }).join('') +
+        '</select></td>' +
         '<td><input type="checkbox" ' + (p.Actif === false || p.Actif === 'FAUX' ? '' : 'checked') + ' onchange="editPlayer(' + p.ID + ',this)" data-field="Actif"></td>' +
         '<td><input type="checkbox" ' + (p.Capitaine === true || p.Capitaine === 'VRAI' ? 'checked' : '') + ' onchange="editPlayer(' + p.ID + ',this)" data-field="Capitaine" title="Peut saisir le tableau de brûlage de son équipe"></td>' +
         '<td><button class="small" onclick="removePlayer(' + p.ID + ')">Supprimer</button></td>' +
@@ -1377,7 +1533,7 @@
       html += '<div class="team-frame" style="--team-border:' + c.border + ';--team-bg:' + c.bg + ';">' +
         '<h3 class="team-frame-title">' + t.name + ' — ' + t.division + ' <span style="font-weight:400;color:var(--muted);">(' + teamPlayers.length + ' joueur' + (teamPlayers.length > 1 ? 's' : '') + ')</span></h3>';
       if (teamPlayers.length) {
-        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Catégorie</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
         teamPlayers.forEach(function (p) { html += rowHtml(p); });
         html += '</tbody></table>';
       } else {
@@ -1393,7 +1549,7 @@
     if (orphans.length) {
       html += '<div class="team-frame" style="--team-border:#999;--team-bg:#f5f5f5;">' +
         '<h3 class="team-frame-title">Équipe non définie</h3>' +
-        '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+        '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Catégorie</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
       orphans.forEach(function (p) { html += rowHtml(p); });
       html += '</tbody></table></div>';
     }
@@ -1409,7 +1565,7 @@
     var field = el.dataset.field;
     var value = el.type === 'checkbox' ? el.checked : el.value;
     p[field] = value;
-    callServer('updatePlayer', [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine]).catch(onGsError);
+    callServer('updatePlayer', [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '', p['Catégorie'] || '']).catch(onGsError);
   }
 
   function addPlayer() {
@@ -1418,11 +1574,15 @@
     var team = document.getElementById('newTeam').value;
     var pin = document.getElementById('newPin').value.trim();
     var capitaine = document.getElementById('newCapitaine').checked;
+    var phone = document.getElementById('newPhone').value.trim();
+    var categorie = document.getElementById('newCategorie').value;
     if (!nom || !prenom || !pin) { alert('Merci de renseigner le nom, le prénom et le PIN.'); return; }
-    callServer('addPlayer', [nom, prenom, team, pin, capitaine]).then(function () {
+    callServer('addPlayer', [nom, prenom, team, pin, capitaine, phone, categorie]).then(function () {
       document.getElementById('newNom').value = '';
       document.getElementById('newPrenom').value = '';
       document.getElementById('newPin').value = '';
+      document.getElementById('newPhone').value = '';
+      document.getElementById('newCategorie').value = '';
       document.getElementById('newCapitaine').checked = false;
       loadRoster();
     }).catch(onGsError);
@@ -1431,6 +1591,623 @@
   function removePlayer(id) {
     if (!confirm('Supprimer ce joueur ?')) return;
     callServer('deletePlayer', [id]).then(loadRoster).catch(onGsError);
+  }
+
+  // ---------------------------------------------------------------------------
+  // CONVOCATIONS — réception (joueur / capitaine) et envoi (capitaine / admin)
+  // ---------------------------------------------------------------------------
+  function teamById(id) {
+    return STATE.config.teams.find(function (t) { return t.id === Number(id); });
+  }
+  function escHtml(v) {
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function todayStart() {
+    var d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime();
+  }
+  function matchLabel(team, date) {
+    return team.name + ' (' + team.division + ') — ' + team.day.toLowerCase() + ' ' + date + (team.time ? ' à ' + team.time : '');
+  }
+
+  // Bandeau "Mes convocations" en haut de la vue joueur / capitaine : les
+  // matchs à venir auxquels le joueur est convoqué, avec les boutons de
+  // réponse Présent / Absent.
+  function renderMyConvocations(containerId, data) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    var list = (data.convocations || [])
+      .filter(function (c) { return parseFrDate(c.date) >= todayStart(); })
+      .sort(function (a, b) { return parseFrDate(a.date) - parseFrDate(b.date); });
+    if (!list.length) { el.innerHTML = ''; return; }
+    var html = '<div class="card convoc-card"><h2>📣 Mes convocations</h2>';
+    list.forEach(function (c) {
+      var team = teamById(c.teamId);
+      if (!team) return;
+      var args = c.phase + ',\'' + c.date + '\'';
+      html += '<div class="convoc-item">' +
+        '<div class="convoc-title">Vous êtes convoqué(e) : <b>' + escHtml(matchLabel(team, c.date)) + '</b></div>' +
+        (c.message ? '<div class="convoc-msg">' + escHtml(c.message) + '</div>' : '') +
+        '<div class="convoc-actions">' +
+          '<button class="convoc-btn yes' + (c.response === 'Présent' ? ' active' : '') + '" onclick="answerMyConvocation(\'' + containerId + '\',' + args + ',\'Présent\')">✓ Présent</button>' +
+          '<button class="convoc-btn no' + (c.response === 'Absent' ? ' active' : '') + '" onclick="answerMyConvocation(\'' + containerId + '\',' + args + ',\'Absent\')">✕ Absent</button>' +
+          (c.response ? '' : '<span class="convoc-status">En attente de votre réponse</span>') +
+        '</div></div>';
+    });
+    el.innerHTML = html + '</div>';
+  }
+
+  function answerMyConvocation(containerId, phase, date, response) {
+    var data = containerId === 'homeConvoc' ? STATE.homePlayerData
+      : STATE.session.isCaptain ? STATE.captainOwnData : STATE.playerData;
+    var c = (data.convocations || []).find(function (x) { return x.phase === phase && x.date === date; });
+    var previous = c ? c.response : '';
+    if (c) { c.response = response; if (containerId === 'homeConvoc') { renderHome(); } else { renderMyConvocations(containerId, data); } }
+    callServer('answerConvocation', [STATE.session.playerId, phase, date, response]).catch(function (err) {
+      if (c) { c.response = previous; renderMyConvocations(containerId, data); }
+      onGsError(err);
+    });
+  }
+
+  // Lien SMS vers plusieurs destinataires, message pré-rempli. Le format
+  // diffère entre iPhone et Android.
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function isMobileDevice() {
+    return isIOS() || /Android/i.test(navigator.userAgent);
+  }
+  function normalizePhone(p) {
+    return String(p || '').replace(/[^\d+]/g, '');
+  }
+  function smsUri(phones, body) {
+    var list = phones.map(normalizePhone).filter(Boolean);
+    if (isIOS()) {
+      return 'sms:/open?addresses=' + list.join(',') + '&body=' + encodeURIComponent(body);
+    }
+    return 'sms:' + list.join(',') + '?body=' + encodeURIComponent(body);
+  }
+
+  // Joueurs affectés (feuille de match enregistrée) à une équipe à une date.
+  function selectedPlayersFor(dataset, teamId, date) {
+    return (dataset || [])
+      .filter(function (p) { return Number((p.assignments || {})[date]) === Number(teamId); })
+      .sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); });
+  }
+
+  function defaultConvocMessage(team, date, players) {
+    return 'Convocation ' + matchLabel(team, date) + '.\n' +
+      'Équipe : ' + players.map(function (p) { return p.prenom + ' ' + p.nom; }).join(', ') + '.\n' +
+      'Merci de confirmer ta présence dans l\'appli Brûlages FRI.';
+  }
+
+  // Brouillon par zone d'envoi (équipe, date, message modifié à la main),
+  // conservé entre deux rafraîchissements automatiques des données.
+  STATE.convocDraft = {};
+
+  function renderConvocSender(containerId, dataset, fixedTeamId) {
+    var el = document.getElementById(containerId);
+    if (!el || !dataset) return;
+    // Ne pas redessiner pendant une saisie (rafraîchissement auto toutes les 20 s).
+    if (el.contains(document.activeElement) && document.activeElement.tagName === 'TEXTAREA') return;
+
+    var draft = STATE.convocDraft[containerId] = STATE.convocDraft[containerId] || {};
+    var teamId = fixedTeamId || draft.teamId || STATE.config.teams[0].id;
+    var team = teamById(teamId);
+    if (!team) { el.innerHTML = ''; return; }
+    var dates = allDatesFlat().filter(function (d) { return d.group === team.group; }).map(function (d) { return d.date; });
+    if (draft.date && dates.indexOf(draft.date) < 0) draft.date = null;
+    if (!draft.date) {
+      var today = todayStart();
+      draft.date = dates.find(function (d) { return parseFrDate(d) >= today; }) || dates[dates.length - 1] || null;
+    }
+    var date = draft.date;
+    draft.teamId = teamId;
+
+    var html = '<h2>📣 Envoyer les convocations</h2>' +
+      '<p style="color:var(--muted);font-size:13px;margin-top:-6px;">Les joueurs de la feuille de match enregistrée reçoivent la convocation dans l\'appli, et l\'appli SMS s\'ouvre avec leurs numéros et le message.</p>' +
+      '<div class="convoc-form">';
+    if (!fixedTeamId) {
+      html += '<div><label>Équipe</label><select onchange="onConvocTeam(\'' + containerId + '\', this.value)">' +
+        STATE.config.teams.map(function (t) { return '<option value="' + t.id + '"' + (t.id === teamId ? ' selected' : '') + '>' + t.name + ' — ' + t.division + '</option>'; }).join('') +
+        '</select></div>';
+    } else {
+      html += '<div><label>Équipe</label><div class="convoc-fixed">' + team.name + ' — ' + team.division + '</div></div>';
+    }
+    html += '<div><label>Match (phase ' + STATE.phase + ')</label>';
+    if (dates.length) {
+      html += '<select onchange="onConvocDate(\'' + containerId + '\', this.value)">' +
+        dates.map(function (d) { return '<option' + (d === date ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select>';
+    } else {
+      html += '<div class="convoc-fixed">Aucune date pour cette phase</div>';
+    }
+    html += '</div></div>';
+
+    if (date) {
+      var players = selectedPlayersFor(dataset, teamId, date);
+      if (pendingCount() > 0) {
+        html += '<div class="error">Des affectations ne sont pas encore validées : cliquez d\'abord sur « Valider et enregistrer ».</div>';
+      }
+      if (!players.length) {
+        html += '<p style="color:var(--muted);font-size:13px;">Aucun joueur affecté à ' + team.name + ' le ' + date + '. Remplissez et enregistrez d\'abord la feuille de match.</p>';
+      } else {
+        html += '<table class="roster convoc-table"><thead><tr><th>Joueur</th><th>Téléphone</th><th>Convocation</th></tr></thead><tbody>';
+        players.forEach(function (p) {
+          var c = (p.convocations || {})[date];
+          var status = '<span style="color:var(--muted);">Non envoyée</span>';
+          if (c && Number(c.teamId) === Number(teamId)) {
+            status = c.response === 'Présent' ? '<span class="convoc-ok">✓ Présent</span>'
+              : c.response === 'Absent' ? '<span class="convoc-ko">✕ Absent</span>'
+              : '<span>📨 Envoyée, sans réponse</span>';
+          }
+          html += '<tr><td>' + escHtml(p.prenom + ' ' + p.nom) + '</td><td>' +
+            (p.phone ? escHtml(p.phone) : '<span class="convoc-ko">pas de n°</span>') + '</td><td>' + status + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        var msgKey = teamId + '|' + date;
+        var message = (draft.edited && draft.msgKey === msgKey) ? draft.message : defaultConvocMessage(team, date, players);
+        draft.msgKey = msgKey;
+        draft.message = message;
+        html += '<label>Message</label><textarea class="convoc-text" rows="4" oninput="onConvocMessage(\'' + containerId + '\', this.value)">' + escHtml(message) + '</textarea>' +
+          '<div class="convoc-actions">' +
+            '<button class="primary" style="margin-top:0;" onclick="sendConvocationsFrom(\'' + containerId + '\')"' + (pendingCount() > 0 ? ' disabled' : '') + '>📣 Envoyer les convocations</button>' +
+            '<span id="' + containerId + '-result">' + (draft.resultKey === msgKey ? draft.resultHtml : '') + '</span>' +
+          '</div>';
+      }
+    }
+    el.innerHTML = html;
+  }
+
+  function convocDataset() {
+    return STATE.session.isAdmin ? STATE.adminData : STATE.captainTeamData;
+  }
+  function refreshConvocSender(containerId) {
+    renderConvocSender(containerId, convocDataset(), STATE.session.isAdmin ? null : STATE.session.captainTeamId);
+  }
+  function onConvocTeam(containerId, teamId) {
+    var d = STATE.convocDraft[containerId];
+    d.teamId = Number(teamId); d.date = null; d.edited = false;
+    refreshConvocSender(containerId);
+  }
+  function onConvocDate(containerId, date) {
+    var d = STATE.convocDraft[containerId];
+    d.date = date; d.edited = false;
+    refreshConvocSender(containerId);
+  }
+  function onConvocMessage(containerId, value) {
+    var d = STATE.convocDraft[containerId];
+    d.message = value; d.edited = true;
+  }
+
+  function sendConvocationsFrom(containerId) {
+    var d = STATE.convocDraft[containerId];
+    var team = teamById(d.teamId);
+    if (!confirm('Envoyer la convocation ' + team.name + ' du ' + d.date + ' aux joueurs sélectionnés ?')) return;
+    var resultEl = document.getElementById(containerId + '-result');
+    if (resultEl) resultEl.textContent = 'Envoi…';
+    callServer('sendConvocations', [STATE.phase, d.date, d.teamId, d.message]).then(function (players) {
+      var phones = players.map(function (p) { return p.phone; }).filter(function (p) { return normalizePhone(p); });
+      var missing = players.filter(function (p) { return !normalizePhone(p.phone); }).map(function (p) { return p.name; });
+      var uri = phones.length ? smsUri(phones, d.message) : '';
+      var html = '✓ Convocation enregistrée dans l\'appli pour ' + players.length + ' joueur' + (players.length > 1 ? 's' : '') + '.';
+      if (uri && isMobileDevice()) {
+        html += ' <a class="sms-link" href="' + escAttr(uri) + '">📱 Ouvrir les SMS</a>';
+      } else if (phones.length) {
+        html += '<br><span style="font-size:12px;">SMS depuis un téléphone uniquement. Numéros : ' + escHtml(phones.join(', ')) + '</span>';
+      }
+      if (missing.length) {
+        html += '<br><span class="convoc-ko" style="font-size:12px;">Sans numéro (pas de SMS) : ' + escHtml(missing.join(', ')) + '</span>';
+      }
+      // Gardé dans le brouillon pour survivre au rafraîchissement du tableau.
+      d.resultKey = d.teamId + '|' + d.date;
+      d.resultHtml = html;
+      if (resultEl) resultEl.innerHTML = html;
+      if (uri && isMobileDevice()) { window.location.href = uri; }
+      // Rafraîchit les statuts "Envoyée" du tableau.
+      if (STATE.session.isAdmin) { loadAdminData(true); } else { loadCaptainData(true); }
+    }).catch(function (err) {
+      if (resultEl) resultEl.textContent = '';
+      onGsError(err);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // ACCUEIL — choix Championnat par équipes / Compétitions jeunes / adultes
+  // ---------------------------------------------------------------------------
+  var YOUTH_CATEGORIES = ['Poussin', 'Benjamin', 'Minime', 'Cadet', 'Junior'];
+  var ADULT_CATEGORIES = ['Senior', 'V40', 'V50', 'V60', 'V70', 'V80'];
+  var ALL_CATEGORIES = YOUTH_CATEGORIES.concat(ADULT_CATEGORIES);
+  var FR_DAYS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
+
+  var VIEWS = ['loginView', 'homeView', 'playerView', 'captainView', 'competView', 'adminView'];
+  function showView(id) {
+    VIEWS.forEach(function (v) { document.getElementById(v).classList.toggle('hidden', v !== id); });
+    window.scrollTo(0, 0);
+  }
+
+  function showHome() {
+    STATE.view = 'home';
+    showView('homeView');
+    document.getElementById('homeWho').textContent = STATE.session.name;
+    loadHomeData();
+  }
+
+  function loadHomeData() {
+    var cached = loadCache('compet_' + STATE.session.playerId);
+    if (cached && !STATE.compet) { STATE.compet = cached; renderHome(); }
+    Promise.all([
+      callServer('getCompetitions', [STATE.session.playerId]),
+      callServer('getPlayerData', [STATE.session.playerId, STATE.phase]),
+    ]).then(function (res) {
+      STATE.compet = res[0];
+      STATE.homePlayerData = res[1];
+      saveCache('compet_' + STATE.session.playerId, res[0]);
+      if (STATE.view === 'home') renderHome();
+      if (STATE.view === 'compet') renderCompetView();
+    }).catch(onGsError);
+  }
+
+  function openTeamView() {
+    STATE.view = 'team';
+    if (STATE.session.isCaptain) {
+      showView('captainView');
+      document.getElementById('captainWho').textContent = STATE.session.name;
+      renderPhaseTabs('phaseTabsCaptain', loadCaptainData);
+      loadCaptainData();
+    } else {
+      showView('playerView');
+      document.getElementById('playerWho').textContent = STATE.session.name;
+      renderPhaseTabs('phaseTabsPlayer', loadPlayerData);
+      loadPlayerData();
+    }
+  }
+
+  function openCompetView(type) {
+    STATE.view = 'compet';
+    STATE.competType = type;
+    showView('competView');
+    document.getElementById('competHeader').textContent = 'Compétitions ' + type.toLowerCase();
+    if (STATE.compet) renderCompetView();
+    loadHomeData();
+  }
+
+  function frDateToTime(s) { return parseFrDate(s); }
+  function daysUntil(s) { return Math.round((frDateToTime(s) - todayStart()) / 86400000); }
+  function dayLabel(s) {
+    var t = frDateToTime(s);
+    return t ? FR_DAYS[new Date(t).getDay()] + ' ' + s : s;
+  }
+  function competsOfType(type) {
+    return (STATE.compet ? STATE.compet.competitions : []).filter(function (c) { return c.type === type || c.type === 'Tous'; });
+  }
+  function canRequest(c) {
+    return c.eligible && daysUntil(c.dateLimite) >= 0 && daysUntil(c.date) >= 0;
+  }
+
+  // Rappels : inscriptions dont la date limite approche (joueur concerné
+  // par sa catégorie, pas encore inscrit) et participations à confirmer.
+  function competReminders(type) {
+    if (!STATE.compet) return [];
+    var rappel = STATE.compet.settings.rappelJours;
+    var mine = STATE.compet.inscriptions || {};
+    var out = [];
+    STATE.compet.competitions.forEach(function (c) {
+      if (type && c.type !== type && c.type !== 'Tous') return;
+      var i = mine[c.id];
+      // Pas de rappel d'inscription pour les rendez-vous "Tous" (ex.
+      // rassemblements féminins) : sans information sur le joueur, ce
+      // serait envoyé à tout le monde.
+      if (!i && c.type !== 'Tous' && STATE.compet.categorie && c.eligible && canRequest(c) && daysUntil(c.dateLimite) <= rappel) {
+        out.push({ kind: 'inscription', c: c });
+      } else if (i && i.statut === 'Validée' && !i.participation && daysUntil(c.date) >= 0 && daysUntil(c.date) <= rappel) {
+        out.push({ kind: 'confirmation', c: c });
+      }
+    });
+    return out.sort(function (a, b) { return frDateToTime(a.c.date) - frDateToTime(b.c.date); });
+  }
+
+  function renderHome() {
+    var rem = competReminders(null);
+    var el = document.getElementById('homeReminders');
+    if (rem.length) {
+      var html = '<div class="card reminder-card"><h2>🔔 À faire</h2>';
+      rem.forEach(function (r) {
+        var c = r.c;
+        var title = escHtml(c.nom + (c.epreuve ? ' – ' + c.epreuve : '')) + ' (' + dayLabel(c.date) + ')';
+        if (r.kind === 'inscription') {
+          var d = daysUntil(c.dateLimite);
+          html += '<div class="reminder-item">⏰ <b>' + title + '</b> : inscriptions jusqu\'au ' + c.dateLimite +
+            (d === 0 ? ' (aujourd\'hui !)' : ' (J-' + d + ')') +
+            '<div class="compet-actions" style="margin-top:6px;"><button class="btn-sm fill" onclick="requestCompet([' + c.id + '])">Demander l\'inscription</button>' +
+            '<button class="btn-sm" onclick="openCompetView(\'' + (c.type === 'Tous' ? (isYouth() ? 'Jeunes' : 'Adultes') : c.type) + '\')">Voir</button></div></div>';
+        } else {
+          html += '<div class="reminder-item">✅ <b>' + title + '</b> : inscription validée, confirmez votre participation.' +
+            '<div class="compet-actions" style="margin-top:6px;">' +
+            '<button class="btn-sm green fill" onclick="confirmCompet(' + c.id + ',\'Confirmée\')">Je confirme</button>' +
+            '<button class="btn-sm red" onclick="confirmCompet(' + c.id + ',\'Annulée\')">Je me désiste</button></div></div>';
+        }
+      });
+      el.innerHTML = html + '</div>';
+    } else {
+      el.innerHTML = '';
+    }
+    // Convocations du championnat par équipes (sans réponse), aussi rappelées ici.
+    var data = STATE.homePlayerData;
+    var pendingConvoc = [];
+    if (data) {
+      var unanswered = { convocations: (data.convocations || []).filter(function (c) { return !c.response; }) };
+      pendingConvoc = unanswered.convocations.filter(function (c) { return parseFrDate(c.date) >= todayStart(); });
+      renderMyConvocations('homeConvoc', unanswered);
+    }
+    setBadge('badgeTeam', pendingConvoc.length);
+    setBadge('badgeJeunes', competReminders('Jeunes').length);
+    setBadge('badgeAdultes', competReminders('Adultes').length);
+  }
+  function setBadge(id, n) {
+    var el = document.getElementById(id);
+    el.textContent = n;
+    el.classList.toggle('hidden', !n);
+  }
+  function isYouth() {
+    return STATE.compet && YOUTH_CATEGORIES.indexOf(STATE.compet.categorie) >= 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // COMPÉTITIONS INDIVIDUELLES — vue joueur
+  // ---------------------------------------------------------------------------
+  function renderCompetView() {
+    if (!STATE.compet) return;
+    var type = STATE.competType;
+    var cat = STATE.compet.categorie;
+    var intro = '<div class="card"><p style="margin:0;font-size:13px;">' +
+      (cat ? 'Votre catégorie : <b>' + escHtml(cat) + '</b>. ' : 'Votre catégorie n\'est pas renseignée (demandez à l\'administrateur) : toutes les compétitions sont proposées. ') +
+      'Demandez votre inscription avant la date limite ; le club la valide, puis vous confirmez votre participation à l\'approche de l\'épreuve.</p></div>';
+    var rem = competReminders(type);
+    if (rem.length) {
+      intro += '<div class="card reminder-card" style="padding:10px 16px;">🔔 ' + rem.length + ' action' + (rem.length > 1 ? 's' : '') + ' à faire : voir les épreuves signalées ci-dessous.</div>';
+    }
+    document.getElementById('competIntro').innerHTML = intro;
+
+    var groups = [];
+    var byName = {};
+    competsOfType(type).forEach(function (c) {
+      if (!byName[c.nom]) { byName[c.nom] = { nom: c.nom, items: [] }; groups.push(byName[c.nom]); }
+      byName[c.nom].items.push(c);
+    });
+    var mine = STATE.compet.inscriptions || {};
+    var html = '';
+    groups.forEach(function (g) {
+      g.items.sort(function (a, b) { return frDateToTime(a.date) - frDateToTime(b.date); });
+      var first = g.items[0];
+      var eligible = first.eligible;
+      var upcoming = g.items.filter(function (c) { return daysUntil(c.date) >= 0; });
+      var openIds = g.items.filter(function (c) { return canRequest(c) && !mine[c.id]; }).map(function (c) { return c.id; });
+      html += '<div class="card compet-group"' + (eligible ? '' : ' style="opacity:.6;"') + '><h2>' + escHtml(g.nom) + '</h2>' +
+        '<div class="compet-meta">' + escHtml(first.infos) +
+        (first.tarif ? ' <b>Tarif :</b> ' + escHtml(first.tarif) + '.' : '') +
+        (first.categories.length ? ' <b>Catégories :</b> ' + escHtml(first.categories.join(', ')) + '.' : '') +
+        (eligible ? '' : ' <span class="pill ko">Non concerné(e) par votre catégorie</span>') + '</div>';
+      if (openIds.length > 1) {
+        html += '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds.join(',') + '])">Demander l\'inscription aux ' + openIds.length + ' épreuves ouvertes</button>';
+      }
+      if (!upcoming.length) html += '<div class="compet-meta">Toutes les épreuves sont passées.</div>';
+      g.items.forEach(function (c) {
+        var past = daysUntil(c.date) < 0;
+        if (past && !mine[c.id]) return;
+        html += competRowHtml(c, mine[c.id], past);
+      });
+      html += '</div>';
+    });
+    document.getElementById('competList').innerHTML = html || '<div class="card">Aucune compétition.</div>';
+  }
+
+  function competRowHtml(c, insc, past) {
+    var dl = daysUntil(c.dateLimite);
+    var rappel = STATE.compet.settings.rappelJours;
+    var limitTxt = dl >= 0 ? 'Inscription avant le ' + c.dateLimite : 'Inscriptions closes depuis le ' + c.dateLimite;
+    var html = '<div class="compet-row"><div><div class="when">' + dayLabel(c.date) + (c.epreuve ? ' — ' + escHtml(c.epreuve) : '') + '</div>' +
+      (c.lieu ? '<div class="where">📍 ' + escHtml(c.lieu) + '</div>' : '') +
+      (past ? '' : '<div class="limit' + (dl >= 0 && dl <= rappel && !insc ? ' soon' : '') + '">' + limitTxt + '</div>') +
+      '</div><div class="compet-actions">';
+    if (past) {
+      html += '<span class="pill">Terminée</span>';
+    } else if (!insc) {
+      if (canRequest(c)) html += '<button class="btn-sm fill" onclick="requestCompet([' + c.id + '])">Demander l\'inscription</button>';
+      else if (!c.eligible) html += '<span class="pill">Non concerné(e)</span>';
+      else html += '<span class="pill">Inscriptions closes</span>';
+    } else if (insc.statut === 'Demandée') {
+      html += '<span class="pill wait">⏳ Demande envoyée, en attente du club</span>';
+      if (dl >= 0) html += '<button class="btn-sm red" onclick="cancelCompet(' + c.id + ')">Retirer</button>';
+    } else if (insc.statut === 'Refusée') {
+      html += '<span class="pill ko">✕ Refusée par le club</span>';
+      if (canRequest(c)) html += '<button class="btn-sm" onclick="requestCompet([' + c.id + '])">Redemander</button>';
+    } else if (insc.statut === 'Validée') {
+      html += '<span class="pill ok">✓ Inscription validée</span>';
+      if (insc.participation === 'Confirmée') html += '<span class="pill ok">Participation confirmée</span>';
+      else if (insc.participation === 'Annulée') html += '<span class="pill ko">Désisté(e)</span>';
+      else html += '<span class="pill wait">Participation à confirmer</span>';
+      html += '<button class="btn-sm green' + (insc.participation === 'Confirmée' ? ' fill' : '') + '" onclick="confirmCompet(' + c.id + ',\'Confirmée\')">Je confirme</button>' +
+        '<button class="btn-sm red" onclick="confirmCompet(' + c.id + ',\'Annulée\')">Je me désiste</button>';
+    }
+    return html + '</div></div>';
+  }
+
+  function applyCompetResult(res) {
+    STATE.compet = res;
+    saveCache('compet_' + STATE.session.playerId, res);
+    if (STATE.view === 'home') renderHome();
+    if (STATE.view === 'compet') renderCompetView();
+  }
+  function requestCompet(ids) {
+    if (!confirm('Envoyer votre demande d\'inscription au club (' + ids.length + ' épreuve' + (ids.length > 1 ? 's' : '') + ') ?')) return;
+    callServer('requestInscriptions', [STATE.session.playerId, ids]).then(applyCompetResult).catch(onGsError);
+  }
+  function cancelCompet(id) {
+    if (!confirm('Retirer votre demande d\'inscription ?')) return;
+    callServer('cancelInscription', [STATE.session.playerId, id]).then(applyCompetResult).catch(onGsError);
+  }
+  function confirmCompet(id, value) {
+    callServer('confirmParticipation', [STATE.session.playerId, id, value]).then(applyCompetResult).catch(onGsError);
+  }
+
+  // ---------------------------------------------------------------------------
+  // COMPÉTITIONS INDIVIDUELLES — onglet administrateur
+  // ---------------------------------------------------------------------------
+  function loadAdminCompet() {
+    callServer('getCompetitionsAdmin', []).then(function (res) {
+      STATE.adminCompet = res;
+      renderAdminCompet();
+    }).catch(onGsError);
+  }
+
+  function eligibleFor(c, categorie) {
+    if (!categorie) return false;
+    var allowed = c.categories.length ? c.categories
+      : c.type === 'Jeunes' ? YOUTH_CATEGORIES : c.type === 'Adultes' ? ADULT_CATEGORIES : ALL_CATEGORIES;
+    return allowed.indexOf(categorie) >= 0;
+  }
+
+  function renderAdminCompet() {
+    var data = STATE.adminCompet;
+    if (!data) return;
+    document.getElementById('setDelai').value = data.settings.delaiJours;
+    document.getElementById('setRappel').value = data.settings.rappelJours;
+    var cats = document.getElementById('ncCats');
+    if (!cats.innerHTML) {
+      cats.innerHTML = ALL_CATEGORIES.map(function (c) { return '<label><input type="checkbox" value="' + c + '"> ' + c + '</label>'; }).join('');
+    }
+    var names = {};
+    data.competitions.forEach(function (c) { names[c.nom] = true; });
+    document.getElementById('ncNoms').innerHTML = Object.keys(names).map(function (n) { return '<option value="' + escAttr(n) + '">'; }).join('');
+
+    var showPast = document.getElementById('showPastCompet').checked;
+    var playersById = {};
+    data.players.forEach(function (p) { playersById[String(p.id)] = p; });
+    var inscByComp = {};
+    data.inscriptions.forEach(function (i) { (inscByComp[i.competitionId] = inscByComp[i.competitionId] || []).push(i); });
+
+    var html = '';
+    ['Jeunes', 'Adultes', 'Tous'].forEach(function (type) {
+      var list = data.competitions.filter(function (c) { return c.type === type && (showPast || daysUntil(c.date) >= 0); })
+        .sort(function (a, b) { return frDateToTime(a.date) - frDateToTime(b.date); });
+      if (!list.length) return;
+      html += '<h3>' + (type === 'Tous' ? 'Jeunes et adultes' : type) + '</h3>';
+      list.forEach(function (c) {
+        var ins = inscByComp[c.id] || [];
+        var nDem = ins.filter(function (i) { return i.statut === 'Demandée'; }).length;
+        var nVal = ins.filter(function (i) { return i.statut === 'Validée'; }).length;
+        var nConf = ins.filter(function (i) { return i.participation === 'Confirmée'; }).length;
+        html += '<details class="adm-ep"' + (STATE.openCompet === c.id ? ' open' : '') + ' ontoggle="if(this.open)STATE.openCompet=' + c.id + '"><summary>' +
+          '<b>' + dayLabel(c.date) + '</b> ' + escHtml(c.nom) + (c.epreuve ? ' – ' + escHtml(c.epreuve) : '') +
+          (nDem ? ' <span class="pill wait">' + nDem + ' demande' + (nDem > 1 ? 's' : '') + '</span>' : '') +
+          (nVal ? ' <span class="pill ok">' + nVal + ' validée' + (nVal > 1 ? 's' : '') + ' · ' + nConf + ' confirmée' + (nConf > 1 ? 's' : '') + '</span>' : '') +
+          '</summary><div class="ep-body">' +
+          '<div style="font-size:13px;">📍 ' + escHtml(c.lieu || '—') + ' · Catégories : ' + escHtml(c.categories.join(', ') || 'toutes (' + c.type + ')') + '</div>' +
+          '<div style="font-size:13px;margin:6px 0;">Date limite : <input class="adm-ep-limit" value="' + escAttr(c.dateLimiteAuto ? '' : c.dateLimite) + '" placeholder="' + escAttr(c.dateLimite) + '" onchange="saveCompetLimit(' + c.id + ', this.value)"> ' +
+          (c.dateLimiteAuto ? '<span style="color:var(--muted);">(par défaut : ' + c.dateLimite + ')</span>' : '') +
+          ' <button class="btn-sm red" onclick="removeCompetition(' + c.id + ')">Supprimer l\'épreuve</button></div>';
+        if (ins.length) {
+          html += '<table class="insc-table"><thead><tr><th>Joueur</th><th>Statut</th><th>Participation</th><th></th></tr></thead><tbody>';
+          ins.forEach(function (i) {
+            var p = playersById[String(i.playerId)] || { prenom: '?', nom: 'joueur ' + i.playerId };
+            html += '<tr><td>' + escHtml(p.prenom + ' ' + p.nom) + (p.categorie ? ' <span style="color:var(--muted);">(' + escHtml(p.categorie) + ')</span>' : '') + '</td>' +
+              '<td>' + (i.statut === 'Validée' ? '<span class="pill ok">Validée</span>' : i.statut === 'Refusée' ? '<span class="pill ko">Refusée</span>' : '<span class="pill wait">Demandée</span>') + '</td>' +
+              '<td>' + (i.participation === 'Confirmée' ? '<span class="pill ok">Confirmée</span>' : i.participation === 'Annulée' ? '<span class="pill ko">Désisté</span>' : '—') + '</td><td class="compet-actions">' +
+              (i.statut !== 'Validée' ? '<button class="btn-sm green" onclick="setInscStatus(' + c.id + ',' + JSON.stringify(String(i.playerId)).replace(/"/g, '&quot;') + ',\'Validée\')">Valider</button>' : '') +
+              (i.statut !== 'Refusée' ? '<button class="btn-sm red" onclick="setInscStatus(' + c.id + ',' + JSON.stringify(String(i.playerId)).replace(/"/g, '&quot;') + ',\'Refusée\')">Refuser</button>' : '') +
+              '<button class="btn-sm" onclick="setInscStatus(' + c.id + ',' + JSON.stringify(String(i.playerId)).replace(/"/g, '&quot;') + ',\'\')">Retirer</button>' +
+              '</td></tr>';
+          });
+          html += '</tbody></table>';
+        } else {
+          html += '<div style="font-size:13px;color:var(--muted);margin:6px 0;">Aucune inscription.</div>';
+        }
+        var registered = {};
+        ins.forEach(function (i) { registered[String(i.playerId)] = true; });
+        var others = data.players.filter(function (p) { return !registered[String(p.id)]; })
+          .sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); });
+        html += '<div class="compet-actions" style="margin-top:6px;"><select id="addInsc-' + c.id + '" style="width:auto;max-width:220px;padding:5px;font-size:13px;">' +
+          others.map(function (p) { return '<option value="' + escAttr(p.id) + '">' + escHtml(p.nom + ' ' + p.prenom) + (p.categorie ? ' (' + escHtml(p.categorie) + ')' : '') + '</option>'; }).join('') +
+          '</select><button class="btn-sm" onclick="adminAddInsc(' + c.id + ')">Inscrire (validé)</button></div>';
+        // Relances SMS : joueurs concernés non inscrits (avant la date
+        // limite) et inscrits validés n'ayant pas confirmé.
+        var toRegister = daysUntil(c.dateLimite) >= 0 ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie); }) : [];
+        var toConfirm = ins.filter(function (i) { return i.statut === 'Validée' && !i.participation; }).map(function (i) { return playersById[String(i.playerId)]; }).filter(Boolean);
+        html += '<div class="compet-actions" style="margin-top:8px;">' +
+          (toRegister.length ? '<button class="btn-sm" onclick="competSms(' + c.id + ',\'inscription\')">📱 Relancer les non-inscrits (' + toRegister.length + ')</button>' : '') +
+          (toConfirm.length ? '<button class="btn-sm" onclick="competSms(' + c.id + ',\'confirmation\')">📱 Relancer pour confirmation (' + toConfirm.length + ')</button>' : '') +
+          '<span id="competSmsResult-' + c.id + '" style="font-size:12px;"></span></div>';
+        html += '</div></details>';
+      });
+    });
+    document.getElementById('adminCompetList').innerHTML = html || '<p style="color:var(--muted);">Aucune épreuve à venir.</p>';
+  }
+
+  function competSms(id, kind) {
+    var data = STATE.adminCompet;
+    var c = data.competitions.find(function (x) { return x.id === id; });
+    var ins = data.inscriptions.filter(function (i) { return i.competitionId === id; });
+    var registered = {};
+    ins.forEach(function (i) { registered[String(i.playerId)] = true; });
+    var players = kind === 'inscription'
+      ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie); })
+      : ins.filter(function (i) { return i.statut === 'Validée' && !i.participation; }).map(function (i) {
+          return data.players.find(function (p) { return String(p.id) === String(i.playerId); });
+        }).filter(Boolean);
+    var label = c.nom + (c.epreuve ? ' – ' + c.epreuve : '') + ' (' + dayLabel(c.date) + (c.lieu ? ', ' + c.lieu : '') + ')';
+    var body = kind === 'inscription'
+      ? 'Tennis de table FRI : ' + label + '. Inscriptions ouvertes jusqu\'au ' + c.dateLimite + ' : demande ton inscription dans l\'appli Brûlages FRI.'
+      : 'Tennis de table FRI : ' + label + '. Ton inscription est validée, merci de confirmer ta participation dans l\'appli Brûlages FRI.';
+    var phones = players.map(function (p) { return p.phone; }).filter(function (p) { return normalizePhone(p); });
+    var missing = players.filter(function (p) { return !normalizePhone(p.phone); }).map(function (p) { return p.prenom + ' ' + p.nom; });
+    var el = document.getElementById('competSmsResult-' + id);
+    var html = '';
+    if (phones.length && isMobileDevice()) {
+      html += '<a class="sms-link" href="' + escAttr(smsUri(phones, body)) + '">📱 Ouvrir les SMS (' + phones.length + ')</a>';
+    } else if (phones.length) {
+      html += 'SMS depuis un téléphone uniquement. Numéros : ' + escHtml(phones.join(', '));
+    }
+    if (missing.length) html += '<br><span class="convoc-ko">Sans numéro : ' + escHtml(missing.join(', ')) + '</span>';
+    if (!players.length) html = 'Personne à relancer.';
+    el.innerHTML = html;
+    if (phones.length && isMobileDevice()) window.location.href = smsUri(phones, body);
+  }
+
+  function setInscStatus(id, playerId, statut) {
+    if (statut === '' && !confirm('Retirer cette inscription ?')) return;
+    STATE.openCompet = id;
+    callServer('setInscriptionStatus', [id, playerId, statut]).then(function (res) { STATE.adminCompet = res; renderAdminCompet(); }).catch(onGsError);
+  }
+  function adminAddInsc(id) {
+    var sel = document.getElementById('addInsc-' + id);
+    if (!sel || !sel.value) return;
+    setInscStatus(id, sel.value, 'Validée');
+  }
+  function saveCompetLimit(id, value) {
+    var c = STATE.adminCompet.competitions.find(function (x) { return x.id === id; });
+    STATE.openCompet = id;
+    callServer('saveCompetition', [{ id: c.id, type: c.type, nom: c.nom, epreuve: c.epreuve, date: c.date, dateLimite: value.trim(),
+      lieu: c.lieu, categories: c.categories, tarif: c.tarif, infos: c.infos }])
+      .then(function (res) { STATE.adminCompet = res; renderAdminCompet(); }).catch(onGsError);
+  }
+  function removeCompetition(id) {
+    if (!confirm('Supprimer cette épreuve et ses inscriptions ?')) return;
+    callServer('deleteCompetition', [id]).then(function (res) { STATE.adminCompet = res; renderAdminCompet(); }).catch(onGsError);
+  }
+  function addCompetition() {
+    var v = function (id) { return document.getElementById(id).value.trim(); };
+    var cats = Array.prototype.filter.call(document.querySelectorAll('#ncCats input'), function (i) { return i.checked; }).map(function (i) { return i.value; });
+    if (!v('ncNom') || !v('ncDate')) { alert('Merci de renseigner au moins la compétition et la date.'); return; }
+    callServer('saveCompetition', [{ type: v('ncType'), nom: v('ncNom'), epreuve: v('ncEpreuve'), date: v('ncDate'), dateLimite: v('ncLimite'),
+      lieu: v('ncLieu'), categories: cats, tarif: v('ncTarif'), infos: v('ncInfos') }]).then(function (res) {
+      STATE.adminCompet = res;
+      ['ncEpreuve', 'ncDate', 'ncLimite'].forEach(function (id) { document.getElementById(id).value = ''; });
+      renderAdminCompet();
+      alert('Épreuve ajoutée.');
+    }).catch(onGsError);
+  }
+  function saveCompetSettings() {
+    callServer('setCompetitionSettings', [document.getElementById('setDelai').value, document.getElementById('setRappel').value])
+      .then(function (res) { STATE.adminCompet = res; renderAdminCompet(); alert('Réglages enregistrés.'); }).catch(onGsError);
   }
 
   // ---------------------------------------------------------------------------

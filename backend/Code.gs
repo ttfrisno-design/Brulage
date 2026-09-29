@@ -90,6 +90,17 @@ const API_FUNCTIONS_ = {
   deletePlayer: deletePlayer,
   updateDates: updateDates,
   setAdminPin: setAdminPin,
+  sendConvocations: sendConvocations,
+  answerConvocation: answerConvocation,
+  getCompetitions: getCompetitions,
+  requestInscriptions: requestInscriptions,
+  cancelInscription: cancelInscription,
+  confirmParticipation: confirmParticipation,
+  getCompetitionsAdmin: getCompetitionsAdmin,
+  setInscriptionStatus: setInscriptionStatus,
+  saveCompetition: saveCompetition,
+  deleteCompetition: deleteCompetition,
+  setCompetitionSettings: setCompetitionSettings,
 };
 
 function doPost(e) {
@@ -168,7 +179,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V1';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V3';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -243,7 +254,7 @@ function ensureSheetsNow_() {
   let players = ss.getSheetByName('Joueurs');
   if (!players) {
     players = ss.insertSheet('Joueurs');
-    players.getRange(1, 1, 1, 7).setValues([['ID', 'Nom', 'Prénom', 'EquipeDomicile', 'PIN', 'Actif', 'Capitaine']]);
+    players.getRange(1, 1, 1, 8).setValues([['ID', 'Nom', 'Prénom', 'EquipeDomicile', 'PIN', 'Actif', 'Capitaine', 'Téléphone']]);
     // Colonne PIN (E) toujours en texte, pour ne jamais perdre un zéro de tête (ex. "0042").
     players.getRange(2, 5, 998, 1).setNumberFormat('@');
     players.setFrozenRows(1);
@@ -252,6 +263,65 @@ function ensureSheetsNow_() {
   // "Capitaine" (7e colonne) — on l'ajoute sans toucher aux données existantes.
   if (players.getLastColumn() < 7) {
     players.getRange(1, 7).setValue('Capitaine');
+  }
+  // Réparation : colonne "Téléphone" (8e colonne, pour les convocations
+  // par SMS) absente des classeurs créés par une version antérieure.
+  if (players.getLastColumn() < 8) {
+    players.getRange(1, 8).setValue('Téléphone');
+  }
+  // Toujours en texte : sinon Sheets transforme "0612345678" en nombre et
+  // supprime le zéro de tête.
+  players.getRange(2, 8, 998, 1).setNumberFormat('@');
+
+  // Réparation : colonne "Catégorie" (9e colonne : Poussin, Benjamin...,
+  // Senior, V40...) pour les compétitions individuelles. On ajoute
+  // uniquement l'en-tête : les lignes des joueurs existants ne sont jamais
+  // modifiées.
+  if (players.getLastColumn() < 9) {
+    players.getRange(1, 9).setValue('Catégorie');
+  }
+
+  // Réglages des compétitions individuelles, ajoutés à la feuille Config
+  // s'ils n'existent pas encore (sans toucher aux autres réglages).
+  const cfgKeys = cfg.getRange(1, 1, Math.max(cfg.getLastRow(), 1), 1).getValues().map(function (r) { return r[0]; });
+  [['DelaiInscriptionJours', '15'], ['RappelJours', '10']].forEach(function (kv) {
+    if (cfgKeys.indexOf(kv[0]) < 0) {
+      const row = cfg.getLastRow() + 1;
+      cfg.getRange(row, 1, 1, 2).setNumberFormat('@').setValues([kv]);
+    }
+  });
+
+  // --- Compétitions individuelles ---
+  // Une ligne par épreuve (tour, journée...). DateLimite vide = date de
+  // l'épreuve moins DelaiInscriptionJours (feuille Config).
+  let compet = ss.getSheetByName('Competitions');
+  if (!compet) {
+    compet = ss.insertSheet('Competitions');
+    compet.getRange(1, 1, 1, 10).setValues([COMPET_HEADERS_]);
+    compet.getRange(2, 5, 998, 1).setNumberFormat('@');
+    compet.getRange(2, 7, 998, 1).setNumberFormat('@');
+    compet.setFrozenRows(1);
+    const seed = defaultCompetitions_();
+    compet.getRange(2, 1, seed.length, 10).setValues(seed);
+  }
+
+  // --- Inscriptions ---
+  let insc = ss.getSheetByName('Inscriptions');
+  if (!insc) {
+    insc = ss.insertSheet('Inscriptions');
+    insc.getRange(1, 1, 1, 6).setValues([['CompetitionID', 'JoueurID', 'Statut', 'DemandeLe', 'Participation', 'ParticipationLe']]);
+    insc.setFrozenRows(1);
+  }
+
+  // --- Convocations ---
+  // Une ligne par joueur convoqué à un match (JoueurID + Phase + Date),
+  // avec l'équipe, le message envoyé et la réponse du joueur.
+  let convoc = ss.getSheetByName('Convocations');
+  if (!convoc) {
+    convoc = ss.insertSheet('Convocations');
+    convoc.getRange(1, 1, 1, 8).setValues([['JoueurID', 'Phase', 'Date', 'Equipe', 'EnvoyeeLe', 'Message', 'Reponse', 'ReponduLe']]);
+    convoc.getRange(2, 3, 998, 1).setNumberFormat('@');
+    convoc.setFrozenRows(1);
   }
 
   // --- Availability ---
@@ -609,6 +679,11 @@ function getPlayerData(playerId, phase) {
     assignments: assignMap,
     burned: computeBurnedTeams_(matchesByTeam),
     matchesByTeam: matchesByTeam,
+    // Toutes phases confondues : le joueur doit voir sa convocation quel
+    // que soit l'onglet de phase affiché.
+    convocations: readTable_('Convocations')
+      .filter(function (r) { return String(r.JoueurID) === String(playerId); })
+      .map(convocationToClient_),
   };
 }
 
@@ -657,6 +732,14 @@ function getAdminData(phase) {
     matchesByPlayerTeam[r.JoueurID][r.EquipeJouee] = (matchesByPlayerTeam[r.JoueurID][r.EquipeJouee] || 0) + 1;
   });
 
+  const convocByPlayer = {};
+  readTable_('Convocations')
+    .filter(function (r) { return Number(r.Phase) === Number(phase); })
+    .forEach(function (r) {
+      convocByPlayer[r.JoueurID] = convocByPlayer[r.JoueurID] || {};
+      convocByPlayer[r.JoueurID][r.Date] = convocationToClient_(r);
+    });
+
   const result = players
     .filter(function (p) { return p.Actif !== false && p.Actif !== 'FAUX' && p.Actif !== 'NON'; })
     .map(function (p) {
@@ -669,6 +752,8 @@ function getAdminData(phase) {
         assignments: assignByPlayer[p.ID] || {},
         matchesByTeam: matchesByPlayerTeam[p.ID] || {},
         burned: computeBurnedTeams_(matchesByPlayerTeam[p.ID] || {}),
+        phone: String(p.Téléphone || ''),
+        convocations: convocByPlayer[p.ID] || {},
       };
     });
 
@@ -878,6 +963,410 @@ function resetPhaseAssignments(phase) {
 }
 
 // ----------------------------------------------------------------------------------
+// CONVOCATIONS
+// ----------------------------------------------------------------------------------
+
+function convocationToClient_(r) {
+  return {
+    phase: Number(r.Phase),
+    date: r.Date,
+    teamId: Number(r.Equipe),
+    sentAt: r.EnvoyeeLe instanceof Date ? r.EnvoyeeLe.toISOString() : String(r.EnvoyeeLe || ''),
+    message: String(r.Message || ''),
+    response: String(r.Reponse || ''),
+  };
+}
+
+/**
+ * Convoque à un match (phase + date + équipe) tous les joueurs affectés à
+ * cette équipe ce jour-là (feuille Affectations). Enregistre une ligne par
+ * joueur dans "Convocations" (visible dans l'appli du joueur) et renvoie la
+ * liste des joueurs avec leur téléphone, pour l'envoi des SMS depuis le
+ * téléphone du capitaine / de l'administrateur.
+ * Une nouvelle convocation pour le même joueur à la même date remplace la
+ * précédente (et efface sa réponse).
+ */
+function sendConvocations(phase, date, teamId, message) {
+  ensureSheets_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  let selected;
+  try {
+    selected = readTable_('Affectations').filter(function (r) {
+      return Number(r.Phase) === Number(phase) && r.Date === date && Number(r.EquipeJouee) === Number(teamId);
+    });
+    if (!selected.length) {
+      throw new Error('Aucun joueur affecté à cette équipe le ' + date + '. Enregistrez d\'abord la feuille de match.');
+    }
+    const selectedIds = {};
+    selected.forEach(function (r) { selectedIds[String(r.JoueurID)] = true; });
+
+    const sheet = ss_().getSheetByName('Convocations');
+    const values = sheet.getDataRange().getValues();
+    const header = values.shift();
+    const now = new Date();
+    // On retire les anciennes convocations de cette date pour cette équipe
+    // (joueurs retirés de la feuille de match depuis) et celles des joueurs
+    // sélectionnés (remplacées ci-dessous).
+    const kept = values.filter(function (row) {
+      if (!row.some(function (c) { return c !== '' && c !== null; })) return false;
+      const sameMatch = Number(row[1]) === Number(phase) && row[2] === date;
+      if (!sameMatch) return true;
+      return !selectedIds[String(row[0])] && Number(row[3]) !== Number(teamId);
+    });
+    selected.forEach(function (r) {
+      kept.push([r.JoueurID, Number(phase), date, Number(teamId), now, String(message || ''), '', '']);
+    });
+    sheet.clearContents();
+    sheet.getRange(1, 1, 1, header.length).setValues([header]);
+    sheet.getRange(2, 3, Math.max(kept.length, 1), 1).setNumberFormat('@');
+    if (kept.length) {
+      sheet.getRange(2, 1, kept.length, 8).setValues(kept);
+    }
+  } finally {
+    lock.releaseLock();
+  }
+
+  return selectedIdsToPlayers_(readTable_('Joueurs'), selected);
+}
+
+function selectedIdsToPlayers_(players, rows) {
+  return rows.map(function (r) {
+    const p = players.find(function (pl) { return String(pl.ID) === String(r.JoueurID); }) || {};
+    return { id: r.JoueurID, name: (p.Prénom || '') + ' ' + (p.Nom || ''), phone: String(p.Téléphone || '') };
+  });
+}
+
+/** Réponse du joueur à sa convocation : "Présent" ou "Absent". */
+function answerConvocation(playerId, phase, date, response) {
+  ensureSheets_();
+  if (response !== 'Présent' && response !== 'Absent') {
+    throw new Error('Réponse invalide.');
+  }
+  const sheet = ss_().getSheetByName('Convocations');
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === String(playerId) && Number(values[i][1]) === Number(phase) && values[i][2] === date) {
+      sheet.getRange(i + 1, 7, 1, 2).setValues([[response, new Date()]]);
+      return { ok: true };
+    }
+  }
+  throw new Error('Convocation introuvable (elle a peut-être été annulée).');
+}
+
+// ----------------------------------------------------------------------------------
+// COMPÉTITIONS INDIVIDUELLES (jeunes / adultes)
+// ----------------------------------------------------------------------------------
+
+const COMPET_HEADERS_ = ['ID', 'Type', 'Nom', 'Epreuve', 'Date', 'Lieu', 'DateLimite', 'Categories', 'Tarif', 'Infos'];
+const YOUTH_CATEGORIES_ = ['Poussin', 'Benjamin', 'Minime', 'Cadet', 'Junior'];
+const ADULT_CATEGORIES_ = ['Senior', 'V40', 'V50', 'V60', 'V70', 'V80'];
+
+/** Calendrier 2026-2027 (plaquettes « Compétitions jeunes / adultes » du
+ * club), utilisé uniquement à la création de la feuille Competitions. */
+function defaultCompetitions_() {
+  const rows = [];
+  let id = 0;
+  function add(type, nom, epreuves, lieu, cats, tarif, infos) {
+    epreuves.forEach(function (e) {
+      rows.push([++id, type, nom, e[1], e[0], e[2] || lieu, '', cats, tarif, infos]);
+    });
+  }
+  // --- Adultes ---
+  add('Adultes', 'Critérium Fédéral', [
+    ['11/10/2026', 'Tour 1'], ['15/11/2026', 'Tour 2'], ['31/01/2027', 'Tour 3'],
+    ['07/03/2027', 'Tour 4'], ['28/03/2027', 'Finales départementales'],
+  ], 'Communiqué avant chaque tour', '', '35 € la saison',
+    'Le dimanche. 4 tours en poules puis tableau, montées et descentes de division (départementale, régionale, nationale).');
+  add('Adultes', 'Coupe de Rouen', [
+    ['14/10/2026', 'T1'], ['04/11/2026', 'T2'], ['25/11/2026', 'T3'], ['16/12/2026', 'T4'],
+    ['06/01/2027', 'T5'], ['27/01/2027', 'T6'], ['17/02/2027', 'T7'], ['10/03/2027', 'T8'],
+    ['31/03/2027', 'T9'], ['14/04/2027', 'T10'], ['05/05/2027', 'T11'], ['19/05/2027', 'Tournoi individuel'],
+  ], 'District rouennais', '', '20 € la saison',
+    'Le mercredi soir, clubs du district rouennais. 11 tours puis tournoi individuel en mai.');
+  add('Adultes', 'Championnat individuel Vétérans', [
+    ['19/12/2026', 'Tour 1', 'Rouen'], ['13/02/2027', 'Tour 2', 'Le Havre'],
+    ['15/05/2027', 'Tour 3', 'Dieppe'], ['19/06/2027', 'Finale', 'Rouen'],
+  ], '', 'V40,V50,V60,V70,V80', '',
+    'Le samedi, 40 ans et plus. 3 tours en poules de 5-6 joueurs (2 tours minimum pour la finale). Double possible.');
+  add('Adultes', 'Challenge SERANO', [
+    ['06/10/2026', 'T1'], ['10/11/2026', 'T2'], ['15/12/2026', 'T3'], ['12/01/2027', 'T4'],
+    ['09/02/2027', 'T5'], ['09/03/2027', 'T6'], ['06/04/2027', 'T7'], ['18/05/2027', 'T8'],
+  ], 'District rouennais', 'V50,V60,V70,V80', '25 € la saison',
+    'Le mardi, vétérans de plus de 55 ans du district rouennais. 8 tours, classement et podiums en fin de saison.');
+  // --- Jeunes ---
+  const c500 = [
+    ['03/10/2026', 'T1', 'Le Havre'], ['28/11/2026', 'T2', 'Rouen'], ['12/12/2026', 'T3', 'Dieppe'],
+    ['13/02/2027', 'T4', 'Rouen'], ['20/03/2027', 'T5', 'Le Havre'], ['10/04/2027', 'T6', 'Dieppe'],
+  ];
+  add('Jeunes', 'Challenge 500', c500, '', '', '6 € par tour',
+    'Le samedi. Pour les débutants classés 500 points : beaucoup de matchs contre des joueurs de ton niveau.');
+  add('Jeunes', 'Circuit Jeunes', c500, '', 'Poussin,Benjamin', '6 € par tour',
+    'Le samedi. Poussins et benjamins 1re année (nés en 2017), tous niveaux.');
+  add('Jeunes', 'Championnat Jeunes (équipe de 2)', [
+    ['07/11/2026', 'J1'], ['05/12/2026', 'J2'], ['16/01/2027', 'J3'], ['06/02/2027', 'J4'],
+    ['13/03/2027', 'J5'], ['22/05/2027', 'Finale district'], ['20/06/2027', 'Finale départementale'],
+  ], 'Amfreville-la-Mi-Voie, Sotteville ou Saint-Étienne-du-Rouvray', '', '25 € par équipe',
+    'Le samedi. Équipe de 2 (ou 3 avec un remplaçant) : 4 simples et 1 double.');
+  add('Jeunes', 'Critérium Fédéral', [
+    ['10/10/2026', 'Tour 1'], ['14/11/2026', 'Tour 2'], ['30/01/2027', 'Tour 3'],
+    ['06/03/2027', 'Tour 4'], ['27/03/2027', 'Finales départementales'],
+  ], 'Communiqué avant chaque tour', '', '20 € (poussin à cadet), 25 € (junior)',
+    'Le samedi, par catégorie d\'âge, tous niveaux. Montées et descentes de division, porte d\'entrée vers les Championnats de Normandie.');
+  add('Jeunes', 'Championnat de Seine-Maritime', [['19/12/2026', 'Journée']], 'Communiqué ultérieurement', '', '', '');
+  // --- Tous ---
+  add('Tous', 'Rassemblements féminins', [
+    ['01/11/2026', 'Solidarité Cancer'], ['21/03/2027', 'Tournoi par équipes'], ['06/06/2027', 'Tournoi féminin'],
+  ], 'Communiqué ultérieurement', '', '', 'Rendez-vous du CD76TT pour les joueuses, tous âges et tous niveaux.');
+  return rows;
+}
+
+function readConfigValue_(key, fallback) {
+  const row = readTable_('Config').find(function (r) { return r.Clé === key; });
+  return row && String(row.Valeur) !== '' ? row.Valeur : fallback;
+}
+
+function competitionSettings_() {
+  return {
+    delaiJours: Number(readConfigValue_('DelaiInscriptionJours', 15)) || 0,
+    rappelJours: Number(readConfigValue_('RappelJours', 10)) || 0,
+  };
+}
+
+function parseFrDate_(s) {
+  const m = String(s || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1])) : null;
+}
+
+function formatFrDate_(d) {
+  return pad2_(d.getDate()) + '/' + pad2_(d.getMonth() + 1) + '/' + d.getFullYear();
+}
+
+function readCompetitions_(settings) {
+  return readTable_('Competitions').filter(function (r) { return r.ID !== '' && r.Date; }).map(function (r) {
+    const date = parseFrDate_(r.Date);
+    let deadline = r.DateLimite ? String(r.DateLimite) : '';
+    let deadlineAuto = false;
+    if (!deadline && date) {
+      const d = new Date(date.getTime());
+      d.setDate(d.getDate() - settings.delaiJours);
+      deadline = formatFrDate_(d);
+      deadlineAuto = true;
+    }
+    return {
+      id: Number(r.ID), type: String(r.Type), nom: String(r.Nom), epreuve: String(r.Epreuve || ''),
+      date: String(r.Date), lieu: String(r.Lieu || ''), dateLimite: deadline, dateLimiteAuto: deadlineAuto,
+      categories: String(r.Categories || '').split(',').map(function (c) { return c.trim(); }).filter(Boolean),
+      tarif: String(r.Tarif || ''), infos: String(r.Infos || ''),
+    };
+  });
+}
+
+function readInscriptions_() {
+  return readTable_('Inscriptions').map(function (r) {
+    return {
+      competitionId: Number(r.CompetitionID), playerId: r.JoueurID, statut: String(r.Statut || ''),
+      demandeLe: r.DemandeLe instanceof Date ? r.DemandeLe.toISOString() : String(r.DemandeLe || ''),
+      participation: String(r.Participation || ''),
+    };
+  });
+}
+
+function isEligible_(compet, categorie) {
+  if (!categorie) return true; // catégorie non renseignée : on ne bloque pas
+  const allowed = compet.categories.length ? compet.categories
+    : compet.type === 'Jeunes' ? YOUTH_CATEGORIES_
+    : compet.type === 'Adultes' ? ADULT_CATEGORIES_
+    : YOUTH_CATEGORIES_.concat(ADULT_CATEGORIES_);
+  return allowed.indexOf(categorie) >= 0;
+}
+
+function todayStart_() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** Vue joueur : toutes les épreuves + ses inscriptions + réglages. */
+function getCompetitions(playerId) {
+  ensureSheets_();
+  const settings = competitionSettings_();
+  const player = readTable_('Joueurs').find(function (p) { return String(p.ID) === String(playerId); }) || {};
+  const categorie = String(player.Catégorie || '');
+  const mine = {};
+  readInscriptions_().forEach(function (i) {
+    if (String(i.playerId) === String(playerId)) mine[i.competitionId] = i;
+  });
+  return {
+    settings: settings,
+    categorie: categorie,
+    competitions: readCompetitions_(settings).map(function (c) {
+      c.eligible = isEligible_(c, categorie);
+      return c;
+    }),
+    inscriptions: mine,
+  };
+}
+
+function withInscriptionsSheet_(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const sheet = ss_().getSheetByName('Inscriptions');
+    const values = sheet.getDataRange().getValues();
+    const header = values.shift();
+    const rows = values.filter(function (row) { return row.some(function (c) { return c !== '' && c !== null; }); });
+    const result = fn(rows);
+    sheet.clearContents();
+    sheet.getRange(1, 1, 1, header.length).setValues([header]);
+    if (rows.length) sheet.getRange(2, 1, rows.length, header.length).setValues(rows);
+    return result;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function findInscriptionRow_(rows, competitionId, playerId) {
+  return rows.find(function (r) { return Number(r[0]) === Number(competitionId) && String(r[1]) === String(playerId); });
+}
+
+/** Demande d'inscription du joueur à une ou plusieurs épreuves (avant la
+ * date limite de chacune). */
+function requestInscriptions(playerId, competitionIds) {
+  ensureSheets_();
+  const data = getCompetitions(playerId);
+  const byId = {};
+  data.competitions.forEach(function (c) { byId[c.id] = c; });
+  const today = todayStart_();
+  const refused = [];
+  withInscriptionsSheet_(function (rows) {
+    (competitionIds || []).forEach(function (cid) {
+      const c = byId[Number(cid)];
+      if (!c) return;
+      const limit = parseFrDate_(c.dateLimite);
+      if (!c.eligible || (limit && limit < today)) { refused.push(c.nom + ' ' + c.epreuve); return; }
+      const row = findInscriptionRow_(rows, c.id, playerId);
+      if (row) {
+        if (row[2] === 'Refusée' || row[2] === 'Annulée') { row[2] = 'Demandée'; row[3] = new Date(); row[4] = ''; row[5] = ''; }
+      } else {
+        rows.push([c.id, playerId, 'Demandée', new Date(), '', '']);
+      }
+    });
+  });
+  if (refused.length && refused.length === (competitionIds || []).length) {
+    throw new Error('Inscription impossible (date limite dépassée ou catégorie non concernée) : ' + refused.join(', '));
+  }
+  return getCompetitions(playerId);
+}
+
+/** Le joueur retire sa demande (avant la date limite). */
+function cancelInscription(playerId, competitionId) {
+  ensureSheets_();
+  withInscriptionsSheet_(function (rows) {
+    const idx = rows.findIndex(function (r) { return Number(r[0]) === Number(competitionId) && String(r[1]) === String(playerId); });
+    if (idx >= 0) rows.splice(idx, 1);
+  });
+  return getCompetitions(playerId);
+}
+
+/** Confirmation de participation par le joueur, une fois l'inscription
+ * validée par le club : "Confirmée" ou "Annulée" (désistement). */
+function confirmParticipation(playerId, competitionId, value) {
+  ensureSheets_();
+  if (value !== 'Confirmée' && value !== 'Annulée') throw new Error('Réponse invalide.');
+  withInscriptionsSheet_(function (rows) {
+    const row = findInscriptionRow_(rows, competitionId, playerId);
+    if (!row) throw new Error('Inscription introuvable.');
+    row[4] = value;
+    row[5] = new Date();
+  });
+  return getCompetitions(playerId);
+}
+
+/** Vue administrateur : épreuves, toutes les inscriptions, joueurs. */
+function getCompetitionsAdmin() {
+  ensureSheets_();
+  const settings = competitionSettings_();
+  return {
+    settings: settings,
+    competitions: readCompetitions_(settings),
+    inscriptions: readInscriptions_(),
+    players: readTable_('Joueurs')
+      .filter(function (p) { return p.Actif !== false && p.Actif !== 'FAUX' && p.Actif !== 'NON'; })
+      .map(function (p) {
+        return { id: p.ID, nom: p.Nom, prenom: p.Prénom, categorie: String(p.Catégorie || ''), phone: String(p.Téléphone || '') };
+      }),
+  };
+}
+
+/** Admin : valide / refuse une demande, ou inscrit directement un joueur
+ * (statut "Validée"). statut vide = supprime l'inscription. */
+function setInscriptionStatus(competitionId, playerId, statut) {
+  ensureSheets_();
+  if (['Demandée', 'Validée', 'Refusée', ''].indexOf(statut) < 0) throw new Error('Statut invalide.');
+  withInscriptionsSheet_(function (rows) {
+    const idx = rows.findIndex(function (r) { return Number(r[0]) === Number(competitionId) && String(r[1]) === String(playerId); });
+    if (!statut) { if (idx >= 0) rows.splice(idx, 1); return; }
+    if (idx >= 0) { rows[idx][2] = statut; }
+    else { rows.push([Number(competitionId), playerId, statut, new Date(), '', '']); }
+  });
+  return getCompetitionsAdmin();
+}
+
+/** Admin : crée (id vide) ou modifie une épreuve. */
+function saveCompetition(c) {
+  ensureSheets_();
+  const date = normalizeDateFr_(c.date);
+  if (!date) throw new Error('La date de l\'épreuve est obligatoire.');
+  const limite = normalizeDateFr_(c.dateLimite || '');
+  if (!c.nom) throw new Error('Le nom de la compétition est obligatoire.');
+  const sheet = ss_().getSheetByName('Competitions');
+  const values = sheet.getDataRange().getValues();
+  let rowIdx = -1;
+  let id = Number(c.id) || 0;
+  if (id) {
+    for (let i = 1; i < values.length; i++) { if (Number(values[i][0]) === id) { rowIdx = i + 1; break; } }
+  }
+  if (rowIdx < 0) {
+    id = values.slice(1).reduce(function (m, r) { return Math.max(m, Number(r[0]) || 0); }, 0) + 1;
+    rowIdx = sheet.getLastRow() + 1;
+  }
+  const range = sheet.getRange(rowIdx, 1, 1, 10);
+  range.setNumberFormat('@');
+  range.setValues([[String(id), c.type || 'Adultes', c.nom, c.epreuve || '', date, c.lieu || '', limite,
+    (c.categories || []).join(','), c.tarif || '', c.infos || '']]);
+  return getCompetitionsAdmin();
+}
+
+function deleteCompetition(id) {
+  ensureSheets_();
+  const sheet = ss_().getSheetByName('Competitions');
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (Number(values[i][0]) === Number(id)) { sheet.deleteRow(i + 1); break; }
+  }
+  withInscriptionsSheet_(function (rows) {
+    for (let i = rows.length - 1; i >= 0; i--) { if (Number(rows[i][0]) === Number(id)) rows.splice(i, 1); }
+  });
+  return getCompetitionsAdmin();
+}
+
+function setCompetitionSettings(delaiJours, rappelJours) {
+  ensureSheets_();
+  const sheet = ss_().getSheetByName('Config');
+  const values = sheet.getDataRange().getValues();
+  const wanted = { DelaiInscriptionJours: String(Number(delaiJours) || 0), RappelJours: String(Number(rappelJours) || 0) };
+  for (let i = 1; i < values.length; i++) {
+    if (wanted[values[i][0]] !== undefined) {
+      const cell = sheet.getRange(i + 1, 2);
+      cell.setNumberFormat('@');
+      cell.setValue(wanted[values[i][0]]);
+    }
+  }
+  return getCompetitionsAdmin();
+}
+
+// ----------------------------------------------------------------------------------
 // GESTION DES JOUEURS (effectif)
 // ----------------------------------------------------------------------------------
 
@@ -904,18 +1393,18 @@ function assertPinAvailable_(pin, excludeId) {
   }
 }
 
-function addPlayer(nom, prenom, teamId, pin, capitaine) {
+function addPlayer(nom, prenom, teamId, pin, capitaine, telephone, categorie) {
   ensureSheets_();
   assertPinAvailable_(pin);
   const sheet = ss_().getSheetByName('Joueurs');
   const players = readTable_('Joueurs');
   const maxId = players.reduce(function (m, p) { return Math.max(m, Number(p.ID) || 0); }, 0);
   const newId = maxId + 1;
-  sheet.appendRow([newId, nom, prenom, teamId, pin, true, !!capitaine]);
+  sheet.appendRow([newId, nom, prenom, teamId, pin, true, !!capitaine, String(telephone || ''), String(categorie || '')]);
   return { ok: true, id: newId };
 }
 
-function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine) {
+function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone, categorie) {
   ensureSheets_();
   assertPinAvailable_(pin, id);
   const sheet = ss_().getSheetByName('Joueurs');
@@ -923,6 +1412,17 @@ function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine) {
   for (let i = 1; i < values.length; i++) {
     if (String(values[i][0]) === String(id)) {
       sheet.getRange(i + 1, 2, 1, 6).setValues([[nom, prenom, teamId, pin, actif, !!capitaine]]);
+      // Téléphone (colonne H) : on ne l'écrase que s'il est fourni, pour ne
+      // pas l'effacer si une ancienne version de l'appli appelle updatePlayer
+      // sans ce paramètre.
+      if (telephone !== undefined) {
+        const phoneCell = sheet.getRange(i + 1, 8);
+        phoneCell.setNumberFormat('@');
+        phoneCell.setValue(String(telephone || ''));
+      }
+      if (categorie !== undefined) {
+        sheet.getRange(i + 1, 9).setValue(String(categorie || ''));
+      }
       return { ok: true };
     }
   }
