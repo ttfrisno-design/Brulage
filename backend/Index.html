@@ -502,11 +502,12 @@
     // Délai maximal par tentative : sur mobile (changement réseau Wifi/4G,
     // mise en veille de l'écran...) une requête peut rester bloquée sans
     // jamais échouer ni réussir ; on l'abandonne pour pouvoir retenter.
-    // 25s (et non 15s) car Apps Script peut légitimement mettre plus de
-    // 15s à répondre (démarrage à froid, feuille volumineuse) — un délai
-    // trop court finissait par abandonner des requêtes qui auraient réussi.
+    // 60s car Apps Script peut légitimement mettre plus de 25s à répondre
+    // (démarrage à froid, feuille volumineuse) — un délai trop court
+    // abandonnait des requêtes qui auraient réussi, et chaque nouvel essai
+    // relançait tout le travail côté serveur, sans jamais aboutir.
     var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    var timeoutId = controller ? setTimeout(function () { controller.abort(); }, 25000) : null;
+    var timeoutId = controller ? setTimeout(function () { controller.abort(); }, 60000) : null;
     return fetch(SERVER_URL, {
       method: 'POST',
       mode: 'cors',
