@@ -5,7 +5,7 @@
   "description": "Brûlages FRI - Tennis de Table : application mobile Android et iOS (Capacitor)",
   "scripts": {
     "sync": "cap sync",
-    "icons": "capacitor-assets generate --iconBackgroundColor '#ffffff' --splashBackgroundColor '#1565c0'",
+    "icons": "capacitor-assets generate --android --ios --iconBackgroundColor '#ffffff' --splashBackgroundColor '#1565c0'",
     "open:android": "cap open android",
     "open:ios": "cap open ios",
     "build:android": "cap sync android && cd android && ./gradlew assembleDebug"

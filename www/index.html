@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="format-detection" content="telephone=no">
   <meta name="theme-color" content="#1565c0">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/icon-32.png">
+  <link rel="apple-touch-icon" href="assets/icons/icon-180.png">
   <title>Brûlages FRI</title>
   <style>
     :root {
@@ -719,6 +722,13 @@
   // d'écran, changement d'appli sur iPhone) — c'est justement dans ces
   // moments-là que les envois avaient le plus de chances d'avoir échoué.
   window.addEventListener('online', flushAvailabilityOutbox);
+
+  // Version web installable (PC, navigateur) : enregistre le service worker
+  // qui permet d'« installer » l'application depuis Chrome/Edge. Inutile
+  // dans l'application mobile, où Capacitor sert déjà les fichiers en local.
+  if ('serviceWorker' in navigator && !window.Capacitor && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* pas bloquant */ });
+  }
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') { flushAvailabilityOutbox(); }
   });

@@ -54,7 +54,27 @@ Onglet **Actions** › dernier run › artefact `brulages-fri-android-debug` :
 le télécharger, le transférer sur le téléphone et l'installer (autoriser les
 « sources inconnues »). Idéal pour tester avant publication.
 
-## 3. Développement local
+## 3. Version PC (application web installable)
+
+Le même code (`www/`) est publié sur **GitHub Pages** par le workflow
+**Version web (PC)** (`.github/workflows/pages.yml`) à chaque mise à jour de
+la branche `main` :
+
+> https://ttfrisno-design.github.io/Brulage/
+
+Sur PC, ouvrir ce lien dans **Chrome ou Edge**, puis cliquer sur l'icône
+**« Installer »** dans la barre d'adresse (ou menu ⋮ › *Installer
+l'application*) : l'application s'ajoute au menu Démarrer / bureau avec
+l'icône TTFRI et s'ouvre dans sa propre fenêtre. Fonctionne aussi sur Mac,
+et dans n'importe quel navigateur sans installation.
+
+Réglages GitHub à faire une seule fois :
+1. **Settings › Branches** : branche par défaut = `main`.
+2. **Settings › Pages** : *Source* = **GitHub Actions**.
+3. Onglet **Actions** › *Version web (PC)* › **Run workflow** (ou toute
+   fusion dans `main`).
+
+## 4. Développement local
 
 Prérequis : Node.js 22+, et
 - Android : [Android Studio](https://developer.android.com/studio) (JDK 21 inclus) ;
@@ -72,7 +92,7 @@ npm run open:ios        # ouvre Xcode           -> bouton ▶ Run
 Icônes et écran de démarrage : générés depuis `assets/` (icône : logo TTFRI `assets/logo-ttfri.gif`) avec
 `npm run icons`.
 
-## 4. Publication dans les stores
+## 5. Publication dans les stores
 
 ### Google Play (Android)
 1. Créer un compte [Google Play Console](https://play.google.com/console)
@@ -101,6 +121,7 @@ Identifiant de l'application : `fr.fri.brulages` (modifiable dans
 | `backend/Index.html` | Version web d'origine (servie par `doGet`) |
 | `www/` | Interface de l'application mobile |
 | `www/config.js` | URL du déploiement Apps Script |
+| `www/manifest.json`, `www/sw.js` | Version web installable (PC) |
 | `assets/` | Sources des icônes / écran de démarrage |
 | `android/`, `ios/` | Projets natifs générés par Capacitor |
 | `capacitor.config.json` | Nom, identifiant, couleurs de l'application |
