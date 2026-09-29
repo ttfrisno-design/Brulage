@@ -154,7 +154,7 @@
       letter-spacing: normal; font-size: 14px; font-weight: 700;
     }
     .team-frame table.roster { background: #fff; }
-    .add-player-row { display: grid; grid-template-columns: 1fr 1fr 1fr 100px auto auto; gap: 8px; align-items: end; }
+    .add-player-row { display: grid; grid-template-columns: 1fr 1fr 1fr 100px 140px auto auto; gap: 8px; align-items: end; }
     .add-player-row .checkbox-field { display: flex; align-items: center; gap: 6px; padding-bottom: 9px; }
     .add-player-row .checkbox-field label { margin: 0; }
     .add-player-row label { margin: 0 0 4px; }
@@ -207,6 +207,25 @@
       padding: 4px 8px; border-top: 1px dashed #ccc; border-bottom: 1px dashed #ccc;
     }
 
+    /* Convocations */
+    .convoc-card { border-color: #1565c0; background: #f3f8ff; }
+    .convoc-item { padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .convoc-item:last-child { border-bottom: none; }
+    .convoc-msg { white-space: pre-line; font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .convoc-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+    .convoc-btn { border: 2px solid var(--border); background: #fff; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+    .convoc-btn.yes.active { background: var(--green-bg); border-color: var(--green); }
+    .convoc-btn.no.active { background: var(--red-bg); border-color: var(--red); }
+    .convoc-status { font-size: 12px; color: var(--burn-border); }
+    .convoc-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .convoc-fixed { padding: 9px 0; font-weight: 600; }
+    .convoc-table { margin: 12px 0 4px; }
+    .convoc-text { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: 13px; }
+    .convoc-ok { color: var(--green); font-weight: 600; }
+    .convoc-ko { color: var(--red); }
+    .sms-link { display: inline-block; margin-left: 6px; padding: 6px 12px; border-radius: 6px; background: var(--green); color: #fff; text-decoration: none; font-weight: 600; }
+    button.primary:disabled { opacity: .5; cursor: default; }
+    @media (max-width: 640px) { .convoc-form { grid-template-columns: 1fr; } }
     footer.hint { text-align: center; color: var(--muted); font-size: 12px; margin: 20px 0; }
     @media (max-width: 640px) {
       main { padding: 10px; }
@@ -246,6 +265,7 @@
       </div>
     </header>
     <main>
+      <div id="convocPlayer"></div>
       <div class="tabs" id="phaseTabsPlayer"></div>
       <div id="burnBannerPlayer"></div>
       <div class="card">
@@ -269,6 +289,7 @@
       </div>
     </header>
     <main>
+      <div id="convocCaptain"></div>
       <div class="tabs" id="phaseTabsCaptain"></div>
       <div id="burnBannerCaptain"></div>
       <div class="card">
@@ -280,6 +301,7 @@
         <div class="validate-bar" id="captainValidateBar"></div>
         <div id="captainTeamTableContainer"></div>
       </div>
+      <div class="card" id="convocSenderCaptain"></div>
       <div class="card">
         <h2>Mes disponibilités</h2>
         <p style="color:var(--muted);font-size:13px;margin-top:-6px;">
@@ -320,6 +342,7 @@
           <div id="burnTableContainer"></div>
           <button class="secondary" style="margin-top:12px;" onclick="confirmResetPhase()">Réinitialiser les brûlages de cette phase</button>
         </div>
+        <div class="card" id="convocSenderAdmin"></div>
       </div>
 
       <div id="tab-roster" class="admin-tab hidden">
@@ -333,6 +356,7 @@
               <select id="newTeam"></select>
             </div>
             <div><label>PIN</label><input type="text" id="newPin" placeholder="1234"></div>
+            <div><label>Téléphone</label><input type="tel" id="newPhone" placeholder="06 12 34 56 78"></div>
             <div class="checkbox-field"><input type="checkbox" id="newCapitaine"><label for="newCapitaine" style="display:inline;">Capitaine</label></div>
             <div><button class="primary" style="margin-top:0;" onclick="addPlayer()">Ajouter</button></div>
           </div>
@@ -840,6 +864,8 @@
       bannerEl.innerHTML = '';
     }
 
+    renderMyConvocations('convocPlayer', data);
+
     var listEl = document.getElementById('playerDatesList');
     listEl.innerHTML = '';
     availabilityDates(data).forEach(function (row) {
@@ -1081,6 +1107,7 @@
     }
 
     container.innerHTML = html;
+    renderConvocSender('convocSenderAdmin', STATE.adminData, null);
   }
 
   function TEAMS_forHeader() { return STATE.config.teams; }
@@ -1143,6 +1170,8 @@
     } else {
       bannerEl.innerHTML = '';
     }
+
+    renderMyConvocations('convocCaptain', data);
 
     var listEl = document.getElementById('captainOwnDatesList');
     listEl.innerHTML = '';
@@ -1261,6 +1290,7 @@
       html += '</div>';
     });
     document.getElementById('captainTeamTableContainer').innerHTML = html;
+    renderConvocSender('convocSenderCaptain', STATE.captainTeamData, teamId);
   }
 
   function pendingKey(playerId, date) { return playerId + '|' + date; }
@@ -1362,6 +1392,7 @@
           STATE.config.teams.map(function (t) { return '<option value="' + t.id + '" ' + (Number(p.EquipeDomicile) === t.id ? 'selected' : '') + '>' + t.name + '</option>'; }).join('') +
         '</select></td>' +
         '<td><input type="text" value="' + escAttr(p.PIN) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="PIN" style="width:70px;"></td>' +
+        '<td><input type="tel" value="' + escAttr(p['Téléphone']) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Téléphone" style="width:120px;" placeholder="06…"></td>' +
         '<td><input type="checkbox" ' + (p.Actif === false || p.Actif === 'FAUX' ? '' : 'checked') + ' onchange="editPlayer(' + p.ID + ',this)" data-field="Actif"></td>' +
         '<td><input type="checkbox" ' + (p.Capitaine === true || p.Capitaine === 'VRAI' ? 'checked' : '') + ' onchange="editPlayer(' + p.ID + ',this)" data-field="Capitaine" title="Peut saisir le tableau de brûlage de son équipe"></td>' +
         '<td><button class="small" onclick="removePlayer(' + p.ID + ')">Supprimer</button></td>' +
@@ -1377,7 +1408,7 @@
       html += '<div class="team-frame" style="--team-border:' + c.border + ';--team-bg:' + c.bg + ';">' +
         '<h3 class="team-frame-title">' + t.name + ' — ' + t.division + ' <span style="font-weight:400;color:var(--muted);">(' + teamPlayers.length + ' joueur' + (teamPlayers.length > 1 ? 's' : '') + ')</span></h3>';
       if (teamPlayers.length) {
-        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
         teamPlayers.forEach(function (p) { html += rowHtml(p); });
         html += '</tbody></table>';
       } else {
@@ -1393,7 +1424,7 @@
     if (orphans.length) {
       html += '<div class="team-frame" style="--team-border:#999;--team-bg:#f5f5f5;">' +
         '<h3 class="team-frame-title">Équipe non définie</h3>' +
-        '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+        '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
       orphans.forEach(function (p) { html += rowHtml(p); });
       html += '</tbody></table></div>';
     }
@@ -1409,7 +1440,7 @@
     var field = el.dataset.field;
     var value = el.type === 'checkbox' ? el.checked : el.value;
     p[field] = value;
-    callServer('updatePlayer', [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine]).catch(onGsError);
+    callServer('updatePlayer', [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '']).catch(onGsError);
   }
 
   function addPlayer() {
@@ -1418,11 +1449,13 @@
     var team = document.getElementById('newTeam').value;
     var pin = document.getElementById('newPin').value.trim();
     var capitaine = document.getElementById('newCapitaine').checked;
+    var phone = document.getElementById('newPhone').value.trim();
     if (!nom || !prenom || !pin) { alert('Merci de renseigner le nom, le prénom et le PIN.'); return; }
-    callServer('addPlayer', [nom, prenom, team, pin, capitaine]).then(function () {
+    callServer('addPlayer', [nom, prenom, team, pin, capitaine, phone]).then(function () {
       document.getElementById('newNom').value = '';
       document.getElementById('newPrenom').value = '';
       document.getElementById('newPin').value = '';
+      document.getElementById('newPhone').value = '';
       document.getElementById('newCapitaine').checked = false;
       loadRoster();
     }).catch(onGsError);
@@ -1431,6 +1464,222 @@
   function removePlayer(id) {
     if (!confirm('Supprimer ce joueur ?')) return;
     callServer('deletePlayer', [id]).then(loadRoster).catch(onGsError);
+  }
+
+  // ---------------------------------------------------------------------------
+  // CONVOCATIONS — réception (joueur / capitaine) et envoi (capitaine / admin)
+  // ---------------------------------------------------------------------------
+  function teamById(id) {
+    return STATE.config.teams.find(function (t) { return t.id === Number(id); });
+  }
+  function escHtml(v) {
+    return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function todayStart() {
+    var d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime();
+  }
+  function matchLabel(team, date) {
+    return team.name + ' (' + team.division + ') — ' + team.day.toLowerCase() + ' ' + date + (team.time ? ' à ' + team.time : '');
+  }
+
+  // Bandeau "Mes convocations" en haut de la vue joueur / capitaine : les
+  // matchs à venir auxquels le joueur est convoqué, avec les boutons de
+  // réponse Présent / Absent.
+  function renderMyConvocations(containerId, data) {
+    var el = document.getElementById(containerId);
+    if (!el) return;
+    var list = (data.convocations || [])
+      .filter(function (c) { return parseFrDate(c.date) >= todayStart(); })
+      .sort(function (a, b) { return parseFrDate(a.date) - parseFrDate(b.date); });
+    if (!list.length) { el.innerHTML = ''; return; }
+    var html = '<div class="card convoc-card"><h2>📣 Mes convocations</h2>';
+    list.forEach(function (c) {
+      var team = teamById(c.teamId);
+      if (!team) return;
+      var args = c.phase + ',\'' + c.date + '\'';
+      html += '<div class="convoc-item">' +
+        '<div class="convoc-title">Vous êtes convoqué(e) : <b>' + escHtml(matchLabel(team, c.date)) + '</b></div>' +
+        (c.message ? '<div class="convoc-msg">' + escHtml(c.message) + '</div>' : '') +
+        '<div class="convoc-actions">' +
+          '<button class="convoc-btn yes' + (c.response === 'Présent' ? ' active' : '') + '" onclick="answerMyConvocation(\'' + containerId + '\',' + args + ',\'Présent\')">✓ Présent</button>' +
+          '<button class="convoc-btn no' + (c.response === 'Absent' ? ' active' : '') + '" onclick="answerMyConvocation(\'' + containerId + '\',' + args + ',\'Absent\')">✕ Absent</button>' +
+          (c.response ? '' : '<span class="convoc-status">En attente de votre réponse</span>') +
+        '</div></div>';
+    });
+    el.innerHTML = html + '</div>';
+  }
+
+  function answerMyConvocation(containerId, phase, date, response) {
+    var data = STATE.session.isCaptain ? STATE.captainOwnData : STATE.playerData;
+    var c = (data.convocations || []).find(function (x) { return x.phase === phase && x.date === date; });
+    var previous = c ? c.response : '';
+    if (c) { c.response = response; renderMyConvocations(containerId, data); }
+    callServer('answerConvocation', [STATE.session.playerId, phase, date, response]).catch(function (err) {
+      if (c) { c.response = previous; renderMyConvocations(containerId, data); }
+      onGsError(err);
+    });
+  }
+
+  // Lien SMS vers plusieurs destinataires, message pré-rempli. Le format
+  // diffère entre iPhone et Android.
+  function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function isMobileDevice() {
+    return isIOS() || /Android/i.test(navigator.userAgent);
+  }
+  function normalizePhone(p) {
+    return String(p || '').replace(/[^\d+]/g, '');
+  }
+  function smsUri(phones, body) {
+    var list = phones.map(normalizePhone).filter(Boolean);
+    if (isIOS()) {
+      return 'sms:/open?addresses=' + list.join(',') + '&body=' + encodeURIComponent(body);
+    }
+    return 'sms:' + list.join(',') + '?body=' + encodeURIComponent(body);
+  }
+
+  // Joueurs affectés (feuille de match enregistrée) à une équipe à une date.
+  function selectedPlayersFor(dataset, teamId, date) {
+    return (dataset || [])
+      .filter(function (p) { return Number((p.assignments || {})[date]) === Number(teamId); })
+      .sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); });
+  }
+
+  function defaultConvocMessage(team, date, players) {
+    return 'Convocation ' + matchLabel(team, date) + '.\n' +
+      'Équipe : ' + players.map(function (p) { return p.prenom + ' ' + p.nom; }).join(', ') + '.\n' +
+      'Merci de confirmer ta présence dans l\'appli Brûlages FRI.';
+  }
+
+  // Brouillon par zone d'envoi (équipe, date, message modifié à la main),
+  // conservé entre deux rafraîchissements automatiques des données.
+  STATE.convocDraft = {};
+
+  function renderConvocSender(containerId, dataset, fixedTeamId) {
+    var el = document.getElementById(containerId);
+    if (!el || !dataset) return;
+    // Ne pas redessiner pendant une saisie (rafraîchissement auto toutes les 20 s).
+    if (el.contains(document.activeElement) && document.activeElement.tagName === 'TEXTAREA') return;
+
+    var draft = STATE.convocDraft[containerId] = STATE.convocDraft[containerId] || {};
+    var teamId = fixedTeamId || draft.teamId || STATE.config.teams[0].id;
+    var team = teamById(teamId);
+    if (!team) { el.innerHTML = ''; return; }
+    var dates = allDatesFlat().filter(function (d) { return d.group === team.group; }).map(function (d) { return d.date; });
+    if (draft.date && dates.indexOf(draft.date) < 0) draft.date = null;
+    if (!draft.date) {
+      var today = todayStart();
+      draft.date = dates.find(function (d) { return parseFrDate(d) >= today; }) || dates[dates.length - 1] || null;
+    }
+    var date = draft.date;
+    draft.teamId = teamId;
+
+    var html = '<h2>📣 Envoyer les convocations</h2>' +
+      '<p style="color:var(--muted);font-size:13px;margin-top:-6px;">Les joueurs de la feuille de match enregistrée reçoivent la convocation dans l\'appli, et l\'appli SMS s\'ouvre avec leurs numéros et le message.</p>' +
+      '<div class="convoc-form">';
+    if (!fixedTeamId) {
+      html += '<div><label>Équipe</label><select onchange="onConvocTeam(\'' + containerId + '\', this.value)">' +
+        STATE.config.teams.map(function (t) { return '<option value="' + t.id + '"' + (t.id === teamId ? ' selected' : '') + '>' + t.name + ' — ' + t.division + '</option>'; }).join('') +
+        '</select></div>';
+    } else {
+      html += '<div><label>Équipe</label><div class="convoc-fixed">' + team.name + ' — ' + team.division + '</div></div>';
+    }
+    html += '<div><label>Match (phase ' + STATE.phase + ')</label>';
+    if (dates.length) {
+      html += '<select onchange="onConvocDate(\'' + containerId + '\', this.value)">' +
+        dates.map(function (d) { return '<option' + (d === date ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select>';
+    } else {
+      html += '<div class="convoc-fixed">Aucune date pour cette phase</div>';
+    }
+    html += '</div></div>';
+
+    if (date) {
+      var players = selectedPlayersFor(dataset, teamId, date);
+      if (pendingCount() > 0) {
+        html += '<div class="error">Des affectations ne sont pas encore validées : cliquez d\'abord sur « Valider et enregistrer ».</div>';
+      }
+      if (!players.length) {
+        html += '<p style="color:var(--muted);font-size:13px;">Aucun joueur affecté à ' + team.name + ' le ' + date + '. Remplissez et enregistrez d\'abord la feuille de match.</p>';
+      } else {
+        html += '<table class="roster convoc-table"><thead><tr><th>Joueur</th><th>Téléphone</th><th>Convocation</th></tr></thead><tbody>';
+        players.forEach(function (p) {
+          var c = (p.convocations || {})[date];
+          var status = '<span style="color:var(--muted);">Non envoyée</span>';
+          if (c && Number(c.teamId) === Number(teamId)) {
+            status = c.response === 'Présent' ? '<span class="convoc-ok">✓ Présent</span>'
+              : c.response === 'Absent' ? '<span class="convoc-ko">✕ Absent</span>'
+              : '<span>📨 Envoyée, sans réponse</span>';
+          }
+          html += '<tr><td>' + escHtml(p.prenom + ' ' + p.nom) + '</td><td>' +
+            (p.phone ? escHtml(p.phone) : '<span class="convoc-ko">pas de n°</span>') + '</td><td>' + status + '</td></tr>';
+        });
+        html += '</tbody></table>';
+        var msgKey = teamId + '|' + date;
+        var message = (draft.edited && draft.msgKey === msgKey) ? draft.message : defaultConvocMessage(team, date, players);
+        draft.msgKey = msgKey;
+        draft.message = message;
+        html += '<label>Message</label><textarea class="convoc-text" rows="4" oninput="onConvocMessage(\'' + containerId + '\', this.value)">' + escHtml(message) + '</textarea>' +
+          '<div class="convoc-actions">' +
+            '<button class="primary" style="margin-top:0;" onclick="sendConvocationsFrom(\'' + containerId + '\')"' + (pendingCount() > 0 ? ' disabled' : '') + '>📣 Envoyer les convocations</button>' +
+            '<span id="' + containerId + '-result">' + (draft.resultKey === msgKey ? draft.resultHtml : '') + '</span>' +
+          '</div>';
+      }
+    }
+    el.innerHTML = html;
+  }
+
+  function convocDataset() {
+    return STATE.session.isAdmin ? STATE.adminData : STATE.captainTeamData;
+  }
+  function refreshConvocSender(containerId) {
+    renderConvocSender(containerId, convocDataset(), STATE.session.isAdmin ? null : STATE.session.captainTeamId);
+  }
+  function onConvocTeam(containerId, teamId) {
+    var d = STATE.convocDraft[containerId];
+    d.teamId = Number(teamId); d.date = null; d.edited = false;
+    refreshConvocSender(containerId);
+  }
+  function onConvocDate(containerId, date) {
+    var d = STATE.convocDraft[containerId];
+    d.date = date; d.edited = false;
+    refreshConvocSender(containerId);
+  }
+  function onConvocMessage(containerId, value) {
+    var d = STATE.convocDraft[containerId];
+    d.message = value; d.edited = true;
+  }
+
+  function sendConvocationsFrom(containerId) {
+    var d = STATE.convocDraft[containerId];
+    var team = teamById(d.teamId);
+    if (!confirm('Envoyer la convocation ' + team.name + ' du ' + d.date + ' aux joueurs sélectionnés ?')) return;
+    var resultEl = document.getElementById(containerId + '-result');
+    if (resultEl) resultEl.textContent = 'Envoi…';
+    callServer('sendConvocations', [STATE.phase, d.date, d.teamId, d.message]).then(function (players) {
+      var phones = players.map(function (p) { return p.phone; }).filter(function (p) { return normalizePhone(p); });
+      var missing = players.filter(function (p) { return !normalizePhone(p.phone); }).map(function (p) { return p.name; });
+      var uri = phones.length ? smsUri(phones, d.message) : '';
+      var html = '✓ Convocation enregistrée dans l\'appli pour ' + players.length + ' joueur' + (players.length > 1 ? 's' : '') + '.';
+      if (uri && isMobileDevice()) {
+        html += ' <a class="sms-link" href="' + escAttr(uri) + '">📱 Ouvrir les SMS</a>';
+      } else if (phones.length) {
+        html += '<br><span style="font-size:12px;">SMS depuis un téléphone uniquement. Numéros : ' + escHtml(phones.join(', ')) + '</span>';
+      }
+      if (missing.length) {
+        html += '<br><span class="convoc-ko" style="font-size:12px;">Sans numéro (pas de SMS) : ' + escHtml(missing.join(', ')) + '</span>';
+      }
+      // Gardé dans le brouillon pour survivre au rafraîchissement du tableau.
+      d.resultKey = d.teamId + '|' + d.date;
+      d.resultHtml = html;
+      if (resultEl) resultEl.innerHTML = html;
+      if (uri && isMobileDevice()) { window.location.href = uri; }
+      // Rafraîchit les statuts "Envoyée" du tableau.
+      if (STATE.session.isAdmin) { loadAdminData(true); } else { loadCaptainData(true); }
+    }).catch(function (err) {
+      if (resultEl) resultEl.textContent = '';
+      onGsError(err);
+    });
   }
 
   // ---------------------------------------------------------------------------

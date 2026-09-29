@@ -113,6 +113,22 @@ Icônes et écran de démarrage : générés depuis `assets/` (icône : logo TTF
 Identifiant de l'application : `fr.fri.brulages` (modifiable dans
 `capacitor.config.json` **avant** la première publication).
 
+## Convocations
+
+- **Effectif** (admin) : renseigner le **Téléphone** de chaque joueur (colonne
+  H de la feuille *Joueurs*).
+- **Envoi** : carte « 📣 Envoyer les convocations » sous le tableau de brûlage
+  (admin : toutes les équipes) ou sous la feuille de match (capitaine : son
+  équipe). Choisir le match, relire le message, puis **Envoyer** :
+  - la convocation est enregistrée (feuille *Convocations*) et s'affiche en
+    haut de l'appli des joueurs sélectionnés, avec les boutons **Présent /
+    Absent** ;
+  - sur téléphone, l'appli SMS s'ouvre avec les numéros et le message
+    pré-remplis (il reste à appuyer sur Envoyer). Sur PC, les numéros sont
+    affichés.
+- Le tableau de la carte indique pour chaque joueur : non envoyée, envoyée
+  sans réponse, ✓ Présent ou ✕ Absent.
+
 ## Arborescence
 
 | Chemin | Rôle |

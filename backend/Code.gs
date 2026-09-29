@@ -90,6 +90,8 @@ const API_FUNCTIONS_ = {
   deletePlayer: deletePlayer,
   updateDates: updateDates,
   setAdminPin: setAdminPin,
+  sendConvocations: sendConvocations,
+  answerConvocation: answerConvocation,
 };
 
 function doPost(e) {
@@ -168,7 +170,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V1';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V2';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -243,7 +245,7 @@ function ensureSheetsNow_() {
   let players = ss.getSheetByName('Joueurs');
   if (!players) {
     players = ss.insertSheet('Joueurs');
-    players.getRange(1, 1, 1, 7).setValues([['ID', 'Nom', 'Prénom', 'EquipeDomicile', 'PIN', 'Actif', 'Capitaine']]);
+    players.getRange(1, 1, 1, 8).setValues([['ID', 'Nom', 'Prénom', 'EquipeDomicile', 'PIN', 'Actif', 'Capitaine', 'Téléphone']]);
     // Colonne PIN (E) toujours en texte, pour ne jamais perdre un zéro de tête (ex. "0042").
     players.getRange(2, 5, 998, 1).setNumberFormat('@');
     players.setFrozenRows(1);
@@ -252,6 +254,25 @@ function ensureSheetsNow_() {
   // "Capitaine" (7e colonne) — on l'ajoute sans toucher aux données existantes.
   if (players.getLastColumn() < 7) {
     players.getRange(1, 7).setValue('Capitaine');
+  }
+  // Réparation : colonne "Téléphone" (8e colonne, pour les convocations
+  // par SMS) absente des classeurs créés par une version antérieure.
+  if (players.getLastColumn() < 8) {
+    players.getRange(1, 8).setValue('Téléphone');
+  }
+  // Toujours en texte : sinon Sheets transforme "0612345678" en nombre et
+  // supprime le zéro de tête.
+  players.getRange(2, 8, 998, 1).setNumberFormat('@');
+
+  // --- Convocations ---
+  // Une ligne par joueur convoqué à un match (JoueurID + Phase + Date),
+  // avec l'équipe, le message envoyé et la réponse du joueur.
+  let convoc = ss.getSheetByName('Convocations');
+  if (!convoc) {
+    convoc = ss.insertSheet('Convocations');
+    convoc.getRange(1, 1, 1, 8).setValues([['JoueurID', 'Phase', 'Date', 'Equipe', 'EnvoyeeLe', 'Message', 'Reponse', 'ReponduLe']]);
+    convoc.getRange(2, 3, 998, 1).setNumberFormat('@');
+    convoc.setFrozenRows(1);
   }
 
   // --- Availability ---
@@ -609,6 +630,11 @@ function getPlayerData(playerId, phase) {
     assignments: assignMap,
     burned: computeBurnedTeams_(matchesByTeam),
     matchesByTeam: matchesByTeam,
+    // Toutes phases confondues : le joueur doit voir sa convocation quel
+    // que soit l'onglet de phase affiché.
+    convocations: readTable_('Convocations')
+      .filter(function (r) { return String(r.JoueurID) === String(playerId); })
+      .map(convocationToClient_),
   };
 }
 
@@ -657,6 +683,14 @@ function getAdminData(phase) {
     matchesByPlayerTeam[r.JoueurID][r.EquipeJouee] = (matchesByPlayerTeam[r.JoueurID][r.EquipeJouee] || 0) + 1;
   });
 
+  const convocByPlayer = {};
+  readTable_('Convocations')
+    .filter(function (r) { return Number(r.Phase) === Number(phase); })
+    .forEach(function (r) {
+      convocByPlayer[r.JoueurID] = convocByPlayer[r.JoueurID] || {};
+      convocByPlayer[r.JoueurID][r.Date] = convocationToClient_(r);
+    });
+
   const result = players
     .filter(function (p) { return p.Actif !== false && p.Actif !== 'FAUX' && p.Actif !== 'NON'; })
     .map(function (p) {
@@ -669,6 +703,8 @@ function getAdminData(phase) {
         assignments: assignByPlayer[p.ID] || {},
         matchesByTeam: matchesByPlayerTeam[p.ID] || {},
         burned: computeBurnedTeams_(matchesByPlayerTeam[p.ID] || {}),
+        phone: String(p.Téléphone || ''),
+        convocations: convocByPlayer[p.ID] || {},
       };
     });
 
@@ -878,6 +914,98 @@ function resetPhaseAssignments(phase) {
 }
 
 // ----------------------------------------------------------------------------------
+// CONVOCATIONS
+// ----------------------------------------------------------------------------------
+
+function convocationToClient_(r) {
+  return {
+    phase: Number(r.Phase),
+    date: r.Date,
+    teamId: Number(r.Equipe),
+    sentAt: r.EnvoyeeLe instanceof Date ? r.EnvoyeeLe.toISOString() : String(r.EnvoyeeLe || ''),
+    message: String(r.Message || ''),
+    response: String(r.Reponse || ''),
+  };
+}
+
+/**
+ * Convoque à un match (phase + date + équipe) tous les joueurs affectés à
+ * cette équipe ce jour-là (feuille Affectations). Enregistre une ligne par
+ * joueur dans "Convocations" (visible dans l'appli du joueur) et renvoie la
+ * liste des joueurs avec leur téléphone, pour l'envoi des SMS depuis le
+ * téléphone du capitaine / de l'administrateur.
+ * Une nouvelle convocation pour le même joueur à la même date remplace la
+ * précédente (et efface sa réponse).
+ */
+function sendConvocations(phase, date, teamId, message) {
+  ensureSheets_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  let selected;
+  try {
+    selected = readTable_('Affectations').filter(function (r) {
+      return Number(r.Phase) === Number(phase) && r.Date === date && Number(r.EquipeJouee) === Number(teamId);
+    });
+    if (!selected.length) {
+      throw new Error('Aucun joueur affecté à cette équipe le ' + date + '. Enregistrez d\'abord la feuille de match.');
+    }
+    const selectedIds = {};
+    selected.forEach(function (r) { selectedIds[String(r.JoueurID)] = true; });
+
+    const sheet = ss_().getSheetByName('Convocations');
+    const values = sheet.getDataRange().getValues();
+    const header = values.shift();
+    const now = new Date();
+    // On retire les anciennes convocations de cette date pour cette équipe
+    // (joueurs retirés de la feuille de match depuis) et celles des joueurs
+    // sélectionnés (remplacées ci-dessous).
+    const kept = values.filter(function (row) {
+      if (!row.some(function (c) { return c !== '' && c !== null; })) return false;
+      const sameMatch = Number(row[1]) === Number(phase) && row[2] === date;
+      if (!sameMatch) return true;
+      return !selectedIds[String(row[0])] && Number(row[3]) !== Number(teamId);
+    });
+    selected.forEach(function (r) {
+      kept.push([r.JoueurID, Number(phase), date, Number(teamId), now, String(message || ''), '', '']);
+    });
+    sheet.clearContents();
+    sheet.getRange(1, 1, 1, header.length).setValues([header]);
+    sheet.getRange(2, 3, Math.max(kept.length, 1), 1).setNumberFormat('@');
+    if (kept.length) {
+      sheet.getRange(2, 1, kept.length, 8).setValues(kept);
+    }
+  } finally {
+    lock.releaseLock();
+  }
+
+  return selectedIdsToPlayers_(readTable_('Joueurs'), selected);
+}
+
+function selectedIdsToPlayers_(players, rows) {
+  return rows.map(function (r) {
+    const p = players.find(function (pl) { return String(pl.ID) === String(r.JoueurID); }) || {};
+    return { id: r.JoueurID, name: (p.Prénom || '') + ' ' + (p.Nom || ''), phone: String(p.Téléphone || '') };
+  });
+}
+
+/** Réponse du joueur à sa convocation : "Présent" ou "Absent". */
+function answerConvocation(playerId, phase, date, response) {
+  ensureSheets_();
+  if (response !== 'Présent' && response !== 'Absent') {
+    throw new Error('Réponse invalide.');
+  }
+  const sheet = ss_().getSheetByName('Convocations');
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === String(playerId) && Number(values[i][1]) === Number(phase) && values[i][2] === date) {
+      sheet.getRange(i + 1, 7, 1, 2).setValues([[response, new Date()]]);
+      return { ok: true };
+    }
+  }
+  throw new Error('Convocation introuvable (elle a peut-être été annulée).');
+}
+
+// ----------------------------------------------------------------------------------
 // GESTION DES JOUEURS (effectif)
 // ----------------------------------------------------------------------------------
 
@@ -904,18 +1032,18 @@ function assertPinAvailable_(pin, excludeId) {
   }
 }
 
-function addPlayer(nom, prenom, teamId, pin, capitaine) {
+function addPlayer(nom, prenom, teamId, pin, capitaine, telephone) {
   ensureSheets_();
   assertPinAvailable_(pin);
   const sheet = ss_().getSheetByName('Joueurs');
   const players = readTable_('Joueurs');
   const maxId = players.reduce(function (m, p) { return Math.max(m, Number(p.ID) || 0); }, 0);
   const newId = maxId + 1;
-  sheet.appendRow([newId, nom, prenom, teamId, pin, true, !!capitaine]);
+  sheet.appendRow([newId, nom, prenom, teamId, pin, true, !!capitaine, String(telephone || '')]);
   return { ok: true, id: newId };
 }
 
-function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine) {
+function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone) {
   ensureSheets_();
   assertPinAvailable_(pin, id);
   const sheet = ss_().getSheetByName('Joueurs');
@@ -923,6 +1051,14 @@ function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine) {
   for (let i = 1; i < values.length; i++) {
     if (String(values[i][0]) === String(id)) {
       sheet.getRange(i + 1, 2, 1, 6).setValues([[nom, prenom, teamId, pin, actif, !!capitaine]]);
+      // Téléphone (colonne H) : on ne l'écrase que s'il est fourni, pour ne
+      // pas l'effacer si une ancienne version de l'appli appelle updatePlayer
+      // sans ce paramètre.
+      if (telephone !== undefined) {
+        const phoneCell = sheet.getRange(i + 1, 8);
+        phoneCell.setNumberFormat('@');
+        phoneCell.setValue(String(telephone || ''));
+      }
       return { ok: true };
     }
   }
