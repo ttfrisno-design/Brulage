@@ -818,8 +818,11 @@
       // des affectations ont été modifiées mais pas encore validées : cela
       // évitait des écarts (une saisie en cours écrasée par la synchro).
       if (Object.keys(STATE.pendingAssignments).length > 0) { return; }
+      // Appli en arrière-plan (autre onglet, téléphone verrouillé) : pas de
+      // vérification, pour économiser la batterie et les appels au script.
+      if (document.visibilityState === 'hidden') { return; }
       checkForUpdates();
-    }, 20000);
+    }, POLL_MS);
     // Version actuelle des données, pour ne retélécharger ensuite que si
     // quelque chose a changé.
     callServer('getDataVersion', []).then(function (v) { STATE.dataVersion = v; }).catch(function () {});
@@ -831,10 +834,15 @@
   // s'il a changé — ou toutes les 5 minutes par sécurité (modifications
   // faites directement dans le classeur).
   var FULL_REFRESH_MS = 5 * 60 * 1000;
+  // Vérification toutes les 5 s (et non plus 20 s) : la question posée au
+  // script est minuscule (numéro de version, aucune lecture de feuille), on
+  // peut donc la poser souvent. Les modifications d'une autre personne
+  // apparaissent ainsi en quelques secondes.
+  var POLL_MS = 5000;
   function checkForUpdates() {
     if (STATE.checkingUpdates) return;
     STATE.checkingUpdates = true;
-    callServer('getDataVersion', []).then(function (v) {
+    callServer('getDataVersion', [], 6).then(function (v) {
       var stale = Date.now() - (STATE.lastFullRefresh || 0) > FULL_REFRESH_MS;
       if (v !== STATE.dataVersion || stale) {
         STATE.dataVersion = v;
@@ -924,7 +932,11 @@
     navigator.serviceWorker.register('sw.js').catch(function () { /* pas bloquant */ });
   }
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') { flushAvailabilityOutbox(); }
+    if (document.visibilityState === 'visible') {
+      flushAvailabilityOutbox();
+      // Retour sur l'appli : on vérifie tout de suite s'il y a du nouveau.
+      if (STATE.session && STATE.pollTimer && !Object.keys(STATE.pendingAssignments).length) { checkForUpdates(); }
+    }
   });
 
   // ---------------------------------------------------------------------------
@@ -1528,7 +1540,8 @@
     // facile à retrouver — y compris s'il n'y a jamais eu de modification.
     var label = n === 0
       ? '<span style="color:var(--muted);font-size:13px;">Aucune modification en attente.</span>'
-      : '<span style="color:#b45309;font-weight:600;font-size:13px;">' + n + ' modification' + (n > 1 ? 's' : '') + ' non enregistrée' + (n > 1 ? 's' : '') + '</span>';
+      : '<span style="color:#b45309;font-weight:600;font-size:13px;">' + n + ' modification' + (n > 1 ? 's' : '') + ' non enregistrée' + (n > 1 ? 's' : '') + '</span>' +
+        ' <span style="color:var(--muted);font-size:12px;">(les saisies des autres s\'afficheront après validation)</span>';
     el.innerHTML = label +
       ' <button class="btn-validate" onclick="saveAssignments()" ' + (n === 0 ? 'disabled' : '') + '>✅ Valider et enregistrer</button>' +
       ' <button class="btn-cancel" onclick="cancelPendingAssignments()" ' + (n === 0 ? 'disabled' : '') + '>Annuler</button>';
