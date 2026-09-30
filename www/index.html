@@ -558,9 +558,10 @@
 
   var GROUP_LABEL = { A: 'Régional 3 (Dim.)', B: 'Départemental 1/2 (Ven. 20h)', C: 'Départemental 3/4 (Ven. 20h)', D: 'Coupe de Rouen (Mer.)', E: 'Championnat Jeunes (Sam.)' };
   var GROUP_COLORS = { A: '#1565c0', B: '#ef6c00', C: '#2e7d32', D: '#6a1b9a', E: '#00838f' };
-  // Groupes de dates : A/B/C = championnat FRI (avec brûlage), D = Coupe de
-  // Rouen, E = Championnat Jeunes (sans brûlage).
-  var GROUPS = ['A', 'B', 'C', 'D', 'E'];
+  // Groupes de dates : A/B/C = championnat FRI (avec brûlage), E =
+  // Championnat Jeunes (sans brûlage). La Coupe de Rouen se gère dans les
+  // compétitions individuelles (équipe CDR1-4 choisie à la validation).
+  var GROUPS = ['A', 'B', 'C', 'E'];
   function isFriTeam(t) { return !t.kind || t.kind === 'FRI'; }
   function friTeams() { return STATE.config.teams.filter(isFriTeam); }
   // Équipes proposées pour une date : celles de la même compétition.
@@ -2268,7 +2269,7 @@
       html += '<span class="pill ko">✕ Refusée par le club</span>';
       if (canRequest(c)) html += '<button class="btn-sm" onclick="requestCompet([' + c.id + '])">Redemander</button>';
     } else if (insc.statut === 'Validée') {
-      html += '<span class="pill ok">✓ Inscription validée</span>';
+      html += '<span class="pill ok">✓ Inscription validée' + (insc.equipe ? ' — ' + escHtml(insc.equipe) : '') + '</span>';
       if (insc.participation === 'Confirmée') html += '<span class="pill ok">Participation confirmée</span>';
       else if (insc.participation === 'Annulée') html += '<span class="pill ko">Désisté(e)</span>';
       else html += '<span class="pill wait">Participation à confirmer</span>';
@@ -2357,11 +2358,14 @@
           (c.dateLimiteAuto ? '<span style="color:var(--muted);">(par défaut : ' + c.dateLimite + ')</span>' : '') +
           ' <button class="btn-sm red" onclick="removeCompetition(' + c.id + ')">Supprimer l\'épreuve</button></div>';
         if (ins.length) {
-          html += '<table class="insc-table"><thead><tr><th>Joueur</th><th>Statut</th><th>Participation</th><th></th></tr></thead><tbody>';
+          var hasTeams = c.teams && c.teams.length;
+          html += '<table class="insc-table"><thead><tr><th>Joueur</th><th>Statut</th>' + (hasTeams ? '<th>Équipe</th>' : '') + '<th>Participation</th><th></th></tr></thead><tbody>';
           ins.forEach(function (i) {
             var p = playersById[String(i.playerId)] || { prenom: '?', nom: 'joueur ' + i.playerId };
             html += '<tr><td>' + escHtml(p.prenom + ' ' + p.nom) + (p.categorie ? ' <span style="color:var(--muted);">(' + escHtml(p.categorie) + ')</span>' : '') + '</td>' +
               '<td>' + (i.statut === 'Validée' ? '<span class="pill ok">Validée</span>' : i.statut === 'Refusée' ? '<span class="pill ko">Refusée</span>' : '<span class="pill wait">Demandée</span>') + '</td>' +
+              (hasTeams ? '<td><select style="width:auto;padding:4px;font-size:13px;" onchange="setInscEquipe(' + c.id + ',' + JSON.stringify(String(i.playerId)).replace(/"/g, '&quot;') + ', this.value)"><option value="">—</option>' +
+                c.teams.map(function (t) { return '<option' + (i.equipe === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></td>' : '') +
               '<td>' + (i.participation === 'Confirmée' ? '<span class="pill ok">Confirmée</span>' : i.participation === 'Annulée' ? '<span class="pill ko">Désisté</span>' : '—') + '</td><td class="compet-actions">' +
               (i.statut !== 'Validée' ? '<button class="btn-sm green" onclick="setInscStatus(' + c.id + ',' + JSON.stringify(String(i.playerId)).replace(/"/g, '&quot;') + ',\'Validée\')">Valider</button>' : '') +
               (i.statut !== 'Refusée' ? '<button class="btn-sm red" onclick="setInscStatus(' + c.id + ',' + JSON.stringify(String(i.playerId)).replace(/"/g, '&quot;') + ',\'Refusée\')">Refuser</button>' : '') +
@@ -2427,6 +2431,10 @@
     if (statut === '' && !confirm('Retirer cette inscription ?')) return;
     STATE.openCompet = id;
     callServer('setInscriptionStatus', [id, playerId, statut]).then(function (res) { STATE.adminCompet = res; renderAdminCompet(); }).catch(onGsError);
+  }
+  function setInscEquipe(id, playerId, equipe) {
+    STATE.openCompet = id;
+    callServer('setInscriptionEquipe', [id, playerId, equipe]).then(function (res) { STATE.adminCompet = res; renderAdminCompet(); }).catch(onGsError);
   }
   function adminAddInsc(id) {
     var sel = document.getElementById('addInsc-' + id);
