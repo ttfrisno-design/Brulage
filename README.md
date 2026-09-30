@@ -129,21 +129,20 @@ Identifiant de l'application : `fr.fri.brulages` (modifiable dans
 - Le tableau de la carte indique pour chaque joueur : non envoyée, envoyée
   sans réponse, ✓ Présent ou ✕ Absent.
 
-## Équipes Coupe de Rouen et Championnat Jeunes
+## Équipes Championnat Jeunes (CJ1-CJ4) et Coupe de Rouen (CDR1-CDR4)
 
-- 4 équipes **CDR1 à CDR4** (Coupe de Rouen, le mercredi, dates du groupe
-  « Coupe de Rouen ») et 4 équipes **CJ1 à CJ4** (Championnat Jeunes, le
-  samedi, groupe « Championnat Jeunes »). Dates 2026-2027 pré-remplies,
-  modifiables dans *Dates & Réglages*.
-- **Pas de brûlage** pour ces équipes, et leurs matchs ne comptent pas pour
-  le brûlage FRI1-FRI8.
-- Les équipes CJ sont réservées aux jeunes (catégorie Poussin à Junior, ou
-  non renseignée) : les adultes ne voient pas ces dates dans leurs
-  disponibilités et ne peuvent pas y être affectés.
-- Affectation : dans le tableau de brûlage, colonnes « Coupe de Rouen » et
-  « Championnat Jeunes » du cadre FRI de chaque joueur ; les cadres CDR / CJ
-  montrent la composition. Convocations possibles comme pour les autres
-  équipes.
+- **Championnat Jeunes** : 4 équipes **CJ1 à CJ4** dans le championnat par
+  équipes (le samedi, groupe de dates « Championnat Jeunes », modifiable
+  dans *Dates & Réglages*). Pas de brûlage, et leurs matchs ne comptent pas
+  pour le brûlage FRI1-FRI8. Réservées aux jeunes (catégorie Poussin à
+  Junior, ou non renseignée) : les adultes ne voient pas ces dates et ne
+  peuvent pas y être affectés.
+- **Coupe de Rouen** : gérée dans les **compétitions individuelles
+  adultes** (et non dans le championnat FRI). Le joueur demande son
+  inscription à chaque tour ; l'administrateur la valide et choisit
+  l'équipe **CDR1 à CDR4** (colonne « Équipe » de l'onglet Compétitions
+  individuelles, enregistrée dans la feuille *Inscriptions*, colonne G) ;
+  le joueur voit « Inscription validée — CDR2 ».
 
 ## Compétitions individuelles (jeunes / adultes)
 
