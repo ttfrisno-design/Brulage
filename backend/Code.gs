@@ -27,19 +27,13 @@ const TEAMS = [
   { id: 6, name: 'FRI6', division: 'Départemental 4',  day: 'Vendredi', time: '20:00', group: 'C' },
   { id: 7, name: 'FRI7', division: 'Départemental 4',  day: 'Vendredi', time: '20:00', group: 'C' },
   { id: 8, name: 'FRI8', division: 'Départemental 4',  day: 'Vendredi', time: '20:00', group: 'C' },
-  // Championnat Jeunes : équipes SANS brûlage (kind différent de 'FRI'),
-  // avec leur propre jeu de dates (groupe E), réservées aux jeunes
-  // (catégorie Poussin à Junior, ou catégorie non renseignée).
-  // (Les identifiants 9 à 12 restent réservés : la Coupe de Rouen, d'abord
-  // gérée ici, se gère désormais dans les compétitions individuelles, avec
-  // choix de l'équipe CDR1-CDR4 à la validation de l'inscription.)
-  { id: 13, name: 'CJ1',  division: 'Championnat Jeunes', day: 'Samedi',   time: '', group: 'E', kind: 'CJ', youthOnly: true },
-  { id: 14, name: 'CJ2',  division: 'Championnat Jeunes', day: 'Samedi',   time: '', group: 'E', kind: 'CJ', youthOnly: true },
-  { id: 15, name: 'CJ3',  division: 'Championnat Jeunes', day: 'Samedi',   time: '', group: 'E', kind: 'CJ', youthOnly: true },
-  { id: 16, name: 'CJ4',  division: 'Championnat Jeunes', day: 'Samedi',   time: '', group: 'E', kind: 'CJ', youthOnly: true },
+  // (Identifiants 9 à 16 réservés : la Coupe de Rouen (CDR1-4) et le
+  // Championnat Jeunes (CJ1-4), d'abord gérés ici, se gèrent désormais dans
+  // les compétitions individuelles, avec choix de l'équipe à la validation
+  // de l'inscription — voir COMPETITION_TEAMS_.)
 ];
 TEAMS.forEach(function (t) { if (!t.kind) t.kind = 'FRI'; });
-const DATE_GROUPS_ = ['A', 'B', 'C', 'E'];
+const DATE_GROUPS_ = ['A', 'B', 'C'];
 
 // Dates de phase 1, par groupe (fournies par le club).
 // Les dates de phase 2 sont éditables par l'administrateur (initialement vides).
@@ -48,14 +42,11 @@ const DEFAULT_DATES = {
     A: ['20/09/2025', '04/10/2025', '18/10/2025', '08/11/2025', '22/11/2025', '06/12/2025', '13/12/2025'],
     B: ['25/09/2025', '09/10/2025', '30/10/2025', '13/11/2025', '27/11/2025', '11/12/2025', '18/12/2025'],
     C: ['02/10/2025', '16/10/2025', '06/11/2025', '20/11/2025', '04/12/2025', '08/01/2026', '15/01/2026'],
-    // Championnat Jeunes (samedi) 2026-2027, d'après la plaquette du club.
-    E: ['07/11/2026', '05/12/2026', '', '', '', '', ''],
   },
   2: { // Phase 2 - à compléter par l'administrateur
     A: ['', '', '', '', '', '', ''],
     B: ['', '', '', '', '', '', ''],
     C: ['', '', '', '', '', '', ''],
-    E: ['16/01/2027', '06/02/2027', '13/03/2027', '22/05/2027', '20/06/2027', '', ''],
   },
 };
 
@@ -259,7 +250,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V7';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V8';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -703,7 +694,7 @@ function getStaticConfig() {
   const sheet = ss_().getSheetByName('Dates');
   const values = sheet.getDataRange().getValues();
   values.shift(); // en-têtes
-  const dates = { 1: { A: [], B: [], C: [], E: [] }, 2: { A: [], B: [], C: [], E: [] } };
+  const dates = { 1: { A: [], B: [], C: [] }, 2: { A: [], B: [], C: [] } };
   // journeeByDate : date (JJ/MM/AAAA) -> libellé de journée (ex. "J1"), lu
   // directement en colonne F par position (et non par nom d'en-tête, pour
   // rester robuste quel que soit l'intitulé exact tapé dans la feuille).
@@ -1395,6 +1386,8 @@ function readCompetitions_(settings) {
 // l'équipe de chaque inscrit validé.
 const COMPETITION_TEAMS_ = {
   'Coupe de Rouen': ['CDR1', 'CDR2', 'CDR3', 'CDR4'],
+  'Championnat Jeunes (équipe de 2)': ['CJ1', 'CJ2', 'CJ3', 'CJ4'],
+  'Championnat Jeunes': ['CJ1', 'CJ2', 'CJ3', 'CJ4'],
 };
 function competitionTeams_(nom) {
   return COMPETITION_TEAMS_[nom] || [];
