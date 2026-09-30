@@ -122,6 +122,41 @@ function getDataVersion() {
   return PropertiesService.getScriptProperties().getProperty('DATA_VERSION') || '0';
 }
 
+// Verrou global du script, réentrant (une fonction déjà sous verrou peut en
+// appeler une autre qui le demande aussi).
+let lockDepth_ = 0;
+function withScriptLock_(fn) {
+  if (lockDepth_ > 0) return fn();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  lockDepth_++;
+  try {
+    return fn();
+  } finally {
+    lockDepth_--;
+    lock.releaseLock();
+  }
+}
+
+/** Réécrit une feuille (en-tête + lignes) SANS la vider d'abord : les
+ * nouvelles lignes remplacent les anciennes, puis seules les lignes en trop
+ * à la fin sont effacées. Une lecture simultanée ne voit donc jamais une
+ * feuille vide (ce qui faisait « disparaître » puis réapparaître des
+ * affectations au hasard dans le tableau). */
+function rewriteTable_(sheet, header, rows) {
+  const n = header.length;
+  const all = [header].concat(rows.map(function (r) {
+    const row = r.slice(0, n);
+    while (row.length < n) row.push('');
+    return row;
+  }));
+  sheet.getRange(1, 1, all.length, n).setValues(all);
+  const last = sheet.getLastRow();
+  if (last > all.length) {
+    sheet.getRange(all.length + 1, 1, last - all.length, Math.max(n, sheet.getLastColumn())).clearContent();
+  }
+}
+
 function bumpDataVersion_() {
   PropertiesService.getScriptProperties().setProperty('DATA_VERSION', String(Date.now()));
 }
@@ -135,7 +170,12 @@ function doPost(e) {
       throw new Error('Fonction inconnue : ' + body.fn);
     }
     const args = body.args || [];
-    const result = fn.apply(null, args);
+    // Toutes les modifications passent l'une après l'autre (verrou du
+    // script) : deux capitaines / admins qui enregistrent au même moment ne
+    // peuvent plus écraser mutuellement leurs saisies.
+    const result = READ_ONLY_FUNCTIONS_[body.fn]
+      ? fn.apply(null, args)
+      : withScriptLock_(function () { return fn.apply(null, args); });
     if (!READ_ONLY_FUNCTIONS_[body.fn]) bumpDataVersion_();
     out = { ok: true, result: result };
   } catch (err) {
@@ -841,6 +881,10 @@ function getAdminData(phase) {
  * trouvé (aucun effet, aucune écriture, si tout est déjà propre).
  */
 function dedupeAffectations_() {
+  return withScriptLock_(dedupeAffectations_Now_);
+}
+
+function dedupeAffectations_Now_() {
   const sheet = ss_().getSheetByName('Affectations');
   if (!sheet || sheet.getLastRow() < 2) return false;
   const values = sheet.getDataRange().getValues();
@@ -860,11 +904,7 @@ function dedupeAffectations_() {
     .map(function (k) { return byKey[k]; })
     .filter(function (row) { return row[3] !== '' && row[3] !== null && row[3] !== undefined; });
 
-  sheet.clearContents();
-  sheet.getRange(1, 1, 1, header.length).setValues([header]);
-  if (kept.length) {
-    sheet.getRange(2, 1, kept.length, 4).setValues(kept);
-  }
+  rewriteTable_(sheet, header.slice(0, 4), kept);
   return true;
 }
 
@@ -876,6 +916,10 @@ function dedupeAffectations_() {
  * Ne garde que la DERNIÈRE ligne rencontrée pour chaque combinaison.
  */
 function dedupeDisponibilites_() {
+  return withScriptLock_(dedupeDisponibilites_Now_);
+}
+
+function dedupeDisponibilites_Now_() {
   const sheet = ss_().getSheetByName('Disponibilites');
   if (!sheet || sheet.getLastRow() < 2) return false;
   const values = sheet.getDataRange().getValues();
@@ -895,11 +939,7 @@ function dedupeDisponibilites_() {
     .map(function (k) { return byKey[k]; })
     .filter(function (row) { return row[3] !== '' && row[3] !== null && row[3] !== undefined; });
 
-  sheet.clearContents();
-  sheet.getRange(1, 1, 1, header.length).setValues([header]);
-  if (kept.length) {
-    sheet.getRange(2, 1, kept.length, 4).setValues(kept);
-  }
+  rewriteTable_(sheet, header.slice(0, 4), kept);
   return true;
 }
 
@@ -1011,11 +1051,7 @@ function setAssignments(entries) {
 
   // Réécrit toute la feuille en une seule opération (bien plus rapide que
   // modifier ligne par ligne, surtout pour un gros lot de modifications).
-  sheet.clearContents();
-  sheet.getRange(1, 1, 1, header.length).setValues([header]);
-  if (kept.length) {
-    sheet.getRange(2, 1, kept.length, 4).setValues(kept);
-  }
+  rewriteTable_(sheet, header.slice(0, 4), kept);
 
   return { ok: true };
 }
@@ -1140,10 +1176,8 @@ function convocationToClient_(r) {
  */
 function sendConvocations(phase, date, teamId, message) {
   ensureSheets_();
-  const lock = LockService.getScriptLock();
-  lock.waitLock(20000);
   let selected;
-  try {
+  withScriptLock_(function () {
     selected = readTable_('Affectations').filter(function (r) {
       return Number(r.Phase) === Number(phase) && r.Date === date && Number(r.EquipeJouee) === Number(teamId);
     });
@@ -1169,15 +1203,9 @@ function sendConvocations(phase, date, teamId, message) {
     selected.forEach(function (r) {
       kept.push([r.JoueurID, Number(phase), date, Number(teamId), now, String(message || ''), '', '']);
     });
-    sheet.clearContents();
-    sheet.getRange(1, 1, 1, header.length).setValues([header]);
     sheet.getRange(2, 3, Math.max(kept.length, 1), 1).setNumberFormat('@');
-    if (kept.length) {
-      sheet.getRange(2, 1, kept.length, 8).setValues(kept);
-    }
-  } finally {
-    lock.releaseLock();
-  }
+    rewriteTable_(sheet, header.slice(0, 8), kept);
+  });
 
   return selectedIdsToPlayers_(readTable_('Joueurs'), selected);
 }
@@ -1361,21 +1389,15 @@ function getCompetitions(playerId) {
 }
 
 function withInscriptionsSheet_(fn) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(20000);
-  try {
+  return withScriptLock_(function () {
     const sheet = ss_().getSheetByName('Inscriptions');
     const values = sheet.getDataRange().getValues();
     const header = values.shift();
     const rows = values.filter(function (row) { return row.some(function (c) { return c !== '' && c !== null; }); });
     const result = fn(rows);
-    sheet.clearContents();
-    sheet.getRange(1, 1, 1, header.length).setValues([header]);
-    if (rows.length) sheet.getRange(2, 1, rows.length, header.length).setValues(rows);
+    rewriteTable_(sheet, header, rows);
     return result;
-  } finally {
-    lock.releaseLock();
-  }
+  });
 }
 
 function findInscriptionRow_(rows, competitionId, playerId) {

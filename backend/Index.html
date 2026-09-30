@@ -1073,6 +1073,7 @@
       else { delete STATE.lastRaw[key]; }
     }
     callServer('getAdminData', [STATE.phase]).then(function (data) {
+      if (silent && isEditingTable('burnTableContainer')) { STATE.dataVersion = null; return; } // réessayé à la prochaine synchro
       if (isUnchanged(key, data) && STATE.adminData) return;
       STATE.adminData = data;
       saveCache(key, data);
@@ -1159,7 +1160,7 @@
         html += '<span style="font-size:11px;color:var(--muted);" title="' + (journeeLocked ? 'Ce joueur est déjà affecté le ' + usedJournees[journee] + ' pour la même journée (' + journee + ')' : '') + '">' + lockLabel + '</span>';
       } else {
         var isPending = !!STATE.pendingAssignments[pendingKey(p.id, d.date)];
-        html += '<select class="assign-select' + (isPending ? ' pending' : '') + '" title="' + (isPending ? 'Modification non enregistrée' : '') + '" onchange="onAssignChange(\'' + p.id + '\',\'' + d.date + '\',this.value)">' +
+        html += '<select data-key="' + p.id + '|' + d.date + '" class="assign-select' + (isPending ? ' pending' : '') + '" title="' + (isPending ? 'Modification non enregistrée' : '') + '" onchange="onAssignChange(\'' + p.id + '\',\'' + d.date + '\',this.value)">' +
           '<option value="">—</option>';
         // Le capitaine, comme l'administrateur, peut affecter un joueur de
         // son équipe à n'importe quelle équipe FRI1 à FRI8 (pas seulement
@@ -1186,6 +1187,34 @@
 
     html += '</tr>';
     return html;
+  }
+
+  // Redessine un tableau en gardant la position de défilement (page et
+  // défilement horizontal de chaque tableau) et la case en cours : sans
+  // cela, chaque choix d'équipe ramenait le tableau au début de la ligne et
+  // le clic suivant tombait sur une autre case que celle visée.
+  function setHtmlKeepingPosition(container, html) {
+    var scrollY = window.scrollY;
+    var lefts = Array.prototype.map.call(container.querySelectorAll('.table-scroll'), function (el) { return el.scrollLeft; });
+    var active = document.activeElement;
+    var activeKey = active && container.contains(active) && active.dataset ? active.dataset.key : null;
+    container.innerHTML = html;
+    Array.prototype.forEach.call(container.querySelectorAll('.table-scroll'), function (el, i) {
+      if (lefts[i]) el.scrollLeft = lefts[i];
+    });
+    window.scrollTo(window.scrollX, scrollY);
+    if (activeKey) {
+      var again = container.querySelector('[data-key="' + activeKey + '"]');
+      if (again) again.focus({ preventScroll: true });
+    }
+  }
+
+  // Une liste d'équipe ouverte / en cours de choix : on ne redessine pas le
+  // tableau sous les doigts de l'utilisateur (synchronisation automatique).
+  function isEditingTable(containerId) {
+    var el = document.getElementById(containerId);
+    var a = document.activeElement;
+    return !!(el && a && a.tagName === 'SELECT' && el.contains(a));
   }
 
   function renderBurnTable() {
@@ -1244,7 +1273,7 @@
       html += '</tbody></table></div></div>';
     }
 
-    container.innerHTML = html;
+    setHtmlKeepingPosition(container, html);
     renderConvocSender('convocSenderAdmin', STATE.adminData, null);
   }
 
@@ -1289,6 +1318,7 @@
       callServer('getPlayerData', [STATE.session.playerId, STATE.phase]),
       callServer('getAdminData', [STATE.phase]),
     ]).then(function (results) {
+      if (silent && isEditingTable('captainTeamTableContainer')) { STATE.dataVersion = null; return; } // réessayé à la prochaine synchro
       if (isUnchanged(keyOwn + keyTeam, results) && STATE.captainOwnData) return;
       STATE.captainOwnData = results[0];
       STATE.captainTeamData = results[1];
@@ -1431,7 +1461,7 @@
       }
       html += '</div>';
     });
-    document.getElementById('captainTeamTableContainer').innerHTML = html;
+    setHtmlKeepingPosition(document.getElementById('captainTeamTableContainer'), html);
     renderConvocSender('convocSenderCaptain', STATE.captainTeamData, teamId);
   }
 
@@ -1493,7 +1523,10 @@
     });
     callServer('setAssignments', [payload]).then(function () {
       STATE.pendingAssignments = {};
-      if (isCaptainCtx) { loadCaptainData(); } else { loadAdminData(); }
+      // Rechargement « silencieux » : sans repasser par le cache local (qui
+      // contient l'état d'AVANT l'enregistrement et faisait réapparaître un
+      // instant les anciennes équipes).
+      if (isCaptainCtx) { loadCaptainData(true); } else { loadAdminData(true); }
     }).catch(function (err) {
       alert("Certaines affectations n'ont pas pu être enregistrées.\n\n" + (err && err.message ? err.message : err));
       if (el) { renderValidateBar(barId); }
