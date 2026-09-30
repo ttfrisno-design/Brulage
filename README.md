@@ -129,6 +129,22 @@ Identifiant de l'application : `fr.fri.brulages` (modifiable dans
 - Le tableau de la carte indique pour chaque joueur : non envoyée, envoyée
   sans réponse, ✓ Présent ou ✕ Absent.
 
+## Équipes Coupe de Rouen et Championnat Jeunes
+
+- 4 équipes **CDR1 à CDR4** (Coupe de Rouen, le mercredi, dates du groupe
+  « Coupe de Rouen ») et 4 équipes **CJ1 à CJ4** (Championnat Jeunes, le
+  samedi, groupe « Championnat Jeunes »). Dates 2026-2027 pré-remplies,
+  modifiables dans *Dates & Réglages*.
+- **Pas de brûlage** pour ces équipes, et leurs matchs ne comptent pas pour
+  le brûlage FRI1-FRI8.
+- Les équipes CJ sont réservées aux jeunes (catégorie Poussin à Junior, ou
+  non renseignée) : les adultes ne voient pas ces dates dans leurs
+  disponibilités et ne peuvent pas y être affectés.
+- Affectation : dans le tableau de brûlage, colonnes « Coupe de Rouen » et
+  « Championnat Jeunes » du cadre FRI de chaque joueur ; les cadres CDR / CJ
+  montrent la composition. Convocations possibles comme pour les autres
+  équipes.
+
 ## Compétitions individuelles (jeunes / adultes)
 
 - Après la saisie du code, le joueur choisit : **Championnat par équipes**,

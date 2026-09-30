@@ -107,13 +107,20 @@
     table.burn-table td.group-a { background: #f5fbff; }
     table.burn-table td.group-b { background: #fff8f2; }
     table.burn-table td.group-c { background: #f6fff5; }
+    table.burn-table td.group-d { background: #f8f1fc; }
+    table.burn-table td.group-e { background: #eefafb; }
     table.burn-table .date-head { font-weight: 600; }
     table.burn-table .grp-head { font-size: 10px; color: var(--muted); font-weight: 400; }
     select.assign-select {
       width: 56px; font-size: 12px; padding: 2px; border-radius: 4px; border: 1px solid var(--border);
     }
     td.avail-green select.assign-select { background: var(--green-bg); }
-    td.avail-red select.assign-select { background: var(--red-bg); }
+    td.avail-red select.assign-select { background: var(--red-bg); border-color: var(--red); }
+    /* Indisponible : toute la case en rouge (et pas seulement la liste, peu
+       visible et même ignorée par l'iPhone), y compris en consultation. */
+    table.burn-table td.avail-red { background: #f6b8b8 !important; box-shadow: inset 0 0 0 2px var(--red); }
+    table.burn-table td.avail-red.burned-cell { background: var(--burn-bg) !important; }
+    .indispo-tag { display: block; font-size: 10px; font-weight: 700; color: var(--red); }
     td.avail-none select.assign-select { background: #fff; }
     td.burned-cell { background: var(--burn-bg) !important; }
     td.burned-cell select.assign-select { border-color: var(--burn-border); }
@@ -151,7 +158,7 @@
     /* Disponibilités du capitaine réparties en 3 colonnes (R3 / D1-D2 / D3-D4)
        pour une vue plus compacte ; les colonnes s'empilent sur mobile dans
        le même ordre (R3, puis D1-D2, puis D3-D4). */
-    .avail-groups { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-items: start; }
+    .avail-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; align-items: start; }
     .avail-group-col { min-width: 0; }
     .avail-group-col h4 {
       margin: 0 0 6px; font-size: 12px; font-weight: 700; text-transform: uppercase;
@@ -536,8 +543,23 @@
     pendingAssignments: {},
   };
 
-  var GROUP_LABEL = { A: 'Régional 3 (Dim.)', B: 'Départemental 1/2 (Ven. 20h)', C: 'Départemental 3/4 (Ven. 20h)' };
-  var GROUP_COLORS = { A: '#1565c0', B: '#ef6c00', C: '#2e7d32' };
+  var GROUP_LABEL = { A: 'Régional 3 (Dim.)', B: 'Départemental 1/2 (Ven. 20h)', C: 'Départemental 3/4 (Ven. 20h)', D: 'Coupe de Rouen (Mer.)', E: 'Championnat Jeunes (Sam.)' };
+  var GROUP_COLORS = { A: '#1565c0', B: '#ef6c00', C: '#2e7d32', D: '#6a1b9a', E: '#00838f' };
+  // Groupes de dates : A/B/C = championnat FRI (avec brûlage), D = Coupe de
+  // Rouen, E = Championnat Jeunes (sans brûlage).
+  var GROUPS = ['A', 'B', 'C', 'D', 'E'];
+  function isFriTeam(t) { return !t.kind || t.kind === 'FRI'; }
+  function friTeams() { return STATE.config.teams.filter(isFriTeam); }
+  // Équipes proposées pour une date : celles de la même compétition.
+  function teamsForGroup(grp) {
+    return STATE.config.teams.filter(function (t) {
+      return (grp === 'A' || grp === 'B' || grp === 'C') ? isFriTeam(t) : t.group === grp;
+    });
+  }
+  // Championnat Jeunes réservé aux jeunes (ou catégorie non renseignée).
+  function isAdultCategory(cat) {
+    return !!cat && ['Poussin', 'Benjamin', 'Minime', 'Cadet', 'Junior'].indexOf(cat) < 0;
+  }
 
   // Une couleur par équipe, pour encadrer/distinguer visuellement les
   // colonnes du tableau de brûlage (bordure + fond léger de la même teinte).
@@ -550,6 +572,14 @@
     6: { border: '#2e7d32', bg: '#e2f5e3' }, // FRI6 — vert
     7: { border: '#795548', bg: '#efe6e2' }, // FRI7 — marron
     8: { border: '#37474f', bg: '#e7ebed' }, // FRI8 — gris-bleu
+    9: { border: '#6a1b9a', bg: '#f3e5f5' },  // CDR1 — Coupe de Rouen (violets)
+    10: { border: '#8e24aa', bg: '#f3e5f5' }, // CDR2
+    11: { border: '#ab47bc', bg: '#f8eefa' }, // CDR3
+    12: { border: '#ce93d8', bg: '#fbf5fc' }, // CDR4
+    13: { border: '#00838f', bg: '#e0f7fa' }, // CJ1 — Championnat Jeunes (turquoises)
+    14: { border: '#0097a7', bg: '#e0f7fa' }, // CJ2
+    15: { border: '#26c6da', bg: '#eefbfd' }, // CJ3
+    16: { border: '#80deea', bg: '#f5fdfe' }, // CJ4
   };
 
   // ---------------------------------------------------------------------------
@@ -929,7 +959,7 @@
   function allDatesFlat() {
     // Retourne [{date, group, teams:[team,...]}] triées chronologiquement
     var list = [];
-    ['A', 'B', 'C'].forEach(function (grp) {
+    GROUPS.forEach(function (grp) {
       var dates = STATE.config.dates[STATE.phase][grp] || [];
       var teams = STATE.config.teams.filter(function (t) { return t.group === grp; });
       dates.forEach(function (d) {
@@ -947,7 +977,7 @@
   // disponibilités pour ces dates.
   function burnedGroups(burned) {
     var res = {};
-    ['A', 'B', 'C'].forEach(function (grp) {
+    GROUPS.forEach(function (grp) {
       var teams = STATE.config.teams.filter(function (t) { return t.group === grp; });
       res[grp] = teams.length > 0 && teams.every(function (t) { return burned && burned[t.id]; });
     });
@@ -960,7 +990,9 @@
   function availabilityDates(data) {
     var groups = burnedGroups(data.burned);
     return allDatesFlat().filter(function (row) {
-      return !groups[row.group] || data.assignments[row.date];
+      if (data.assignments[row.date]) return true;
+      if (row.group === 'E' && isAdultCategory(data.categorie)) return false; // Championnat Jeunes
+      return !groups[row.group];
     });
   }
 
@@ -1105,7 +1137,7 @@
   function renderGroupColorLegend() {
     var el = document.getElementById('groupColorLegend');
     if (!el) return;
-    el.innerHTML = ['A', 'B', 'C'].map(function (g) {
+    el.innerHTML = GROUPS.map(function (g) {
       return '<span><span class="swatch" style="background:#fff;border:2px solid ' + GROUP_COLORS[g] + ';"></span>' + GROUP_LABEL[g] + '</span>';
     }).join('');
   }
@@ -1162,22 +1194,24 @@
       var journeeLocked = journee && usedJournees[journee] && usedJournees[journee] !== d.date;
       html += '<td class="group-' + d.group.toLowerCase() + ' ' + availClass + (burnedNow ? ' burned-cell' : '') + (journeeLocked ? ' journee-lock' : '') + '" style="border:2px solid ' + gc + ';">';
 
-      if (viewOnly || journeeLocked || (restrictToTeamId && assigned && assigned !== restrictToTeamId)) {
+      var youthBlocked = d.group === 'E' && isAdultCategory(p.categorie) && !assigned;
+      if (viewOnly || journeeLocked || youthBlocked || (restrictToTeamId && assigned && assigned !== restrictToTeamId)) {
         // Lecture seule : soit une équipe qu'un capitaine ne fait que
         // consulter, soit une date verrouillée (déjà joué cette journée),
         // soit (vue capitaine sur sa propre équipe) une case déjà affectée
         // à une AUTRE équipe qu'il ne doit pas écraser.
         var otherTeam = assigned ? STATE.config.teams.find(function (t) { return t.id === assigned; }) : null;
-        var lockLabel = journeeLocked ? ('Déjà ' + journee + ' (' + usedJournees[journee] + ')') : (otherTeam ? otherTeam.name : '—');
+        var lockLabel = journeeLocked ? ('Déjà ' + journee + ' (' + usedJournees[journee] + ')') : (otherTeam ? otherTeam.name : (youthBlocked ? 'Jeunes' : '—'));
         html += '<span style="font-size:11px;color:var(--muted);" title="' + (journeeLocked ? 'Ce joueur est déjà affecté le ' + usedJournees[journee] + ' pour la même journée (' + journee + ')' : '') + '">' + lockLabel + '</span>';
+        if (status === 'Indisponible') html += '<span class="indispo-tag">✕ indispo</span>';
       } else {
         var isPending = !!STATE.pendingAssignments[pendingKey(p.id, d.date)];
-        html += '<select data-key="' + p.id + '|' + d.date + '" class="assign-select' + (isPending ? ' pending' : '') + '" title="' + (isPending ? 'Modification non enregistrée' : '') + '" onchange="onAssignChange(\'' + p.id + '\',\'' + d.date + '\',this.value)">' +
+        html += '<select data-key="' + p.id + '|' + d.date + '" class="assign-select' + (isPending ? ' pending' : '') + '" title="' + (isPending ? 'Modification non enregistrée' : (status === 'Indisponible' ? 'Joueur indisponible' : '')) + '" onchange="onAssignChange(\'' + p.id + '\',\'' + d.date + '\',this.value)">' +
           '<option value="">—</option>';
         // Le capitaine, comme l'administrateur, peut affecter un joueur de
         // son équipe à n'importe quelle équipe FRI1 à FRI8 (pas seulement
         // la sienne), par exemple pour un joueur qui dépanne une autre équipe.
-        var teamOptions = STATE.config.teams;
+        var teamOptions = teamsForGroup(d.group);
         teamOptions.forEach(function (t) {
           var isBurned = p.burned[t.id] && assigned !== t.id;
           html += '<option value="' + t.id + '" ' + (assigned === t.id ? 'selected' : '') + '>' +
@@ -1235,7 +1269,7 @@
     renderValidateBar('adminValidateBar');
     var dates = allDatesFlat();
     var container = document.getElementById('burnTableContainer');
-    var lastTeamId = STATE.config.teams[STATE.config.teams.length - 1].id;
+    var lastTeamId = friTeams()[friTeams().length - 1].id;
 
     // Un cadre par équipe (même principe que l'onglet Effectif), avec un
     // espace entre chaque cadre, pour bien distinguer les joueurs d'une
@@ -1250,7 +1284,7 @@
       var c = TEAM_COLORS[t.id] || { border: '#999', bg: '#f9f9f9' };
       html += '<div class="team-frame" style="--team-border:' + c.border + ';--team-bg:transparent;">' +
         '<h3 class="team-frame-title">' + t.name + ' — ' + t.division +
-        ' <span style="font-weight:400;color:var(--muted);">(' + teamPlayers.length + ' joueur' + (teamPlayers.length > 1 ? 's' : '') + ')</span></h3>';
+        ' <span style="font-weight:400;color:var(--muted);">(' + (isFriTeam(t) ? teamPlayers.length : guestPlayers.length) + ' joueur' + ((isFriTeam(t) ? teamPlayers.length : guestPlayers.length) > 1 ? 's' : '') + ')</span></h3>';
       if (teamPlayers.length || guestPlayers.length) {
         html += '<div class="table-scroll"><table class="burn-table"><thead>' + burnTableHeaderHtml(dates, lastTeamId) + '</thead><tbody>';
         teamPlayers.forEach(function (p, pIdx) {
@@ -1261,14 +1295,15 @@
           // renforcer celle-ci un jour donné — affichés en lecture seule
           // (l'affectation se modifie depuis le cadre de leur équipe
           // d'origine, pas ici, pour éviter deux commandes contradictoires).
-          html += '<tr class="guest-separator"><td colspan="' + colspan + '">Joueur(s) venu(s) d\'une autre équipe ce jour-là</td></tr>';
+          html += '<tr class="guest-separator"><td colspan="' + colspan + '">' + (isFriTeam(t) ? 'Joueur(s) venu(s) d\'une autre équipe ce jour-là' : 'Joueurs affectés (à modifier depuis le cadre de leur équipe FRI)') + '</td></tr>';
           guestPlayers.forEach(function (p, pIdx) {
             html += burnTableRowHtml(p, dates, lastTeamId, pIdx === guestPlayers.length - 1, null, true, true);
           });
         }
         html += '</tbody></table></div>';
       } else {
-        html += '<p style="color:var(--muted);font-size:13px;margin:0;">Aucun joueur dans cette équipe.</p>';
+        html += '<p style="color:var(--muted);font-size:13px;margin:0;">' + (isFriTeam(t) ? 'Aucun joueur dans cette équipe.'
+          : 'Aucun joueur affecté pour l\'instant : choisissez ' + t.name + ' dans la colonne « ' + GROUP_LABEL[t.group] + ' » du cadre FRI du joueur.') + '</p>';
       }
       html += '</div>';
     });
@@ -1289,7 +1324,9 @@
     renderConvocSender('convocSenderAdmin', STATE.adminData, null);
   }
 
-  function TEAMS_forHeader() { return STATE.config.teams; }
+  // Colonnes « matchs joués par équipe » : seulement les équipes FRI (les
+  // seules concernées par le brûlage).
+  function TEAMS_forHeader() { return friTeams(); }
 
   // Joueurs dont l'équipe domicile n'est PAS teamId, mais qui ont été
   // sélectionnés pour jouer dans teamId au moins une fois (renfort venu
@@ -1364,7 +1401,7 @@
     // Regroupées par journée (R3 / D1-D2 / D3-D4) en 3 colonnes, plus
     // compact et plus lisible, notamment sur mobile où les colonnes
     // s'empilent dans cet ordre.
-    ['A', 'B', 'C'].forEach(function (grp) {
+    GROUPS.forEach(function (grp) {
       var rows = availabilityDates(data).filter(function (row) { return row.group === grp; });
       if (!rows.length) return;
 
@@ -1419,7 +1456,7 @@
   function renderCaptainGroupLegend() {
     var el = document.getElementById('captainGroupColorLegend');
     if (!el) return;
-    el.innerHTML = ['A', 'B', 'C'].map(function (g) {
+    el.innerHTML = GROUPS.map(function (g) {
       return '<span><span class="swatch" style="background:#fff;border:2px solid ' + GROUP_COLORS[g] + ';"></span>' + GROUP_LABEL[g] + '</span>';
     }).join('');
   }
@@ -1431,7 +1468,7 @@
     if (titleEl) {
       titleEl.textContent = 'Feuilles de match — mon équipe modifiable, les autres en consultation';
     }
-    var lastTeamId = STATE.config.teams[STATE.config.teams.length - 1].id;
+    var lastTeamId = friTeams()[friTeams().length - 1].id;
 
     // Comme pour l'admin : un cadre par équipe. Le capitaine peut modifier
     // uniquement la feuille de sa propre équipe ; les autres équipes
@@ -1451,7 +1488,7 @@
         : ' <span style="font-weight:400;color:var(--muted);">— consultation seule</span>';
       html += '<div class="team-frame" style="--team-border:' + c.border + ';--team-bg:transparent;">' +
         '<h3 class="team-frame-title">' + t.name + ' — ' + t.division + badge +
-        ' <span style="font-weight:400;color:var(--muted);">(' + teamPlayers.length + ' joueur' + (teamPlayers.length > 1 ? 's' : '') + ')</span></h3>';
+        ' <span style="font-weight:400;color:var(--muted);">(' + (isFriTeam(t) ? teamPlayers.length : guestPlayers.length) + ' joueur' + ((isFriTeam(t) ? teamPlayers.length : guestPlayers.length) > 1 ? 's' : '') + ')</span></h3>';
       if (teamPlayers.length || guestPlayers.length) {
         var colspan = dates.length + 1 + TEAMS_forHeader().length;
         html += '<div class="table-scroll"><table class="burn-table"><thead>' + burnTableHeaderHtml(dates, lastTeamId) + '</thead><tbody>';
@@ -1462,14 +1499,15 @@
           // Composition réelle de l'équipe ce jour-là : joueurs venus d'une
           // autre équipe (toujours en lecture seule ici, quelle que soit
           // l'équipe — l'affectation se modifie depuis leur équipe d'origine).
-          html += '<tr class="guest-separator"><td colspan="' + colspan + '">Joueur(s) venu(s) d\'une autre équipe ce jour-là</td></tr>';
+          html += '<tr class="guest-separator"><td colspan="' + colspan + '">' + (isFriTeam(t) ? 'Joueur(s) venu(s) d\'une autre équipe ce jour-là' : 'Joueurs affectés (à modifier depuis le cadre de leur équipe FRI)') + '</td></tr>';
           guestPlayers.forEach(function (p, pIdx) {
             html += burnTableRowHtml(p, dates, lastTeamId, pIdx === guestPlayers.length - 1, null, true, true);
           });
         }
         html += '</tbody></table></div>';
       } else {
-        html += '<p style="color:var(--muted);font-size:13px;margin:0;">Aucun joueur dans cette équipe.</p>';
+        html += '<p style="color:var(--muted);font-size:13px;margin:0;">' + (isFriTeam(t) ? 'Aucun joueur dans cette équipe.'
+          : 'Aucun joueur affecté pour l\'instant : choisissez ' + t.name + ' dans la colonne « ' + GROUP_LABEL[t.group] + ' » du cadre FRI du joueur.') + '</p>';
       }
       html += '</div>';
     });
@@ -1557,7 +1595,7 @@
   // ---------------------------------------------------------------------------
   function populateTeamSelect() {
     var sel = document.getElementById('newTeam');
-    sel.innerHTML = STATE.config.teams.map(function (t) {
+    sel.innerHTML = friTeams().map(function (t) {
       return '<option value="' + t.id + '">' + t.name + ' — ' + t.division + '</option>';
     }).join('');
   }
@@ -1586,7 +1624,7 @@
         '<td><input type="text" value="' + escAttr(p.Nom) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Nom"></td>' +
         '<td><input type="text" value="' + escAttr(p.Prénom) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Prénom"></td>' +
         '<td><select onchange="editPlayer(' + p.ID + ',this)" data-field="EquipeDomicile">' +
-          STATE.config.teams.map(function (t) { return '<option value="' + t.id + '" ' + (Number(p.EquipeDomicile) === t.id ? 'selected' : '') + '>' + t.name + '</option>'; }).join('') +
+          friTeams().map(function (t) { return '<option value="' + t.id + '" ' + (Number(p.EquipeDomicile) === t.id ? 'selected' : '') + '>' + t.name + '</option>'; }).join('') +
         '</select></td>' +
         '<td><input type="text" value="' + escAttr(p.PIN) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="PIN" style="width:70px;"></td>' +
         '<td><input type="tel" value="' + escAttr(p['Téléphone']) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Téléphone" style="width:120px;" placeholder="06…"></td>' +
@@ -1602,7 +1640,7 @@
     // Un cadre coloré par équipe, pour visualiser d'un coup d'œil qui joue
     // dans quelle équipe (même code couleur que le tableau de brûlage).
     var html = '';
-    STATE.config.teams.forEach(function (t) {
+    friTeams().forEach(function (t) {
       var teamPlayers = players.filter(function (p) { return Number(p.EquipeDomicile) === t.id; });
       var c = TEAM_COLORS[t.id] || { border: '#999', bg: '#f9f9f9' };
       html += '<div class="team-frame" style="--team-border:' + c.border + ';--team-bg:' + c.bg + ';">' +
@@ -1619,7 +1657,7 @@
 
     // Sécurité : joueurs sans équipe domicile reconnue (donnée corrompue/absente).
     var orphans = players.filter(function (p) {
-      return !STATE.config.teams.some(function (t) { return t.id === Number(p.EquipeDomicile); });
+      return !friTeams().some(function (t) { return t.id === Number(p.EquipeDomicile); });
     });
     if (orphans.length) {
       html += '<div class="team-frame" style="--team-border:#999;--team-bg:#f5f5f5;">' +
@@ -2396,7 +2434,7 @@
     var html = '<h2>Dates des matchs</h2>';
     [1, 2].forEach(function (phase) {
       html += '<h3>Phase ' + phase + '</h3>';
-      ['A', 'B', 'C'].forEach(function (grp) {
+      GROUPS.forEach(function (grp) {
         html += '<label>' + GROUP_LABEL[grp] + '</label><div class="dates-grid" id="dates-' + phase + '-' + grp + '">';
         var dates = STATE.config.dates[phase][grp] || [];
         for (var i = 0; i < 7; i++) {
@@ -2414,7 +2452,7 @@
     // strict JJ/MM/AAAA, quel que soit ce qui a été tapé) ; on attend la
     // confirmation de chaque groupe avant d'annoncer le succès, et on
     // réaffiche les dates telles qu'enregistrées (donc bien normalisées).
-    var calls = ['A', 'B', 'C'].map(function (grp) {
+    var calls = GROUPS.map(function (grp) {
       var inputs = document.querySelectorAll('#dates-' + phase + '-' + grp + ' input');
       var values = Array.prototype.map.call(inputs, function (i) { return i.value.trim(); });
       return callServer('updateDates', [phase, grp, values]).then(function (cfg) { STATE.config = cfg; });

@@ -27,7 +27,21 @@ const TEAMS = [
   { id: 6, name: 'FRI6', division: 'Départemental 4',  day: 'Vendredi', time: '20:00', group: 'C' },
   { id: 7, name: 'FRI7', division: 'Départemental 4',  day: 'Vendredi', time: '20:00', group: 'C' },
   { id: 8, name: 'FRI8', division: 'Départemental 4',  day: 'Vendredi', time: '20:00', group: 'C' },
+  // Coupe de Rouen et Championnat Jeunes : équipes SANS brûlage (kind
+  // différent de 'FRI'), chacune avec son propre jeu de dates (groupes D et
+  // E). Les équipes CJ sont réservées aux jeunes (catégorie Poussin à
+  // Junior, ou catégorie non renseignée).
+  { id: 9,  name: 'CDR1', division: 'Coupe de Rouen',     day: 'Mercredi', time: '', group: 'D', kind: 'CDR' },
+  { id: 10, name: 'CDR2', division: 'Coupe de Rouen',     day: 'Mercredi', time: '', group: 'D', kind: 'CDR' },
+  { id: 11, name: 'CDR3', division: 'Coupe de Rouen',     day: 'Mercredi', time: '', group: 'D', kind: 'CDR' },
+  { id: 12, name: 'CDR4', division: 'Coupe de Rouen',     day: 'Mercredi', time: '', group: 'D', kind: 'CDR' },
+  { id: 13, name: 'CJ1',  division: 'Championnat Jeunes', day: 'Samedi',   time: '', group: 'E', kind: 'CJ', youthOnly: true },
+  { id: 14, name: 'CJ2',  division: 'Championnat Jeunes', day: 'Samedi',   time: '', group: 'E', kind: 'CJ', youthOnly: true },
+  { id: 15, name: 'CJ3',  division: 'Championnat Jeunes', day: 'Samedi',   time: '', group: 'E', kind: 'CJ', youthOnly: true },
+  { id: 16, name: 'CJ4',  division: 'Championnat Jeunes', day: 'Samedi',   time: '', group: 'E', kind: 'CJ', youthOnly: true },
 ];
+TEAMS.forEach(function (t) { if (!t.kind) t.kind = 'FRI'; });
+const DATE_GROUPS_ = ['A', 'B', 'C', 'D', 'E'];
 
 // Dates de phase 1, par groupe (fournies par le club).
 // Les dates de phase 2 sont éditables par l'administrateur (initialement vides).
@@ -36,11 +50,17 @@ const DEFAULT_DATES = {
     A: ['20/09/2025', '04/10/2025', '18/10/2025', '08/11/2025', '22/11/2025', '06/12/2025', '13/12/2025'],
     B: ['25/09/2025', '09/10/2025', '30/10/2025', '13/11/2025', '27/11/2025', '11/12/2025', '18/12/2025'],
     C: ['02/10/2025', '16/10/2025', '06/11/2025', '20/11/2025', '04/12/2025', '08/01/2026', '15/01/2026'],
+    // Coupe de Rouen (mercredi) et Championnat Jeunes (samedi) 2026-2027,
+    // d'après les plaquettes du club.
+    D: ['14/10/2026', '04/11/2026', '25/11/2026', '16/12/2026', '06/01/2027', '', ''],
+    E: ['07/11/2026', '05/12/2026', '', '', '', '', ''],
   },
   2: { // Phase 2 - à compléter par l'administrateur
     A: ['', '', '', '', '', '', ''],
     B: ['', '', '', '', '', '', ''],
     C: ['', '', '', '', '', '', ''],
+    D: ['27/01/2027', '17/02/2027', '10/03/2027', '31/03/2027', '14/04/2027', '05/05/2027', ''],
+    E: ['16/01/2027', '06/02/2027', '13/03/2027', '22/05/2027', '20/06/2027', '', ''],
   },
 };
 
@@ -243,7 +263,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V5';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V6';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -300,7 +320,7 @@ function ensureSheetsNow_() {
     datesSheet.setFrozenRows(1);
     const rows = [];
     [1, 2].forEach(function (phase) {
-      ['A', 'B', 'C'].forEach(function (grp) {
+      DATE_GROUPS_.forEach(function (grp) {
         DEFAULT_DATES[phase][grp].forEach(function (d, idx) {
           rows.push([phase, grp, idx + 1, d, '', '']);
         });
@@ -308,6 +328,28 @@ function ensureSheetsNow_() {
     });
     datesSheet.getRange(2, 1, rows.length, 6).setValues(rows);
   }
+  // Ajout des groupes de dates D (Coupe de Rouen) et E (Championnat Jeunes)
+  // dans un classeur créé avant leur existence : lignes ajoutées à la fin,
+  // sans modifier les dates existantes.
+  if (datesSheet.getLastRow() > 1) {
+    const presentGroups = {};
+    datesSheet.getRange(2, 1, datesSheet.getLastRow() - 1, 2).getValues().forEach(function (r) {
+      presentGroups[Number(r[0]) + '|' + r[1]] = true;
+    });
+    const extra = [];
+    [1, 2].forEach(function (phase) {
+      DATE_GROUPS_.forEach(function (grp) {
+        if (presentGroups[phase + '|' + grp]) return;
+        DEFAULT_DATES[phase][grp].forEach(function (d, idx) { extra.push([phase, grp, idx + 1, d, '', '']); });
+      });
+    });
+    if (extra.length) {
+      const start = datesSheet.getLastRow() + 1;
+      datesSheet.getRange(start, 4, extra.length, 1).setNumberFormat('@');
+      datesSheet.getRange(start, 1, extra.length, 6).setValues(extra);
+    }
+  }
+
   // Réparation : classeur créé par une version antérieure sans la colonne F
   // "Journée" — on ajoute juste l'en-tête, sans toucher aux données.
   if (datesSheet.getLastColumn() < 6) {
@@ -660,7 +702,7 @@ function getStaticConfig() {
   const sheet = ss_().getSheetByName('Dates');
   const values = sheet.getDataRange().getValues();
   values.shift(); // en-têtes
-  const dates = { 1: { A: [], B: [], C: [] }, 2: { A: [], B: [], C: [] } };
+  const dates = { 1: { A: [], B: [], C: [], D: [], E: [] }, 2: { A: [], B: [], C: [], D: [], E: [] } };
   // journeeByDate : date (JJ/MM/AAAA) -> libellé de journée (ex. "J1"), lu
   // directement en colonne F par position (et non par nom d'en-tête, pour
   // rester robuste quel que soit l'intitulé exact tapé dans la feuille).
@@ -755,6 +797,9 @@ function computeBurnedTeams_(matchesByTeam) {
   const burned = {};
   let cumulative = 0;
   TEAMS.forEach(function (team) {
+    // Coupe de Rouen / Championnat Jeunes : pas de brûlage, et leurs matchs
+    // ne comptent pas pour le brûlage des équipes FRI.
+    if (team.kind !== 'FRI') { burned[team.id] = false; return; }
     burned[team.id] = cumulative >= 2;
     cumulative += Number(matchesByTeam[team.id] || 0);
   });
@@ -789,6 +834,7 @@ function getPlayerData(playerId, phase) {
     assignments: assignMap,
     burned: computeBurnedTeams_(matchesByTeam),
     matchesByTeam: matchesByTeam,
+    categorie: String((readTable_('Joueurs').find(function (p) { return String(p.ID) === String(playerId); }) || {}).Catégorie || ''),
     // Toutes phases confondues : le joueur doit voir sa convocation quel
     // que soit l'onglet de phase affiché.
     convocations: readTable_('Convocations')
@@ -858,6 +904,7 @@ function getAdminData(phase) {
         nom: p.Nom,
         prenom: p.Prénom,
         homeTeam: Number(p.EquipeDomicile) || null,
+        categorie: String(p.Catégorie || ''),
         availability: availByPlayer[p.ID] || {},
         assignments: assignByPlayer[p.ID] || {},
         matchesByTeam: matchesByPlayerTeam[p.ID] || {},
