@@ -250,7 +250,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V8';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V9';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -611,6 +611,20 @@ function normalize_(str) {
     .replace(/[̀-ͯ]/g, '');
 }
 
+/** Date d'une cellule sous forme "jj/mm/aaaa", que Sheets l'ait gardée en
+ * texte ou convertie en vraie date. Sans cette normalisation, une ligne dont
+ * la date avait été convertie n'était jamais retrouvée : chaque clic
+ * ajoutait une nouvelle ligne (doublons dans Disponibilites), et
+ * l'affichage, qui lit la dernière ligne, ne changeait plus. */
+function cellDate_(v) {
+  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  return String(v === null || v === undefined ? '' : v).trim();
+}
+
+function rowKey_(row) {
+  return String(row[0]) + '|' + Number(row[1]) + '|' + cellDate_(row[2]);
+}
+
 function pad2_(n) {
   n = String(n);
   return n.length < 2 ? '0' + n : n;
@@ -837,22 +851,39 @@ function getPlayerData(playerId, phase) {
 
 function setAvailability(playerId, phase, date, status) {
   ensureSheets_();
-  const sheet = ss_().getSheetByName('Disponibilites');
+  return withScriptLock_(function () {
+    upsertDatedRow_('Disponibilites', playerId, phase, date, status || '');
+    return { ok: true };
+  });
+}
+
+/** Écrit (ou supprime si value est vide) la ligne JoueurID+Phase+Date d'une
+ * feuille à 4 colonnes (Disponibilites, Affectations). Toutes les lignes en
+ * double pour cette clé sont supprimées, et la date est toujours écrite en
+ * texte. */
+function upsertDatedRow_(sheetName, playerId, phase, date, value) {
+  const sheet = ss_().getSheetByName(sheetName);
   const values = sheet.getDataRange().getValues();
+  const key = rowKey_([playerId, phase, date]);
+  const matches = [];
   for (let i = 1; i < values.length; i++) {
-    if (String(values[i][0]) === String(playerId) && Number(values[i][1]) === Number(phase) && values[i][2] === date) {
-      if (!status) {
-        sheet.deleteRow(i + 1);
-      } else {
-        sheet.getRange(i + 1, 4).setValue(status);
-      }
-      return { ok: true };
+    if (rowKey_(values[i]) === key) matches.push(i + 1);
+  }
+  // Doublons : on supprime en partant du bas pour ne pas décaler les autres.
+  for (let k = matches.length - 1; k >= 1; k--) sheet.deleteRow(matches[k]);
+  if (matches.length) {
+    if (value === '' || value === null || value === undefined) {
+      sheet.deleteRow(matches[0]);
+    } else {
+      const r = sheet.getRange(matches[0], 3, 1, 2);
+      r.setNumberFormat('@');
+      r.setValues([[date, value]]);
     }
+  } else if (value !== '' && value !== null && value !== undefined) {
+    const row = sheet.getLastRow() + 1;
+    sheet.getRange(row, 3).setNumberFormat('@');
+    sheet.getRange(row, 1, 1, 4).setValues([[playerId, Number(phase), date, value]]);
   }
-  if (status) {
-    sheet.appendRow([playerId, phase, date, status]);
-  }
-  return { ok: true };
 }
 
 // ----------------------------------------------------------------------------------
@@ -933,7 +964,8 @@ function dedupeAffectations_Now_() {
   let hadDuplicates = false;
   values.forEach(function (row) {
     if (!row.some(function (c) { return c !== '' && c !== null; })) return;
-    const key = row[0] + '|' + row[1] + '|' + row[2];
+    row[2] = cellDate_(row[2]);
+    const key = rowKey_(row);
     if (Object.prototype.hasOwnProperty.call(byKey, key)) { hadDuplicates = true; }
     byKey[key] = row; // garde la dernière occurrence rencontrée
   });
@@ -943,6 +975,7 @@ function dedupeAffectations_Now_() {
     .map(function (k) { return byKey[k]; })
     .filter(function (row) { return row[3] !== '' && row[3] !== null && row[3] !== undefined; });
 
+  sheet.getRange(2, 3, Math.max(kept.length, 1), 1).setNumberFormat('@');
   rewriteTable_(sheet, header.slice(0, 4), kept);
   return true;
 }
@@ -968,7 +1001,8 @@ function dedupeDisponibilites_Now_() {
   let hadDuplicates = false;
   values.forEach(function (row) {
     if (!row.some(function (c) { return c !== '' && c !== null; })) return;
-    const key = row[0] + '|' + row[1] + '|' + row[2];
+    row[2] = cellDate_(row[2]);
+    const key = rowKey_(row);
     if (Object.prototype.hasOwnProperty.call(byKey, key)) { hadDuplicates = true; }
     byKey[key] = row; // garde la dernière occurrence rencontrée
   });
@@ -978,6 +1012,7 @@ function dedupeDisponibilites_Now_() {
     .map(function (k) { return byKey[k]; })
     .filter(function (row) { return row[3] !== '' && row[3] !== null && row[3] !== undefined; });
 
+  sheet.getRange(2, 3, Math.max(kept.length, 1), 1).setNumberFormat('@');
   rewriteTable_(sheet, header.slice(0, 4), kept);
   return true;
 }
@@ -1004,23 +1039,9 @@ function setAssignment(playerId, phase, date, teamId) {
     }
   }
 
-  const sheet = ss_().getSheetByName('Affectations');
-  const values = sheet.getDataRange().getValues();
-  let found = false;
-  for (let i = 1; i < values.length; i++) {
-    if (String(values[i][0]) === String(playerId) && Number(values[i][1]) === Number(phase) && values[i][2] === date) {
-      found = true;
-      if (!teamId) {
-        sheet.deleteRow(i + 1);
-      } else {
-        sheet.getRange(i + 1, 4).setValue(Number(teamId));
-      }
-      break;
-    }
-  }
-  if (!found && teamId) {
-    sheet.appendRow([playerId, phase, date, Number(teamId)]);
-  }
+  withScriptLock_(function () {
+    upsertDatedRow_('Affectations', playerId, phase, date, teamId ? Number(teamId) : '');
+  });
 
   // Renvoie l'état de brûlage à jour pour CE joueur (pour rafraîchir l'UI immédiatement)
   const assign = readTable_('Affectations').filter(function (r) {
@@ -1048,12 +1069,20 @@ function setAssignments(entries) {
 
   const journeeByDate = getStaticConfig().journeeByDate || {};
   const sheet = ss_().getSheetByName('Affectations');
-  const values = sheet.getDataRange().getValues();
-  const header = values.shift();
+  const raw = sheet.getDataRange().getValues();
+  const header = raw.shift();
 
+  // Une seule ligne par joueur + phase + date (la dernière l'emporte, comme
+  // à l'affichage) : les doublons éventuels sont supprimés au passage.
   const rowIndex = {};
-  values.forEach(function (row, i) {
-    rowIndex[row[0] + '|' + row[1] + '|' + row[2]] = i;
+  const values = [];
+  raw.forEach(function (row) {
+    if (!row.some(function (c) { return c !== '' && c !== null; })) return;
+    row[2] = cellDate_(row[2]);
+    const key = rowKey_(row);
+    if (rowIndex[key] !== undefined) { values[rowIndex[key]] = row; return; }
+    rowIndex[key] = values.length;
+    values.push(row);
   });
 
   // Applique chaque entrée en mémoire, avec la même vérification "une seule
@@ -1074,7 +1103,7 @@ function setAssignments(entries) {
         }
       }
     }
-    const key = e.playerId + '|' + e.phase + '|' + e.date;
+    const key = rowKey_([e.playerId, e.phase, e.date]);
     const idx = rowIndex[key];
     if (idx !== undefined) {
       values[idx][3] = e.teamId ? Number(e.teamId) : '';
@@ -1090,6 +1119,7 @@ function setAssignments(entries) {
 
   // Réécrit toute la feuille en une seule opération (bien plus rapide que
   // modifier ligne par ligne, surtout pour un gros lot de modifications).
+  sheet.getRange(2, 3, Math.max(kept.length, 1), 1).setNumberFormat('@');
   rewriteTable_(sheet, header.slice(0, 4), kept);
 
   return { ok: true };
@@ -1235,7 +1265,7 @@ function sendConvocations(phase, date, teamId, message) {
     // sélectionnés (remplacées ci-dessous).
     const kept = values.filter(function (row) {
       if (!row.some(function (c) { return c !== '' && c !== null; })) return false;
-      const sameMatch = Number(row[1]) === Number(phase) && row[2] === date;
+      const sameMatch = Number(row[1]) === Number(phase) && cellDate_(row[2]) === date;
       if (!sameMatch) return true;
       return !selectedIds[String(row[0])] && Number(row[3]) !== Number(teamId);
     });
@@ -1265,7 +1295,7 @@ function answerConvocation(playerId, phase, date, response) {
   const sheet = ss_().getSheetByName('Convocations');
   const values = sheet.getDataRange().getValues();
   for (let i = 1; i < values.length; i++) {
-    if (String(values[i][0]) === String(playerId) && Number(values[i][1]) === Number(phase) && values[i][2] === date) {
+    if (String(values[i][0]) === String(playerId) && Number(values[i][1]) === Number(phase) && cellDate_(values[i][2]) === date) {
       sheet.getRange(i + 1, 7, 1, 2).setValues([[response, new Date()]]);
       return { ok: true };
     }
