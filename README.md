@@ -183,6 +183,21 @@ numéro de licence : un lien « Ma fiche FFTT » apparaît alors dans son
 profil. La récupération automatique des points nécessite l'API officielle
 de la FFTT (identifiants à demander par le club).
 
+## Inscriptions par mail aux organisateurs
+
+Onglet admin **Compétitions individuelles** : les épreuves sont présentées
+**une colonne par compétition**. Pour une épreuve ayant des inscrits
+validés, le bouton **« ✉️ Mail d'inscription à l'organisateur »** prépare le
+message (liste des joueurs avec licence, catégorie, points et équipe
+CDR / CJ) et l'ouvre dans la messagerie ; le texte est aussi affiché pour
+être copié. Les adresses se règlent dans la carte « Mails d'inscription aux
+organisateurs » (par défaut : Challenge SERANO → girard76@wanadoo.fr,
+Coupe de Rouen → coupederouen@gmail.com, Championnat Jeunes →
+lefebvrejmichel@hotmail.com ; feuille *Config*, clés `MailInscription:…`).
+
+Le profil du joueur contient un lien vers le **site du club** (modifiable
+dans *Dates & Réglages*).
+
 ## Arborescence
 
 | Chemin | Rôle |
