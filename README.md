@@ -129,20 +129,20 @@ Identifiant de l'application : `fr.fri.brulages` (modifiable dans
 - Le tableau de la carte indique pour chaque joueur : non envoyée, envoyée
   sans réponse, ✓ Présent ou ✕ Absent.
 
-## Équipes Championnat Jeunes (CJ1-CJ4) et Coupe de Rouen (CDR1-CDR4)
+## Coupe de Rouen (CDR1-CDR4) et Championnat Jeunes (CJ1-CJ4)
 
-- **Championnat Jeunes** : 4 équipes **CJ1 à CJ4** dans le championnat par
-  équipes (le samedi, groupe de dates « Championnat Jeunes », modifiable
-  dans *Dates & Réglages*). Pas de brûlage, et leurs matchs ne comptent pas
-  pour le brûlage FRI1-FRI8. Réservées aux jeunes (catégorie Poussin à
-  Junior, ou non renseignée) : les adultes ne voient pas ces dates et ne
-  peuvent pas y être affectés.
-- **Coupe de Rouen** : gérée dans les **compétitions individuelles
-  adultes** (et non dans le championnat FRI). Le joueur demande son
-  inscription à chaque tour ; l'administrateur la valide et choisit
-  l'équipe **CDR1 à CDR4** (colonne « Équipe » de l'onglet Compétitions
-  individuelles, enregistrée dans la feuille *Inscriptions*, colonne G) ;
-  le joueur voit « Inscription validée — CDR2 ».
+Ces deux compétitions par équipes se gèrent dans les **compétitions
+individuelles** (et non dans le championnat FRI1-FRI8, ni dans le tableau
+de brûlage) :
+
+- **Coupe de Rouen** : compétitions individuelles *adultes* ;
+  **Championnat Jeunes (équipe de 2)** : compétitions individuelles
+  *jeunes* (réservé aux catégories jeunes).
+- Le joueur demande son inscription à chaque tour / journée ;
+  l'administrateur la valide et choisit l'équipe (**CDR1 à CDR4** ou **CJ1
+  à CJ4**) dans la colonne « Équipe » de l'onglet Compétitions
+  individuelles (feuille *Inscriptions*, colonne G) ; le joueur voit
+  « Inscription validée — CJ3 » puis confirme sa participation.
 
 ## Compétitions individuelles (jeunes / adultes)
 

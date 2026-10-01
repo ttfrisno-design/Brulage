@@ -121,8 +121,6 @@
     table.burn-table td.group-a { background: #f5fbff; }
     table.burn-table td.group-b { background: #fff8f2; }
     table.burn-table td.group-c { background: #f6fff5; }
-    table.burn-table td.group-d { background: #f8f1fc; }
-    table.burn-table td.group-e { background: #eefafb; }
     table.burn-table .date-head { font-weight: 600; }
     table.burn-table .grp-head { font-size: 10px; color: var(--muted); font-weight: 400; }
     select.assign-select {
@@ -556,24 +554,16 @@
     pendingAssignments: {},
   };
 
-  var GROUP_LABEL = { A: 'Régional 3 (Dim.)', B: 'Départemental 1/2 (Ven. 20h)', C: 'Départemental 3/4 (Ven. 20h)', D: 'Coupe de Rouen (Mer.)', E: 'Championnat Jeunes (Sam.)' };
-  var GROUP_COLORS = { A: '#1565c0', B: '#ef6c00', C: '#2e7d32', D: '#6a1b9a', E: '#00838f' };
-  // Groupes de dates : A/B/C = championnat FRI (avec brûlage), E =
-  // Championnat Jeunes (sans brûlage). La Coupe de Rouen se gère dans les
-  // compétitions individuelles (équipe CDR1-4 choisie à la validation).
-  var GROUPS = ['A', 'B', 'C', 'E'];
+  var GROUP_LABEL = { A: 'Régional 3 (Dim.)', B: 'Départemental 1/2 (Ven. 20h)', C: 'Départemental 3/4 (Ven. 20h)' };
+  var GROUP_COLORS = { A: '#1565c0', B: '#ef6c00', C: '#2e7d32' };
+  // Groupes de dates du championnat FRI. La Coupe de Rouen et le
+  // Championnat Jeunes se gèrent dans les compétitions individuelles (équipe
+  // CDR1-4 / CJ1-4 choisie à la validation de l'inscription).
+  var GROUPS = ['A', 'B', 'C'];
+  // Équipes du championnat FRI (une configuration encore en cache peut
+  // contenir d'anciennes équipes CDR / CJ : on les ignore).
   function isFriTeam(t) { return !t.kind || t.kind === 'FRI'; }
   function friTeams() { return STATE.config.teams.filter(isFriTeam); }
-  // Équipes proposées pour une date : celles de la même compétition.
-  function teamsForGroup(grp) {
-    return STATE.config.teams.filter(function (t) {
-      return (grp === 'A' || grp === 'B' || grp === 'C') ? isFriTeam(t) : t.group === grp;
-    });
-  }
-  // Championnat Jeunes réservé aux jeunes (ou catégorie non renseignée).
-  function isAdultCategory(cat) {
-    return !!cat && ['Poussin', 'Benjamin', 'Minime', 'Cadet', 'Junior'].indexOf(cat) < 0;
-  }
 
   // Une couleur par équipe, pour encadrer/distinguer visuellement les
   // colonnes du tableau de brûlage (bordure + fond léger de la même teinte).
@@ -586,14 +576,6 @@
     6: { border: '#2e7d32', bg: '#e2f5e3' }, // FRI6 — vert
     7: { border: '#795548', bg: '#efe6e2' }, // FRI7 — marron
     8: { border: '#37474f', bg: '#e7ebed' }, // FRI8 — gris-bleu
-    9: { border: '#6a1b9a', bg: '#f3e5f5' },  // CDR1 — Coupe de Rouen (violets)
-    10: { border: '#8e24aa', bg: '#f3e5f5' }, // CDR2
-    11: { border: '#ab47bc', bg: '#f8eefa' }, // CDR3
-    12: { border: '#ce93d8', bg: '#fbf5fc' }, // CDR4
-    13: { border: '#00838f', bg: '#e0f7fa' }, // CJ1 — Championnat Jeunes (turquoises)
-    14: { border: '#0097a7', bg: '#e0f7fa' }, // CJ2
-    15: { border: '#26c6da', bg: '#eefbfd' }, // CJ3
-    16: { border: '#80deea', bg: '#f5fdfe' }, // CJ4
   };
 
   // ---------------------------------------------------------------------------
@@ -1027,7 +1009,6 @@
     var groups = burnedGroups(data.burned);
     return allDatesFlat().filter(function (row) {
       if (data.assignments[row.date]) return true;
-      if (row.group === 'E' && isAdultCategory(data.categorie)) return false; // Championnat Jeunes
       return !groups[row.group];
     });
   }
@@ -1230,14 +1211,13 @@
       var journeeLocked = journee && usedJournees[journee] && usedJournees[journee] !== d.date;
       html += '<td class="group-' + d.group.toLowerCase() + ' ' + availClass + (burnedNow ? ' burned-cell' : '') + (journeeLocked ? ' journee-lock' : '') + '" style="border:2px solid ' + gc + ';">';
 
-      var youthBlocked = d.group === 'E' && isAdultCategory(p.categorie) && !assigned;
-      if (viewOnly || journeeLocked || youthBlocked || (restrictToTeamId && assigned && assigned !== restrictToTeamId)) {
+      if (viewOnly || journeeLocked || (restrictToTeamId && assigned && assigned !== restrictToTeamId)) {
         // Lecture seule : soit une équipe qu'un capitaine ne fait que
         // consulter, soit une date verrouillée (déjà joué cette journée),
         // soit (vue capitaine sur sa propre équipe) une case déjà affectée
         // à une AUTRE équipe qu'il ne doit pas écraser.
         var otherTeam = assigned ? STATE.config.teams.find(function (t) { return t.id === assigned; }) : null;
-        var lockLabel = journeeLocked ? ('Déjà ' + journee + ' (' + usedJournees[journee] + ')') : (otherTeam ? otherTeam.name : (youthBlocked ? 'Jeunes' : '—'));
+        var lockLabel = journeeLocked ? ('Déjà ' + journee + ' (' + usedJournees[journee] + ')') : (otherTeam ? otherTeam.name : '—');
         html += '<span style="font-size:11px;color:var(--muted);" title="' + (journeeLocked ? 'Ce joueur est déjà affecté le ' + usedJournees[journee] + ' pour la même journée (' + journee + ')' : '') + '">' + lockLabel + '</span>';
         if (status === 'Indisponible') html += '<span class="indispo-tag">✕ indispo</span>';
       } else {
@@ -1247,7 +1227,7 @@
         // Le capitaine, comme l'administrateur, peut affecter un joueur de
         // son équipe à n'importe quelle équipe FRI1 à FRI8 (pas seulement
         // la sienne), par exemple pour un joueur qui dépanne une autre équipe.
-        var teamOptions = teamsForGroup(d.group);
+        var teamOptions = friTeams();
         teamOptions.forEach(function (t) {
           var isBurned = p.burned[t.id] && assigned !== t.id;
           html += '<option value="' + t.id + '" ' + (assigned === t.id ? 'selected' : '') + '>' +
@@ -1312,7 +1292,7 @@
     // équipe de ceux de l'équipe suivante.
     var colspan = dates.length + 1 + TEAMS_forHeader().length;
     var html = '';
-    STATE.config.teams.forEach(function (t) {
+    friTeams().forEach(function (t) {
       var teamPlayers = STATE.adminData
         .filter(function (p) { return p.homeTeam === t.id; })
         .sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); });
@@ -1510,7 +1490,7 @@
     // uniquement la feuille de sa propre équipe ; les autres équipes
     // s'affichent en lecture seule (consultation).
     var html = '';
-    STATE.config.teams.forEach(function (t) {
+    friTeams().forEach(function (t) {
       var isOwnTeam = t.id === teamId;
       // Chaque équipe n'affiche que les dates de sa propre journée (groupe).
       var dates = allDatesFlat().filter(function (d) { return d.group === t.group; });
