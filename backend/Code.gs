@@ -250,7 +250,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V9';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V10';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -432,7 +432,7 @@ function ensureSheetsNow_() {
     if (renc.getLastRow() > 1) {
       renc.getRange(2, 1, renc.getLastRow() - 1, 3).getValues().forEach(function (r) {
         let d = r[2];
-        if (d instanceof Date) d = Utilities.formatDate(d, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+        if (d instanceof Date) d = cellDate_(d);
         existing[Number(r[0]) + '|' + Number(r[1]) + '|' + d] = true;
       });
     }
@@ -474,7 +474,7 @@ function ensureSheetsNow_() {
       const v = row[0];
       if (v instanceof Date) {
         availDatesChanged = true;
-        return [Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy')];
+        return [cellDate_(v)];
       }
       return [v];
     });
@@ -487,6 +487,7 @@ function ensureSheetsNow_() {
   // Réparation : lignes en double ou contradictoires (même joueur/phase/
   // date, statuts différents) — même cause que sur Affectations (écritures
   // retentées automatiquement). On ne garde que la dernière.
+  repairSwappedDates_();
   dedupeDisponibilites_();
 
   // --- Assignments ---
@@ -514,7 +515,7 @@ function ensureSheetsNow_() {
       const v = row[0];
       if (v instanceof Date) {
         assignDatesChanged = true;
-        return [Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy')];
+        return [cellDate_(v)];
       }
       return [v];
     });
@@ -559,7 +560,7 @@ function ensureSheetsNow_() {
       const v = row[0];
       if (v instanceof Date) {
         changed = true;
-        return [Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy')];
+        return [cellDate_(v)];
       }
       return [v];
     });
@@ -595,7 +596,7 @@ function readTable_(sheetName) {
         // (ex. classeur ancien pas encore réparé), on le reconvertit en
         // texte "jj/mm/aaaa" plutôt que de laisser passer un ISO/UTC brut.
         if (v instanceof Date) {
-          v = Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+          v = cellDate_(v);
         }
         obj[h] = v;
       });
@@ -617,8 +618,71 @@ function normalize_(str) {
  * ajoutait une nouvelle ligne (doublons dans Disponibilites), et
  * l'affichage, qui lit la dernière ligne, ne changeait plus. */
 function cellDate_(v) {
-  if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  if (v instanceof Date) {
+    // Une cellule devenue "vraie date" vient d'un texte jj/mm/aaaa que Google
+    // Sheets a interprété selon les paramètres régionaux du classeur : en
+    // format américain (mois en premier), "08/11/2026" a été lu comme le
+    // 11 août. On reconstitue donc le texte d'origine dans le même ordre, et
+    // dans le fuseau horaire du classeur (pas celui du script).
+    const fmt = sheetIsMonthFirst_() ? 'MM/dd/yyyy' : 'dd/MM/yyyy';
+    return Utilities.formatDate(v, sheetTimeZone_(), fmt);
+  }
   return String(v === null || v === undefined ? '' : v).trim();
+}
+
+let sheetLocaleCache_ = null;
+function sheetLocaleInfo_() {
+  if (!sheetLocaleCache_) {
+    const ss = ss_();
+    const locale = String((ss.getSpreadsheetLocale && ss.getSpreadsheetLocale()) || '');
+    sheetLocaleCache_ = {
+      // Paramètres régionaux qui écrivent les dates mois / jour / année.
+      monthFirst: /^en(_US|_PH|_CA)?$/.test(locale) || locale === 'en_US',
+      tz: (ss.getSpreadsheetTimeZone && ss.getSpreadsheetTimeZone()) || Session.getScriptTimeZone(),
+    };
+  }
+  return sheetLocaleCache_;
+}
+function sheetIsMonthFirst_() { return sheetLocaleInfo_().monthFirst; }
+function sheetTimeZone_() { return sheetLocaleInfo_().tz; }
+
+/** Répare les dates jour/mois inversées (ex. "11/08/2026" au lieu de
+ * "08/11/2026") laissées dans Disponibilites, Affectations et Convocations
+ * par d'anciennes conversions : une date qui n'est aucune date de match de
+ * la feuille Dates, mais dont l'inverse l'est, est remplacée par l'inverse.
+ * Sans effet (ni écriture) si tout est déjà correct. */
+function repairSwappedDates_() {
+  const ss = ss_();
+  const datesSheet = ss.getSheetByName('Dates');
+  if (!datesSheet || datesSheet.getLastRow() < 2) return;
+  const known = {};
+  datesSheet.getRange(2, 4, datesSheet.getLastRow() - 1, 1).getValues().forEach(function (r) {
+    const d = cellDate_(r[0]);
+    if (d) known[d] = true;
+  });
+  ['Disponibilites', 'Affectations', 'Convocations'].forEach(function (name) {
+    const sheet = ss.getSheetByName(name);
+    if (!sheet || sheet.getLastRow() < 2) return;
+    const range = sheet.getRange(2, 3, sheet.getLastRow() - 1, 1);
+    const vals = range.getValues();
+    let changed = false;
+    const fixed = vals.map(function (r) {
+      const d = cellDate_(r[0]);
+      const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (m && !known[d]) {
+        const swapped = m[2] + '/' + m[1] + '/' + m[3];
+        if (known[swapped]) { changed = true; return [swapped]; }
+      }
+      if (r[0] instanceof Date) { changed = true; return [d]; }
+      return [r[0]];
+    });
+    if (changed) {
+      withScriptLock_(function () {
+        range.setNumberFormat('@');
+        range.setValues(fixed);
+      });
+    }
+  });
 }
 
 function rowKey_(row) {
@@ -721,7 +785,7 @@ function getStaticConfig() {
     const idx = Number(row[2]) - 1;
     let dateVal = row[3];
     if (dateVal instanceof Date) {
-      dateVal = Utilities.formatDate(dateVal, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+      dateVal = cellDate_(dateVal);
     }
     if (dates[phase] && dates[phase][grp] !== undefined) {
       dates[phase][grp][idx] = dateVal;
@@ -737,7 +801,7 @@ function getStaticConfig() {
   if (rencSheet && rencSheet.getLastRow() > 1) {
     rencSheet.getRange(2, 1, rencSheet.getLastRow() - 1, 6).getValues().forEach(function (r) {
       let d = r[2];
-      if (d instanceof Date) d = Utilities.formatDate(d, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+      if (d instanceof Date) d = cellDate_(d);
       if (!r[0] || !r[1] || !d) return;
       let h = r[3];
       if (h instanceof Date) h = Utilities.formatDate(h, Session.getScriptTimeZone(), 'HH:mm');
@@ -1206,7 +1270,7 @@ function saveRencontre(phase, teamId, date, adversaire, lieu) {
   let row = -1;
   for (let i = 1; i < values.length; i++) {
     let d = values[i][2];
-    if (d instanceof Date) d = Utilities.formatDate(d, Session.getScriptTimeZone(), 'dd/MM/yyyy');
+    if (d instanceof Date) d = cellDate_(d);
     if (Number(values[i][0]) === Number(phase) && Number(values[i][1]) === Number(teamId) && d === date) { row = i + 1; break; }
   }
   if (row < 0) {
