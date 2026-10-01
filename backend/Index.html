@@ -612,9 +612,14 @@
     outbox[outboxKey(playerId, phase, date)] = { playerId: playerId, phase: phase, date: date, status: status };
     saveAvailOutbox(outbox);
   }
-  function unqueueAvailability(playerId, phase, date) {
+  // Retire de la file l'envoi confirmé — seulement s'il s'agit bien de la
+  // valeur envoyée : si le joueur a recliqué entre-temps, le nouveau choix
+  // (pas encore envoyé) doit rester en file.
+  function unqueueAvailability(playerId, phase, date, status) {
     var outbox = loadAvailOutbox();
-    delete outbox[outboxKey(playerId, phase, date)];
+    var k = outboxKey(playerId, phase, date);
+    if (outbox[k] && status !== undefined && outbox[k].status !== status) return;
+    delete outbox[k];
     saveAvailOutbox(outbox);
   }
   function isAvailabilityPending(playerId, phase, date) {
@@ -643,7 +648,7 @@
       var e = outbox[k];
       chain = chain.then(function () {
         return callServer('setAvailability', [e.playerId, e.phase, e.date, e.status])
-          .then(function () { unqueueAvailability(e.playerId, e.phase, e.date); })
+          .then(function () { unqueueAvailability(e.playerId, e.phase, e.date, e.status); })
           .catch(function () { /* toujours en échec : reste en file, on retentera plus tard */ });
       });
     });
@@ -1070,7 +1075,7 @@
     queueAvailability(STATE.session.playerId, STATE.phase, date, newStatus);
     renderPlayerView();
     callServer('setAvailability', [STATE.session.playerId, STATE.phase, date, newStatus]).then(function () {
-      unqueueAvailability(STATE.session.playerId, STATE.phase, date);
+      unqueueAvailability(STATE.session.playerId, STATE.phase, date, newStatus);
       renderPlayerView();
     }).catch(function (err) {
       // L'envoi a échoué malgré les tentatives automatiques : on NE
@@ -1424,7 +1429,7 @@
     queueAvailability(STATE.session.playerId, STATE.phase, date, newStatus);
     renderCaptainOwnDates();
     callServer('setAvailability', [STATE.session.playerId, STATE.phase, date, newStatus]).then(function () {
-      unqueueAvailability(STATE.session.playerId, STATE.phase, date);
+      unqueueAvailability(STATE.session.playerId, STATE.phase, date, newStatus);
       renderCaptainOwnDates();
     }).catch(function (err) {
       // Idem que côté joueur : on garde le choix affiché (en attente ⏳)
