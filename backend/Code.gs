@@ -109,6 +109,8 @@ const API_FUNCTIONS_ = {
   deleteCompetition: deleteCompetition,
   setCompetitionSettings: setCompetitionSettings,
   getDataVersion: getDataVersion,
+  getProfile: getProfile,
+  setFfttLink: setFfttLink,
   saveRencontre: saveRencontre,
 };
 
@@ -116,7 +118,7 @@ const API_FUNCTIONS_ = {
 // font avancer le "numéro de version" des données (voir getDataVersion).
 const READ_ONLY_FUNCTIONS_ = {
   login: true, getStaticConfig: true, getPlayerData: true, getAdminData: true, listPlayers: true,
-  getCompetitions: true, getCompetitionsAdmin: true, getDataVersion: true,
+  getCompetitions: true, getCompetitionsAdmin: true, getDataVersion: true, getProfile: true,
 };
 
 /** Numéro de version des données, changé à chaque modification faite via
@@ -250,7 +252,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V10';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V11';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -373,11 +375,20 @@ function ensureSheetsNow_() {
   if (players.getLastColumn() < 9) {
     players.getRange(1, 9).setValue('Catégorie');
   }
+  // Colonnes J "Licence" (n° de licence FFTT) et K "Points" (points FFTT),
+  // pour le profil du joueur : en-têtes seulement.
+  if (players.getLastColumn() < 10) {
+    players.getRange(1, 10).setValue('Licence');
+  }
+  if (players.getLastColumn() < 11) {
+    players.getRange(1, 11).setValue('Points');
+  }
+  players.getRange(2, 10, 998, 1).setNumberFormat('@');
 
   // Réglages des compétitions individuelles, ajoutés à la feuille Config
   // s'ils n'existent pas encore (sans toucher aux autres réglages).
   const cfgKeys = cfg.getRange(1, 1, Math.max(cfg.getLastRow(), 1), 1).getValues().map(function (r) { return r[0]; });
-  [['DelaiInscriptionJours', '15'], ['RappelJours', '10']].forEach(function (kv) {
+  [['DelaiInscriptionJours', '15'], ['RappelJours', '10'], ['LienFicheFFTT', '']].forEach(function (kv) {
     if (cfgKeys.indexOf(kv[0]) < 0) {
       const row = cfg.getLastRow() + 1;
       cfg.getRange(row, 1, 1, 2).setNumberFormat('@').setValues([kv]);
@@ -808,7 +819,7 @@ function getStaticConfig() {
       rencontres[Number(r[0]) + '|' + Number(r[1]) + '|' + d] = { adversaire: String(r[4] || ''), lieu: String(r[5] || ''), heure: String(h || '') };
     });
   }
-  return { teams: TEAMS, dates: dates, journeeByDate: journeeByDate, rencontres: rencontres };
+  return { teams: TEAMS, dates: dates, journeeByDate: journeeByDate, rencontres: rencontres, ffttLink: String(readConfigValue_('LienFicheFFTT', '') || '') };
 }
 
 function updateDates(phase, group, dates) {
@@ -1699,6 +1710,72 @@ function setCompetitionSettings(delaiJours, rappelJours) {
 }
 
 // ----------------------------------------------------------------------------------
+// PROFIL DU JOUEUR (page d'accueil)
+// ----------------------------------------------------------------------------------
+
+/** Tout ce qu'il faut pour l'encadré « Mon profil » : identité, licence /
+ * points FFTT, affectations (toutes phases), indisponibilités, brûlage par
+ * phase et inscriptions aux compétitions individuelles. */
+function getProfile(playerId) {
+  ensureSheets_();
+  const p = readTable_('Joueurs').find(function (r) { return String(r.ID) === String(playerId); });
+  if (!p) throw new Error('Joueur introuvable.');
+  const assignments = readTable_('Affectations')
+    .filter(function (r) { return String(r.JoueurID) === String(playerId) && r.EquipeJouee !== ''; })
+    .map(function (r) { return { phase: Number(r.Phase), date: r.Date, teamId: Number(r.EquipeJouee) }; });
+  const indispos = readTable_('Disponibilites')
+    .filter(function (r) { return String(r.JoueurID) === String(playerId) && r.Statut === 'Indisponible'; })
+    .map(function (r) { return { phase: Number(r.Phase), date: r.Date }; });
+  const burned = {};
+  [1, 2].forEach(function (phase) {
+    const counts = {};
+    assignments.forEach(function (a) { if (a.phase === phase) counts[a.teamId] = (counts[a.teamId] || 0) + 1; });
+    burned[phase] = computeBurnedTeams_(counts);
+  });
+  const comp = getCompetitions(playerId);
+  const byId = {};
+  comp.competitions.forEach(function (c) { byId[c.id] = c; });
+  const inscriptions = Object.keys(comp.inscriptions).map(function (cid) {
+    const i = comp.inscriptions[cid];
+    const c = byId[Number(cid)];
+    return c ? { nom: c.nom, epreuve: c.epreuve, date: c.date, lieu: c.lieu, statut: i.statut, participation: i.participation, equipe: i.equipe } : null;
+  }).filter(Boolean);
+  const licence = String(p.Licence || '').trim();
+  const points = p.Points === '' || p.Points === undefined ? null : Number(p.Points) || null;
+  const template = String(readConfigValue_('LienFicheFFTT', '') || '');
+  return {
+    nom: p.Nom, prenom: p.Prénom, homeTeam: Number(p.EquipeDomicile) || null,
+    categorie: String(p.Catégorie || ''),
+    capitaine: p.Capitaine === true || p.Capitaine === 'VRAI' || p.Capitaine === 'TRUE',
+    licence: licence,
+    points: points,
+    // Classement FFTT = points / 100 (arrondi inférieur), 5 au minimum.
+    classement: points ? Math.max(5, Math.floor(points / 100)) : null,
+    ffttUrl: licence && template ? template.replace(/\{licence\}/g, encodeURIComponent(licence)) : '',
+    assignments: assignments,
+    indispos: indispos,
+    burned: burned,
+    inscriptions: inscriptions,
+  };
+}
+
+/** Admin : modèle de lien vers la fiche FFTT d'un joueur, où {licence} est
+ * remplacé par son numéro de licence. Vide = pas de lien. */
+function setFfttLink(template) {
+  ensureSheets_();
+  const sheet = ss_().getSheetByName('Config');
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][0] === 'LienFicheFFTT') {
+      sheet.getRange(i + 1, 2).setValue(String(template || '').trim());
+      return { ok: true };
+    }
+  }
+  sheet.appendRow(['LienFicheFFTT', String(template || '').trim()]);
+  return { ok: true };
+}
+
+// ----------------------------------------------------------------------------------
 // GESTION DES JOUEURS (effectif)
 // ----------------------------------------------------------------------------------
 
@@ -1736,7 +1813,7 @@ function addPlayer(nom, prenom, teamId, pin, capitaine, telephone, categorie) {
   return { ok: true, id: newId };
 }
 
-function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone, categorie) {
+function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone, categorie, licence, points) {
   ensureSheets_();
   assertPinAvailable_(pin, id);
   const sheet = ss_().getSheetByName('Joueurs');
@@ -1754,6 +1831,14 @@ function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone,
       }
       if (categorie !== undefined) {
         sheet.getRange(i + 1, 9).setValue(String(categorie || ''));
+      }
+      if (licence !== undefined) {
+        const licCell = sheet.getRange(i + 1, 10);
+        licCell.setNumberFormat('@');
+        licCell.setValue(String(licence || '').trim());
+      }
+      if (points !== undefined) {
+        sheet.getRange(i + 1, 11).setValue(points === '' || points === null ? '' : Number(points) || '');
       }
       return { ok: true };
     }
