@@ -275,6 +275,13 @@
     .profile-section h4 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
     .chip { display: inline-block; padding: 2px 8px; border-radius: 12px; background: var(--gray-bg); margin: 2px 4px 2px 0; font-size: 12px; }
     .chip.red { background: var(--red-bg); color: var(--red); }
+    /* Compétitions individuelles (admin) : une colonne par compétition */
+    .compet-columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(300px, 1fr); gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: start; }
+    .compet-col { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; background: #fafbfc; min-width: 0; }
+    .compet-col-head { font-weight: 700; font-size: 14px; padding-bottom: 6px; border-bottom: 2px solid var(--primary); margin-bottom: 4px; }
+    .compet-col-head .mail { display: block; font-weight: 400; font-size: 11px; color: var(--muted); word-break: break-all; }
+    .mail-box textarea { width: 100%; font: inherit; font-size: 12px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; margin-top: 6px; }
+    .compet-mails { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 12px; }
     footer.hint { text-align: center; color: var(--muted); font-size: 12px; margin: 20px 0; }
     @media (max-width: 640px) {
       main { padding: 10px; }
@@ -482,6 +489,12 @@
           <p style="color:var(--muted);font-size:12px;margin-bottom:0;">Une épreuve sans date limite propre utilise « date de l'épreuve − délai par défaut ».</p>
         </div>
         <div class="card">
+          <h2>Mails d'inscription aux organisateurs</h2>
+          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Adresse à qui envoyer la liste des inscrits validés (bouton « ✉️ Mail d'inscription » de chaque épreuve). Laisser vide si la compétition ne s'inscrit pas par mail.</p>
+          <div class="compet-mails" id="competMails"></div>
+          <button class="secondary" style="margin-top:10px;" onclick="saveCompetMails()">Enregistrer les adresses</button>
+        </div>
+        <div class="card">
           <h2>Ajouter une épreuve</h2>
           <div class="compet-form">
             <div><label>Type</label><select id="ncType"><option>Jeunes</option><option>Adultes</option><option>Tous</option></select></div>
@@ -515,6 +528,12 @@
           <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Adresse de la fiche d'un joueur, où <b>{licence}</b> sera remplacé par son numéro de licence (onglet Effectif). Laisser vide pour ne pas afficher de lien.</p>
           <input type="text" id="ffttLinkInput" placeholder="https://…{licence}…">
           <button class="secondary" style="margin-top:10px;" onclick="saveFfttLink()">Enregistrer</button>
+        </div>
+        <div class="card">
+          <h2>Site du club</h2>
+          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Lien affiché dans le profil de chaque joueur.</p>
+          <input type="text" id="clubSiteInput" placeholder="https://…">
+          <button class="secondary" style="margin-top:10px;" onclick="saveClubSite()">Enregistrer</button>
         </div>
         <div class="card" id="datesEditor"></div>
       </div>
@@ -824,6 +843,7 @@
       loadRoster();
       renderDatesEditor();
       document.getElementById('ffttLinkInput').value = STATE.config.ffttLink || '';
+      document.getElementById('clubSiteInput').value = STATE.config.siteClub || '';
     } else {
       // Joueur ou capitaine : écran d'accueil (championnat par équipes ou
       // compétitions individuelles jeunes / adultes).
@@ -2314,6 +2334,13 @@
     data.competitions.forEach(function (c) { names[c.nom] = true; });
     document.getElementById('ncNoms').innerHTML = Object.keys(names).map(function (n) { return '<option value="' + escAttr(n) + '">'; }).join('');
 
+    var mailsEl = document.getElementById('competMails');
+    if (!mailsEl.contains(document.activeElement)) {
+      mailsEl.innerHTML = Object.keys(names).map(function (n) {
+        return '<div><label>' + escHtml(n) + '</label><input type="email" data-nom="' + escAttr(n) + '" value="' + escAttr((data.settings.mails || {})[n] || '') + '" placeholder="adresse@exemple.fr"></div>';
+      }).join('');
+    }
+
     var showPast = document.getElementById('showPastCompet').checked;
     var playersById = {};
     data.players.forEach(function (p) { playersById[String(p.id)] = p; });
@@ -2326,13 +2353,25 @@
         .sort(function (a, b) { return frDateToTime(a.date) - frDateToTime(b.date); });
       if (!list.length) return;
       html += '<h3>' + (type === 'Tous' ? 'Jeunes et adultes' : type) + '</h3>';
+      // Une colonne par compétition (épreuves dans l'ordre des dates).
+      var noms = [];
+      var byNom = {};
       list.forEach(function (c) {
+        if (!byNom[c.nom]) { byNom[c.nom] = []; noms.push(c.nom); }
+        byNom[c.nom].push(c);
+      });
+      html += '<div class="compet-columns">';
+      noms.forEach(function (nom) {
+      var mail = (data.settings.mails || {})[nom];
+      html += '<div class="compet-col"><div class="compet-col-head">' + escHtml(nom) +
+        (mail ? '<span class="mail">✉️ ' + escHtml(mail) + '</span>' : '') + '</div>';
+      byNom[nom].forEach(function (c) {
         var ins = inscByComp[c.id] || [];
         var nDem = ins.filter(function (i) { return i.statut === 'Demandée'; }).length;
         var nVal = ins.filter(function (i) { return i.statut === 'Validée'; }).length;
         var nConf = ins.filter(function (i) { return i.participation === 'Confirmée'; }).length;
         html += '<details class="adm-ep"' + (STATE.openCompet === c.id ? ' open' : '') + ' ontoggle="if(this.open)STATE.openCompet=' + c.id + '"><summary>' +
-          '<b>' + dayLabel(c.date) + '</b> ' + escHtml(c.nom) + (c.epreuve ? ' – ' + escHtml(c.epreuve) : '') +
+          '<b>' + dayLabel(c.date) + '</b> ' + escHtml(c.epreuve || c.nom) +
           (nDem ? ' <span class="pill wait">' + nDem + ' demande' + (nDem > 1 ? 's' : '') + '</span>' : '') +
           (nVal ? ' <span class="pill ok">' + nVal + ' validée' + (nVal > 1 ? 's' : '') + ' · ' + nConf + ' confirmée' + (nConf > 1 ? 's' : '') + '</span>' : '') +
           '</summary><div class="ep-body">' +
@@ -2374,8 +2413,15 @@
           (toRegister.length ? '<button class="btn-sm" onclick="competSms(' + c.id + ',\'inscription\')">📱 Relancer les non-inscrits (' + toRegister.length + ')</button>' : '') +
           (toConfirm.length ? '<button class="btn-sm" onclick="competSms(' + c.id + ',\'confirmation\')">📱 Relancer pour confirmation (' + toConfirm.length + ')</button>' : '') +
           '<span id="competSmsResult-' + c.id + '" style="font-size:12px;"></span></div>';
+        if (nVal) {
+          html += '<div class="compet-actions" style="margin-top:8px;"><button class="btn-sm fill" onclick="competMail(' + c.id + ')">✉️ Mail d\'inscription à l\'organisateur (' + nVal + ')</button></div>' +
+            '<div id="competMailResult-' + c.id + '" style="font-size:12px;"></div>';
+        }
         html += '</div></details>';
       });
+      html += '</div>';
+      });
+      html += '</div>';
     });
     document.getElementById('adminCompetList').innerHTML = html || '<p style="color:var(--muted);">Aucune épreuve à venir.</p>';
   }
@@ -2493,6 +2539,8 @@
         (pr.points ? ' · <b>' + pr.points + '</b> points (classement ' + pr.classement + ')' : '') +
         (pr.ffttUrl ? ' · <a href="' + escAttr(pr.ffttUrl) + '" target="_blank" rel="noopener">Ma fiche FFTT ↗</a>' : '') + '</div>';
     }
+    var site = (STATE.config && STATE.config.siteClub) || 'https://ttfrisno.wixsite.com/ttfri';
+    html += '<div class="profile-fftt">🌐 <a href="' + escAttr(site) + '" target="_blank" rel="noopener">Site du club TTFRI ↗</a></div>';
     html += '<div class="stat-row">' +
       '<div class="stat"><div class="v">' + played.length + '</div><div class="l">match' + (played.length > 1 ? 's' : '') + ' joué' + (played.length > 1 ? 's' : '') + ' (saison)</div></div>' +
       '<div class="stat"><div class="v">' + upcoming.length + '</div><div class="l">sélection' + (upcoming.length > 1 ? 's' : '') + ' à venir</div></div>' +
@@ -2527,6 +2575,81 @@
       STATE.config.ffttLink = v;
       alert('Lien enregistré.');
     }).catch(onGsError);
+  }
+
+  // ---------------------------------------------------------------------------
+  // MAIL D'INSCRIPTION À L'ORGANISATEUR (compétitions individuelles)
+  // ---------------------------------------------------------------------------
+  function inscriptionMail(c) {
+    var data = STATE.adminCompet;
+    var to = (data.settings.mails || {})[c.nom] || '';
+    var validated = data.inscriptions.filter(function (i) { return i.competitionId === c.id && i.statut === 'Validée' && i.participation !== 'Annulée'; })
+      .map(function (i) {
+        var p = data.players.find(function (x) { return String(x.id) === String(i.playerId); }) || { nom: '?', prenom: '' };
+        return { p: p, equipe: i.equipe || '' };
+      })
+      .sort(function (a, b) { return (a.equipe + a.p.nom).localeCompare(b.equipe + b.p.nom); });
+    function line(x) {
+      var p = x.p;
+      return '- ' + String(p.nom).toUpperCase() + ' ' + p.prenom +
+        (p.licence ? ' — licence ' + p.licence : '') +
+        (p.categorie ? ' — ' + p.categorie : '') +
+        (p.points ? ' — ' + p.points + ' pts' : '');
+    }
+    var lines = [];
+    var teams = {};
+    validated.forEach(function (x) { (teams[x.equipe] = teams[x.equipe] || []).push(x); });
+    Object.keys(teams).sort().forEach(function (t) {
+      if (t) lines.push('', 'Équipe ' + t + ' :');
+      teams[t].forEach(function (x) { lines.push(line(x)); });
+    });
+    var epreuve = c.nom + (c.epreuve ? ' – ' + c.epreuve : '');
+    var subject = 'Inscriptions FR Isneauville TT – ' + epreuve + ' (' + c.date + ')';
+    var body = 'Bonjour,\n\n' +
+      'Voici les inscriptions du club FR Isneauville Tennis de Table (Foyer Rural d\'Isneauville) pour : ' + epreuve + ', ' + dayLabel(c.date) + (c.lieu ? ' (' + c.lieu + ')' : '') + '.\n' +
+      lines.join('\n') + '\n\n' +
+      'Nombre d\'inscrits : ' + validated.length + '.\n\n' +
+      'Merci de bien vouloir nous confirmer leur prise en compte.\n\n' +
+      'Sportivement,\nFR Isneauville Tennis de Table\nttfrisno@gmail.com — 06 35 58 24 89';
+    return { to: to, subject: subject, body: body, count: validated.length };
+  }
+
+  function competMail(id) {
+    var c = STATE.adminCompet.competitions.find(function (x) { return x.id === id; });
+    var m = inscriptionMail(c);
+    var el = document.getElementById('competMailResult-' + id);
+    var uri = 'mailto:' + encodeURIComponent(m.to).replace(/%40/g, '@') + '?subject=' + encodeURIComponent(m.subject) + '&body=' + encodeURIComponent(m.body);
+    el.innerHTML = '<div class="mail-box">' +
+      (m.to ? 'À : <b>' + escHtml(m.to) + '</b>' : '<span class="convoc-ko">Aucune adresse pour « ' + escHtml(c.nom) + ' » (réglages ci-dessus).</span>') +
+      ' · <a href="' + escAttr(uri) + '">✉️ Ouvrir dans la messagerie</a>' +
+      ' · <button class="btn-sm" onclick="copyMailText(' + id + ')">Copier le texte</button>' +
+      '<textarea rows="10" id="competMailText-' + id + '">' + escHtml('Objet : ' + m.subject + '\n\n' + m.body) + '</textarea></div>';
+    window.location.href = uri;
+  }
+
+  function copyMailText(id) {
+    var ta = document.getElementById('competMailText-' + id);
+    ta.select();
+    try { navigator.clipboard.writeText(ta.value); } catch (e) { document.execCommand('copy'); }
+  }
+
+  function saveCompetMails() {
+    var inputs = document.querySelectorAll('#competMails input[data-nom]');
+    var mails = STATE.adminCompet.settings.mails || {};
+    var calls = [];
+    Array.prototype.forEach.call(inputs, function (inp) {
+      var nom = inp.dataset.nom, v = inp.value.trim();
+      if ((mails[nom] || '') !== v) {
+        calls.push(callServer('setSetting', ['MailInscription:' + nom, v]).then(function () { mails[nom] = v; }));
+      }
+    });
+    STATE.adminCompet.settings.mails = mails;
+    Promise.all(calls).then(function () { alert(calls.length ? 'Adresses enregistrées.' : 'Aucune modification.'); }).catch(onGsError);
+  }
+
+  function saveClubSite() {
+    var v = document.getElementById('clubSiteInput').value.trim();
+    callServer('setSetting', ['SiteClub', v]).then(function () { STATE.config.siteClub = v; alert('Adresse enregistrée.'); }).catch(onGsError);
   }
 
   // ---------------------------------------------------------------------------

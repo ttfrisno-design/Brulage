@@ -111,6 +111,7 @@ const API_FUNCTIONS_ = {
   getDataVersion: getDataVersion,
   getProfile: getProfile,
   setFfttLink: setFfttLink,
+  setSetting: setSetting,
   saveRencontre: saveRencontre,
 };
 
@@ -252,7 +253,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V11';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V12';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -388,7 +389,14 @@ function ensureSheetsNow_() {
   // Réglages des compétitions individuelles, ajoutés à la feuille Config
   // s'ils n'existent pas encore (sans toucher aux autres réglages).
   const cfgKeys = cfg.getRange(1, 1, Math.max(cfg.getLastRow(), 1), 1).getValues().map(function (r) { return r[0]; });
-  [['DelaiInscriptionJours', '15'], ['RappelJours', '10'], ['LienFicheFFTT', '']].forEach(function (kv) {
+  [['DelaiInscriptionJours', '15'], ['RappelJours', '10'], ['LienFicheFFTT', ''],
+    ['SiteClub', 'https://ttfrisno.wixsite.com/ttfri'],
+    // Adresse de l'organisateur à qui envoyer les inscriptions, par
+    // compétition (clé "MailInscription:<nom de la compétition>").
+    ['MailInscription:Challenge SERANO', 'girard76@wanadoo.fr'],
+    ['MailInscription:Coupe de Rouen', 'coupederouen@gmail.com'],
+    ['MailInscription:Championnat Jeunes (équipe de 2)', 'lefebvrejmichel@hotmail.com'],
+  ].forEach(function (kv) {
     if (cfgKeys.indexOf(kv[0]) < 0) {
       const row = cfg.getLastRow() + 1;
       cfg.getRange(row, 1, 1, 2).setNumberFormat('@').setValues([kv]);
@@ -819,7 +827,8 @@ function getStaticConfig() {
       rencontres[Number(r[0]) + '|' + Number(r[1]) + '|' + d] = { adversaire: String(r[4] || ''), lieu: String(r[5] || ''), heure: String(h || '') };
     });
   }
-  return { teams: TEAMS, dates: dates, journeeByDate: journeeByDate, rencontres: rencontres, ffttLink: String(readConfigValue_('LienFicheFFTT', '') || '') };
+  return { teams: TEAMS, dates: dates, journeeByDate: journeeByDate, rencontres: rencontres, ffttLink: String(readConfigValue_('LienFicheFFTT', '') || ''),
+    siteClub: String(readConfigValue_('SiteClub', '') || '') };
 }
 
 function updateDates(phase, group, dates) {
@@ -1451,9 +1460,15 @@ function readConfigValue_(key, fallback) {
 }
 
 function competitionSettings_() {
+  const mails = {};
+  readTable_('Config').forEach(function (r) {
+    const k = String(r.Clé || '');
+    if (k.indexOf('MailInscription:') === 0) mails[k.slice('MailInscription:'.length)] = String(r.Valeur || '');
+  });
   return {
     delaiJours: Number(readConfigValue_('DelaiInscriptionJours', 15)) || 0,
     rappelJours: Number(readConfigValue_('RappelJours', 10)) || 0,
+    mails: mails,
   };
 }
 
@@ -1637,7 +1652,10 @@ function getCompetitionsAdmin() {
     players: readTable_('Joueurs')
       .filter(function (p) { return p.Actif !== false && p.Actif !== 'FAUX' && p.Actif !== 'NON'; })
       .map(function (p) {
-        return { id: p.ID, nom: p.Nom, prenom: p.Prénom, categorie: String(p.Catégorie || ''), phone: String(p.Téléphone || '') };
+        return {
+          id: p.ID, nom: p.Nom, prenom: p.Prénom, categorie: String(p.Catégorie || ''), phone: String(p.Téléphone || ''),
+          licence: String(p.Licence || ''), points: p.Points === '' || p.Points === undefined ? '' : Number(p.Points) || '',
+        };
       }),
   };
 }
@@ -1762,16 +1780,29 @@ function getProfile(playerId) {
 /** Admin : modèle de lien vers la fiche FFTT d'un joueur, où {licence} est
  * remplacé par son numéro de licence. Vide = pas de lien. */
 function setFfttLink(template) {
+  return setSetting('LienFicheFFTT', template);
+}
+
+/** Admin : modifie un réglage de la feuille Config (liste limitée). */
+function setSetting(key, value) {
   ensureSheets_();
+  key = String(key || '');
+  if (['LienFicheFFTT', 'SiteClub'].indexOf(key) < 0 && key.indexOf('MailInscription:') !== 0) {
+    throw new Error('Réglage non modifiable : ' + key);
+  }
+  const v = String(value || '').trim();
   const sheet = ss_().getSheetByName('Config');
   const values = sheet.getDataRange().getValues();
   for (let i = 1; i < values.length; i++) {
-    if (values[i][0] === 'LienFicheFFTT') {
-      sheet.getRange(i + 1, 2).setValue(String(template || '').trim());
+    if (values[i][0] === key) {
+      const cell = sheet.getRange(i + 1, 2);
+      cell.setNumberFormat('@');
+      cell.setValue(v);
       return { ok: true };
     }
   }
-  sheet.appendRow(['LienFicheFFTT', String(template || '').trim()]);
+  const row = sheet.getLastRow() + 1;
+  sheet.getRange(row, 1, 1, 2).setNumberFormat('@').setValues([[key, v]]);
   return { ok: true };
 }
 
