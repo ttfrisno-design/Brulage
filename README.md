@@ -167,6 +167,22 @@ de brûlage) :
   L'admin peut aussi relancer par **SMS** les joueurs concernés non inscrits
   ou non confirmés.
 
+## Mon profil (page d'accueil)
+
+Après la saisie du code, le joueur voit un encadré **Mon profil** : équipe,
+catégorie, matchs joués dans la saison (par équipe), prochain match et
+sélections à venir (adversaire, lieu, réponse à la convocation), prochaine
+compétition individuelle, indisponibilités à venir et équipes pour
+lesquelles il est brûlé.
+
+**FFTT** : l'onglet Effectif comporte les colonnes **Licence** et **Points**
+(feuille *Joueurs*, colonnes J et K) ; le classement est calculé (points /
+100). Dans *Dates & Réglages*, « Fiche joueur FFTT » permet de saisir
+l'adresse de la fiche d'un joueur, où `{licence}` est remplacé par son
+numéro de licence : un lien « Ma fiche FFTT » apparaît alors dans son
+profil. La récupération automatique des points nécessite l'API officielle
+de la FFTT (identifiants à demander par le club).
+
 ## Arborescence
 
 | Chemin | Rôle |

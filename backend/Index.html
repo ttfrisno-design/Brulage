@@ -262,6 +262,19 @@
     table.roster .save-pending { border-color: #d97706 !important; background: #fff7ed; }
     table.roster .save-ok { border-color: var(--green) !important; }
     table.roster .save-err { border-color: var(--red) !important; background: var(--red-bg); }
+    /* Mon profil (accueil) */
+    .profile-card h2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .profile-sub { font-size: 13px; color: var(--muted); margin: -6px 0 10px; }
+    .profile-fftt { font-size: 13px; line-height: 1.6; margin-bottom: 10px; }
+    .profile-fftt a { color: var(--primary); font-weight: 600; }
+    .stat-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+    .stat { background: var(--gray-bg); border-radius: 8px; padding: 8px 10px; }
+    .stat .v { font-size: 20px; font-weight: 700; }
+    .stat .l { font-size: 12px; color: var(--muted); }
+    .profile-section { border-top: 1px solid var(--border); padding: 8px 0; font-size: 13px; }
+    .profile-section h4 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+    .chip { display: inline-block; padding: 2px 8px; border-radius: 12px; background: var(--gray-bg); margin: 2px 4px 2px 0; font-size: 12px; }
+    .chip.red { background: var(--red-bg); color: var(--red); }
     footer.hint { text-align: center; color: var(--muted); font-size: 12px; margin: 20px 0; }
     @media (max-width: 640px) {
       main { padding: 10px; }
@@ -301,6 +314,7 @@
       </div>
     </header>
     <main style="max-width:720px;">
+      <div id="homeProfile"></div>
       <div id="homeReminders"></div>
       <div id="homeConvoc"></div>
       <h2 style="margin:6px 0 12px;">Que voulez-vous consulter ?</h2>
@@ -495,6 +509,12 @@
           <label>Nouveau code PIN admin</label>
           <input type="text" id="newAdminPin" style="max-width:200px;">
           <button class="secondary" style="margin-top:10px;" onclick="saveAdminPin()">Enregistrer</button>
+        </div>
+        <div class="card">
+          <h2>Fiche joueur FFTT</h2>
+          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Adresse de la fiche d'un joueur, où <b>{licence}</b> sera remplacé par son numéro de licence (onglet Effectif). Laisser vide pour ne pas afficher de lien.</p>
+          <input type="text" id="ffttLinkInput" placeholder="https://…{licence}…">
+          <button class="secondary" style="margin-top:10px;" onclick="saveFfttLink()">Enregistrer</button>
         </div>
         <div class="card" id="datesEditor"></div>
       </div>
@@ -803,6 +823,7 @@
       loadAdminData();
       loadRoster();
       renderDatesEditor();
+      document.getElementById('ffttLinkInput').value = STATE.config.ffttLink || '';
     } else {
       // Joueur ou capitaine : écran d'accueil (championnat par équipes ou
       // compétitions individuelles jeunes / adultes).
@@ -1614,6 +1635,8 @@
         '</select></td>' +
         '<td><input type="text" value="' + escAttr(p.PIN) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="PIN" style="width:70px;"></td>' +
         '<td><input type="tel" value="' + escAttr(p['Téléphone']) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Téléphone" style="width:120px;" placeholder="06…"></td>' +
+        '<td><input type="text" value="' + escAttr(p.Licence) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Licence" style="width:90px;" placeholder="n° licence"></td>' +
+        '<td><input type="number" value="' + escAttr(p.Points) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Points" style="width:70px;" placeholder="pts"></td>' +
         '<td><select onchange="editPlayer(' + p.ID + ',this)" data-field="Catégorie" style="width:95px;"><option value="">—</option>' +
           ALL_CATEGORIES.map(function (c) { return '<option' + (p['Catégorie'] === c ? ' selected' : '') + '>' + c + '</option>'; }).join('') +
         '</select></td>' +
@@ -1632,7 +1655,7 @@
       html += '<div class="team-frame" style="--team-border:' + c.border + ';--team-bg:' + c.bg + ';">' +
         '<h3 class="team-frame-title">' + t.name + ' — ' + t.division + ' <span style="font-weight:400;color:var(--muted);">(' + teamPlayers.length + ' joueur' + (teamPlayers.length > 1 ? 's' : '') + ')</span></h3>';
       if (teamPlayers.length) {
-        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Catégorie</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
         teamPlayers.forEach(function (p) { html += rowHtml(p); });
         html += '</tbody></table>';
       } else {
@@ -1648,7 +1671,7 @@
     if (orphans.length) {
       html += '<div class="team-frame" style="--team-border:#999;--team-bg:#f5f5f5;">' +
         '<h3 class="team-frame-title">Équipe non définie</h3>' +
-        '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Catégorie</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+        '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
       orphans.forEach(function (p) { html += rowHtml(p); });
       html += '</tbody></table></div>';
     }
@@ -1676,7 +1699,7 @@
     container.dataset.players = JSON.stringify(players);
     saveCache('roster', players);
     STATE.lastRaw.roster = container.dataset.players;
-    var args = [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '', p['Catégorie'] || ''];
+    var args = [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '', p['Catégorie'] || '', p.Licence || '', p.Points === undefined ? '' : p.Points];
     el.classList.remove('save-ok', 'save-err');
     el.classList.add('save-pending');
     playerSaveChain = playerSaveChain.then(function () {
@@ -2030,15 +2053,24 @@
         if (STATE.view === 'compet') renderCompetView();
       }
     }
+    var keyPr = 'profile_' + STATE.session.playerId;
+    if (!STATE.profile) {
+      STATE.profile = loadCache(keyPr);
+      if (STATE.profile && STATE.view === 'home') renderProfile();
+    }
     Promise.all([
       callServer('getCompetitions', [STATE.session.playerId]),
       callServer('getPlayerData', [STATE.session.playerId, STATE.phase]),
+      // Profil : ancien script sans getProfile -> on s'en passe.
+      callServer('getProfile', [STATE.session.playerId], 6).catch(function () { return null; }),
     ]).then(function (res) {
       saveCache(keyC, res[0]);
       saveCache(keyP, res[1]);
+      if (res[2]) saveCache(keyPr, res[2]);
       if (isUnchanged('home', res) && STATE.compet && STATE.homePlayerData) return;
       STATE.compet = res[0];
       STATE.homePlayerData = res[1];
+      STATE.profile = res[2] || STATE.profile;
       if (STATE.view === 'home') renderHome();
       if (STATE.view === 'compet') renderCompetView();
     }).catch(onGsError);
@@ -2104,6 +2136,7 @@
   }
 
   function renderHome() {
+    renderProfile();
     var rem = competReminders(null);
     var el = document.getElementById('homeReminders');
     if (rem.length) {
@@ -2417,6 +2450,83 @@
   function saveCompetSettings() {
     callServer('setCompetitionSettings', [document.getElementById('setDelai').value, document.getElementById('setRappel').value])
       .then(function (res) { STATE.adminCompet = res; renderAdminCompet(); alert('Réglages enregistrés.'); }).catch(onGsError);
+  }
+
+  // ---------------------------------------------------------------------------
+  // MON PROFIL — encadré de la page d'accueil (joueur / capitaine)
+  // ---------------------------------------------------------------------------
+  function renderProfile() {
+    var el = document.getElementById('homeProfile');
+    var pr = STATE.profile;
+    if (!el || !pr) return;
+    var today = todayStart();
+    var team = teamById(pr.homeTeam);
+    var played = pr.assignments.filter(function (a) { return parseFrDate(a.date) < today; });
+    var upcoming = pr.assignments.filter(function (a) { return parseFrDate(a.date) >= today; })
+      .sort(function (a, b) { return parseFrDate(a.date) - parseFrDate(b.date); });
+    var byTeam = {};
+    played.forEach(function (a) { byTeam[a.teamId] = (byTeam[a.teamId] || 0) + 1; });
+    var indispos = pr.indispos.filter(function (d) { return parseFrDate(d.date) >= today; })
+      .sort(function (a, b) { return parseFrDate(a.date) - parseFrDate(b.date); });
+    var nextComp = pr.inscriptions.filter(function (i) { return i.statut !== 'Refusée' && i.participation !== 'Annulée' && parseFrDate(i.date) >= today; })
+      .sort(function (a, b) { return parseFrDate(a.date) - parseFrDate(b.date); });
+    var burnedNow = Object.keys(pr.burned[STATE.phase] || {}).filter(function (id) { return pr.burned[STATE.phase][id]; })
+      .map(function (id) { var t = teamById(id); return t ? t.name : null; }).filter(Boolean);
+    var convocs = (STATE.homePlayerData && STATE.homePlayerData.convocations) || [];
+
+    function matchLine(a) {
+      var t = teamById(a.teamId);
+      var r = rencontreFor(a.phase, a.teamId, a.date);
+      var c = convocs.find(function (x) { return x.date === a.date && Number(x.teamId) === Number(a.teamId); });
+      return '<b>' + dayLabel(a.date) + '</b> — ' + (t ? escHtml(t.name) : '?') +
+        (r ? ' ' + escHtml(rencontreLabel(r.adversaire, r.lieu)) : '') +
+        (c ? (c.response === 'Présent' ? ' <span class="pill ok">Présent</span>' : c.response === 'Absent' ? ' <span class="pill ko">Absent</span>' : ' <span class="pill wait">Convoqué(e)</span>') : '');
+    }
+
+    var html = '<div class="card profile-card"><h2>👤 ' + escHtml(pr.prenom + ' ' + pr.nom) +
+      (pr.capitaine ? ' <span class="pill ok">Capitaine</span>' : '') + '</h2>' +
+      '<div class="profile-sub">' + (team ? escHtml(team.name + ' — ' + team.division) : '') +
+      (pr.categorie ? ' · ' + escHtml(pr.categorie) : '') + '</div>';
+    if (pr.licence || pr.points) {
+      html += '<div class="profile-fftt">🏓 FFTT' +
+        (pr.licence ? ' · licence <b>' + escHtml(pr.licence) + '</b>' : '') +
+        (pr.points ? ' · <b>' + pr.points + '</b> points (classement ' + pr.classement + ')' : '') +
+        (pr.ffttUrl ? ' · <a href="' + escAttr(pr.ffttUrl) + '" target="_blank" rel="noopener">Ma fiche FFTT ↗</a>' : '') + '</div>';
+    }
+    html += '<div class="stat-row">' +
+      '<div class="stat"><div class="v">' + played.length + '</div><div class="l">match' + (played.length > 1 ? 's' : '') + ' joué' + (played.length > 1 ? 's' : '') + ' (saison)</div></div>' +
+      '<div class="stat"><div class="v">' + upcoming.length + '</div><div class="l">sélection' + (upcoming.length > 1 ? 's' : '') + ' à venir</div></div>' +
+      '<div class="stat"><div class="v">' + indispos.length + '</div><div class="l">indisponibilité' + (indispos.length > 1 ? 's' : '') + ' à venir</div></div>' +
+      '</div>';
+    if (played.length) {
+      html += '<div class="profile-section"><h4>Matchs joués par équipe</h4>' +
+        Object.keys(byTeam).map(function (id) { var t = teamById(id); return '<span class="chip">' + (t ? escHtml(t.name) : id) + ' × ' + byTeam[id] + '</span>'; }).join('') + '</div>';
+    }
+    html += '<div class="profile-section"><h4>Prochain match</h4>' + (upcoming.length ? matchLine(upcoming[0]) : 'Aucune sélection pour le moment.') + '</div>';
+    if (upcoming.length > 1) {
+      html += '<div class="profile-section"><h4>Sélections suivantes</h4>' + upcoming.slice(1, 6).map(function (a) { return '<div>' + matchLine(a) + '</div>'; }).join('') + '</div>';
+    }
+    html += '<div class="profile-section"><h4>Prochaine compétition individuelle</h4>' + (nextComp.length
+      ? '<b>' + dayLabel(nextComp[0].date) + '</b> — ' + escHtml(nextComp[0].nom + (nextComp[0].epreuve ? ' – ' + nextComp[0].epreuve : '')) +
+        (nextComp[0].statut === 'Validée' ? ' <span class="pill ok">Inscription validée' + (nextComp[0].equipe ? ' — ' + escHtml(nextComp[0].equipe) : '') + '</span>' : ' <span class="pill wait">Demande en attente</span>')
+      : 'Aucune inscription en cours.') + '</div>';
+    if (indispos.length) {
+      html += '<div class="profile-section"><h4>Mes indisponibilités</h4>' + indispos.slice(0, 12).map(function (d) { return '<span class="chip red">' + dayLabel(d.date) + '</span>'; }).join('') + '</div>';
+    }
+    if (burnedNow.length) {
+      html += '<div class="profile-section"><h4>Brûlé (phase ' + STATE.phase + ')</h4>' + burnedNow.map(function (n) { return '<span class="chip">' + escHtml(n) + ' 🔥</span>'; }).join('') + '</div>';
+    }
+    el.innerHTML = html + '</div>';
+  }
+
+  // Admin : modèle de lien vers la fiche FFTT des joueurs.
+  function saveFfttLink() {
+    var v = document.getElementById('ffttLinkInput').value.trim();
+    if (v && v.indexOf('{licence}') < 0 && !confirm('Le lien ne contient pas {licence} : tous les joueurs auront le même lien. Continuer ?')) return;
+    callServer('setFfttLink', [v]).then(function () {
+      STATE.config.ffttLink = v;
+      alert('Lien enregistré.');
+    }).catch(onGsError);
   }
 
   // ---------------------------------------------------------------------------
