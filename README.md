@@ -167,6 +167,14 @@ de brûlage) :
   L'admin peut aussi relancer par **SMS** les joueurs concernés non inscrits
   ou non confirmés.
 
+## Indisponibilités saisies par l'administrateur
+
+Dans le tableau de brûlage, chaque case comporte un petit bouton
+**« ✕ indispo »** : l'administrateur déclare le joueur indisponible à cette
+date (la case passe en rouge), puis **« ✓ dispo »** le remet disponible.
+L'enregistrement est le même que lorsque le joueur le saisit lui-même
+(feuille *Disponibilites*) : le joueur voit le changement dans son appli.
+
 ## Limite de 4 joueurs par journée
 
 Dans le tableau de brûlage (administrateur) et la feuille de match

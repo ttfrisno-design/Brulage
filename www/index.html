@@ -133,6 +133,10 @@
     table.burn-table td.avail-red { background: #f6b8b8 !important; box-shadow: inset 0 0 0 2px var(--red); }
     table.burn-table td.avail-red.burned-cell { background: var(--burn-bg) !important; }
     .indispo-tag { display: block; font-size: 10px; font-weight: 700; color: var(--red); }
+    .avail-toggle { display: block; margin: 3px auto 0; padding: 1px 6px; font-size: 10px; line-height: 1.4; border-radius: 10px; border: 1px solid #c4c4c4; background: #fff; color: #777; cursor: pointer; white-space: nowrap; }
+    .avail-toggle:hover { border-color: var(--red); color: var(--red); }
+    .avail-toggle.to-dispo, .avail-toggle.to-dispo:hover { border-color: #2e7d32; color: #2e7d32; }
+    .avail-toggle.pending { opacity: .6; }
     td.avail-none select.assign-select { background: #fff; }
     td.burned-cell { background: var(--burn-bg) !important; }
     td.burned-cell select.assign-select { border-color: var(--burn-border); }
@@ -710,6 +714,7 @@
       // Retire les icônes "en attente" pour ce qui vient d'être envoyé.
       if (STATE.session.isCaptain) { if (STATE.captainOwnData) renderCaptainOwnDates(); }
       else if (!STATE.session.isAdmin && STATE.playerData) { renderPlayerView(); }
+      else if (STATE.session.isAdmin && STATE.adminData) { renderBurnTable(); }
     });
   }
 
@@ -1172,6 +1177,27 @@
     document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tabId); });
   }
 
+  // Indisponibilité saisie par l'administrateur pour un joueur (bascule
+  // Disponible <-> Indisponible), enregistrée comme si le joueur l'avait
+  // saisie lui-même (feuille Disponibilites), avec la même file d'attente
+  // en cas de connexion instable.
+  function adminToggleAvail(playerId, date) {
+    var p = (STATE.adminData || []).find(function (pl) { return String(pl.id) === String(playerId); });
+    if (!p) return;
+    var phase = STATE.phase;
+    var newStatus = (p.availability[date] || 'Disponible') === 'Indisponible' ? 'Disponible' : 'Indisponible';
+    p.availability[date] = newStatus;
+    queueAvailability(p.id, phase, date, newStatus);
+    renderBurnTable();
+    callServer('setAvailability', [p.id, phase, date, newStatus]).then(function () {
+      unqueueAvailability(p.id, phase, date, newStatus);
+      if (STATE.phase === phase) renderBurnTable();
+    }).catch(function (err) {
+      console.warn('Disponibilité en attente d\'envoi :', err);
+      renderBurnTable();
+    });
+  }
+
   function loadAdminData(silent) {
     var key = 'admin_phase' + STATE.phase;
     if (!silent) {
@@ -1182,6 +1208,9 @@
     callServer('getAdminData', [STATE.phase]).then(function (data) {
       if (silent && isEditingTable('burnTableContainer')) { STATE.dataVersion = null; return; } // réessayé à la prochaine synchro
       if (isUnchanged(key, data) && STATE.adminData) return;
+      // Indisponibilités saisies par l'admin pas encore enregistrées : on
+      // garde l'affichage du choix fait.
+      data.forEach(function (p) { applyPendingAvailability(p.id, STATE.phase, p.availability); });
       STATE.adminData = data;
       saveCache(key, data);
       renderBurnTable();
@@ -1280,6 +1309,16 @@
             t.name + (isBurned ? ' 🔥' : '') + '</option>';
         });
         html += '</select>';
+      }
+      // Administrateur : saisie de l'indisponibilité du joueur directement
+      // dans le tableau de brûlage (même enregistrement que côté joueur).
+      if (STATE.session && STATE.session.isAdmin && !viewOnly) {
+        var unavailable = status === 'Indisponible';
+        var waiting = isAvailabilityPending(p.id, STATE.phase, d.date);
+        html += '<button type="button" class="avail-toggle' + (unavailable ? ' to-dispo' : '') + (waiting ? ' pending' : '') + '" ' +
+          'onclick="adminToggleAvail(\'' + p.id + '\',\'' + d.date + '\')" title="' +
+          (unavailable ? 'Remettre ce joueur disponible' : 'Déclarer ce joueur indisponible') + (waiting ? ' (envoi en attente)' : '') + '">' +
+          (unavailable ? '✓ dispo' : '✕ indispo') + (waiting ? ' ⏳' : '') + '</button>';
       }
       html += '</td>';
     });
