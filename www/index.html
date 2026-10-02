@@ -340,7 +340,7 @@
       <div id="homeConvoc"></div>
       <h2 style="margin:6px 0 12px;">Que voulez-vous consulter ?</h2>
       <div class="home-choices">
-        <button class="home-choice" onclick="openTeamView()">
+        <button class="home-choice" id="homeTeamChoice" onclick="openTeamView()">
           <span class="home-icon">🏓</span><span class="home-label">Championnat par équipes</span>
           <span class="home-sub">Disponibilités, feuilles de match, brûlages</span>
           <span class="home-badge hidden" id="badgeTeam"></span>
@@ -1370,17 +1370,8 @@
       html += '</div>';
     });
 
-    // Sécurité : joueurs sans équipe domicile reconnue.
-    var orphans = STATE.adminData.filter(function (p) {
-      return !STATE.config.teams.some(function (t) { return t.id === p.homeTeam; });
-    });
-    if (orphans.length) {
-      html += '<div class="team-frame" style="--team-border:#999;--team-bg:transparent;">' +
-        '<h3 class="team-frame-title">Équipe non définie</h3>' +
-        '<div class="table-scroll"><table class="burn-table"><thead>' + burnTableHeaderHtml(dates, lastTeamId) + '</thead><tbody>';
-      orphans.forEach(function (p, pIdx) { html += burnTableRowHtml(p, dates, lastTeamId, pIdx === orphans.length - 1); });
-      html += '</tbody></table></div></div>';
-    }
+    // Les joueurs « Sans équipe » (onglet Effectif) ne participent pas aux
+    // championnats par équipes : ils n'apparaissent pas ici.
 
     setHtmlKeepingPosition(container, html);
     renderConvocSender('convocSenderAdmin', STATE.adminData, null);
@@ -1659,7 +1650,7 @@
     var sel = document.getElementById('newTeam');
     sel.innerHTML = friTeams().map(function (t) {
       return '<option value="' + t.id + '">' + t.name + ' — ' + t.division + '</option>';
-    }).join('');
+    }).join('') + '<option value="0">Sans équipe (compétitions individuelles)</option>';
   }
 
   function loadRoster() {
@@ -1687,6 +1678,7 @@
         '<td><input type="text" value="' + escAttr(p.Prénom) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Prénom"></td>' +
         '<td><select onchange="editPlayer(' + p.ID + ',this)" data-field="EquipeDomicile">' +
           friTeams().map(function (t) { return '<option value="' + t.id + '" ' + (Number(p.EquipeDomicile) === t.id ? 'selected' : '') + '>' + t.name + '</option>'; }).join('') +
+          '<option value="0"' + (hasFriTeam(p) ? '' : ' selected') + '>Sans équipe</option>' +
         '</select></td>' +
         '<td><input type="text" value="' + escAttr(p.PIN) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="PIN" style="width:70px;"></td>' +
         '<td><input type="tel" value="' + escAttr(p['Téléphone']) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Téléphone" style="width:120px;" placeholder="06…"></td>' +
@@ -1719,19 +1711,27 @@
       html += '</div>';
     });
 
-    // Sécurité : joueurs sans équipe domicile reconnue (donnée corrompue/absente).
-    var orphans = players.filter(function (p) {
-      return !friTeams().some(function (t) { return t.id === Number(p.EquipeDomicile); });
-    });
-    if (orphans.length) {
-      html += '<div class="team-frame" style="--team-border:#999;--team-bg:#f5f5f5;">' +
-        '<h3 class="team-frame-title">Équipe non définie</h3>' +
-        '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
-      orphans.forEach(function (p) { html += rowHtml(p); });
-      html += '</tbody></table></div>';
+    // « Sans équipe » : joueurs qui ne participent pas aux championnats par
+    // équipes (compétitions individuelles seulement). Absents du tableau de
+    // brûlage. Choisir une équipe FRI dans la colonne « Équipe » pour les y
+    // ajouter.
+    var noTeam = players.filter(function (p) { return !hasFriTeam(p); });
+    html += '<div class="team-frame" style="--team-border:#999;--team-bg:#f5f5f5;">' +
+      '<h3 class="team-frame-title">Sans équipe <span style="font-weight:400;color:var(--muted);">(' + noTeam.length + ' joueur' + (noTeam.length > 1 ? 's' : '') + ' — hors championnat par équipes, absents du tableau de brûlage)</span></h3>';
+    if (noTeam.length) {
+      html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+      noTeam.forEach(function (p) { html += rowHtml(p); });
+      html += '</tbody></table>';
+    } else {
+      html += '<p style="color:var(--muted);font-size:13px;margin:0;">Aucun joueur pour le moment.</p>';
     }
+    html += '</div>';
 
     container.innerHTML = html;
+  }
+
+  function hasFriTeam(p) {
+    return friTeams().some(function (t) { return t.id === Number(p.EquipeDomicile); });
   }
 
   function escAttr(v) { return String(v == null ? '' : v).replace(/"/g, '&quot;'); }
@@ -2192,6 +2192,9 @@
 
   function renderHome() {
     renderProfile();
+    // Joueur « Sans équipe » : pas de championnat par équipes.
+    var teamChoice = document.getElementById('homeTeamChoice');
+    if (teamChoice) teamChoice.classList.toggle('hidden', !teamById(STATE.session.homeTeam));
     var rem = competReminders(null);
     var el = document.getElementById('homeReminders');
     if (rem.length) {
@@ -2566,7 +2569,7 @@
 
     var html = '<div class="card profile-card"><h2>👤 ' + escHtml(pr.prenom + ' ' + pr.nom) +
       (pr.capitaine ? ' <span class="pill ok">Capitaine</span>' : '') + '</h2>' +
-      '<div class="profile-sub">' + (team ? escHtml(team.name + ' — ' + team.division) : '') +
+      '<div class="profile-sub">' + (team ? escHtml(team.name + ' — ' + team.division) : 'Sans équipe (compétitions individuelles)') +
       (pr.categorie ? ' · ' + escHtml(pr.categorie) : '') + '</div>';
     if (pr.licence || pr.points) {
       html += '<div class="profile-fftt">🏓 FFTT' +

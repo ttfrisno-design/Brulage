@@ -167,6 +167,16 @@ de brûlage) :
   L'admin peut aussi relancer par **SMS** les joueurs concernés non inscrits
   ou non confirmés.
 
+## Joueurs « Sans équipe »
+
+Onglet **Effectif** : la colonne « Équipe » propose **Sans équipe** pour les
+joueurs qui ne participent pas aux championnats par équipes (compétitions
+individuelles uniquement). Ils sont regroupés dans le cadre « Sans équipe »,
+n'apparaissent pas dans le **tableau de brûlage**, et le bouton
+« Championnat par équipes » n'est pas proposé sur leur page d'accueil
+(colonne *EquipeDomicile* vide dans la feuille *Joueurs*). Choisir une équipe
+FRI pour les remettre dans le championnat.
+
 ## Mon profil (page d'accueil)
 
 Après la saisie du code, le joueur voit un encadré **Mon profil** : équipe,
