@@ -1568,6 +1568,8 @@
     renderConvocSender('convocSenderCaptain', STATE.captainTeamData, teamId);
   }
 
+  var MAX_PLAYERS_PER_MATCH = 4;
+
   function pendingKey(playerId, date) { return playerId + '|' + date; }
 
   function onAssignChange(playerId, date, value) {
@@ -1580,6 +1582,21 @@
     var dataset = isCaptainCtx ? STATE.captainTeamData : STATE.adminData;
     var p = dataset.find(function (pl) { return String(pl.id) === String(playerId); });
     if (!p) return;
+    // Une équipe ne peut aligner que 4 joueurs sur une même journée : on
+    // refuse un 5e joueur (avertissement) et on remet la case comme avant.
+    if (value && Number(p.assignments[date]) !== Number(value)) {
+      var already = dataset.filter(function (pl) {
+        return String(pl.id) !== String(playerId) && Number((pl.assignments || {})[date]) === Number(value);
+      });
+      if (already.length >= MAX_PLAYERS_PER_MATCH) {
+        var t = teamById(value);
+        alert('⚠️ ' + (t ? t.name : 'Cette équipe') + ' a déjà ' + already.length + ' joueurs sélectionnés le ' + date + ' (' +
+          already.map(function (pl) { return pl.prenom + ' ' + pl.nom; }).join(', ') + ').\n\n' +
+          'Une équipe ne peut avoir que ' + MAX_PLAYERS_PER_MATCH + ' joueurs sélectionnés pour une même journée : retirez d\'abord un joueur.');
+        if (isCaptainCtx) { renderCaptainTeamTable(); } else { renderBurnTable(); }
+        return;
+      }
+    }
     if (value) { p.assignments[date] = Number(value); } else { delete p.assignments[date]; }
     STATE.pendingAssignments[pendingKey(playerId, date)] = { playerId: playerId, date: date, value: value ? Number(value) : '' };
     if (isCaptainCtx) { renderCaptainTeamTable(); } else { renderBurnTable(); }

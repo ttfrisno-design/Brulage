@@ -167,6 +167,14 @@ de brûlage) :
   L'admin peut aussi relancer par **SMS** les joueurs concernés non inscrits
   ou non confirmés.
 
+## Limite de 4 joueurs par journée
+
+Dans le tableau de brûlage (administrateur) et la feuille de match
+(capitaine), une équipe ne peut avoir que **4 joueurs sélectionnés** pour
+une même date : le choix d'un 5e joueur est refusé avec un message
+d'avertissement listant les 4 joueurs déjà sélectionnés (retirer d'abord
+l'un d'eux).
+
 ## Joueurs « Sans équipe »
 
 Onglet **Effectif** : la colonne « Équipe » propose **Sans équipe** pour les
