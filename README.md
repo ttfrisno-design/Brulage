@@ -167,6 +167,24 @@ de brûlage) :
   L'admin peut aussi relancer par **SMS** les joueurs concernés non inscrits
   ou non confirmés.
 
+## Limite de 4 joueurs par journée
+
+Dans le tableau de brûlage (administrateur) et la feuille de match
+(capitaine), une équipe ne peut avoir que **4 joueurs sélectionnés** pour
+une même date : le choix d'un 5e joueur est refusé avec un message
+d'avertissement listant les 4 joueurs déjà sélectionnés (retirer d'abord
+l'un d'eux).
+
+## Joueurs « Sans équipe »
+
+Onglet **Effectif** : la colonne « Équipe » propose **Sans équipe** pour les
+joueurs qui ne participent pas aux championnats par équipes (compétitions
+individuelles uniquement). Ils sont regroupés dans le cadre « Sans équipe »,
+n'apparaissent pas dans le **tableau de brûlage**, et le bouton
+« Championnat par équipes » n'est pas proposé sur leur page d'accueil
+(colonne *EquipeDomicile* vide dans la feuille *Joueurs*). Choisir une équipe
+FRI pour les remettre dans le championnat.
+
 ## Mon profil (page d'accueil)
 
 Après la saisie du code, le joueur voit un encadré **Mon profil** : équipe,

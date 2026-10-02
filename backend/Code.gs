@@ -1840,7 +1840,8 @@ function addPlayer(nom, prenom, teamId, pin, capitaine, telephone, categorie) {
   const players = readTable_('Joueurs');
   const maxId = players.reduce(function (m, p) { return Math.max(m, Number(p.ID) || 0); }, 0);
   const newId = maxId + 1;
-  sheet.appendRow([newId, nom, prenom, teamId, pin, true, !!capitaine, String(telephone || ''), String(categorie || '')]);
+  // teamId 0 / vide = « Sans équipe » (hors championnat par équipes).
+  sheet.appendRow([newId, nom, prenom, Number(teamId) || '', pin, true, !!capitaine, String(telephone || ''), String(categorie || '')]);
   return { ok: true, id: newId };
 }
 
@@ -1851,7 +1852,7 @@ function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone,
   const values = sheet.getDataRange().getValues();
   for (let i = 1; i < values.length; i++) {
     if (String(values[i][0]) === String(id)) {
-      sheet.getRange(i + 1, 2, 1, 6).setValues([[nom, prenom, teamId, pin, actif, !!capitaine]]);
+      sheet.getRange(i + 1, 2, 1, 6).setValues([[nom, prenom, Number(teamId) || '', pin, actif, !!capitaine]]);
       // Téléphone (colonne H) : on ne l'écrase que s'il est fourni, pour ne
       // pas l'effacer si une ancienne version de l'appli appelle updatePlayer
       // sans ce paramètre.
