@@ -123,9 +123,12 @@ Identifiant de l'application : `fr.fri.brulages` (modifiable dans
   - la convocation est enregistrée (feuille *Convocations*) et s'affiche en
     haut de l'appli des joueurs sélectionnés, avec les boutons **Présent /
     Absent** ;
-  - sur téléphone, l'appli SMS s'ouvre avec les numéros et le message
-    pré-remplis (il reste à appuyer sur Envoyer). Sur PC, les numéros sont
-    affichés.
+  - **WhatsApp** s'ouvre avec le message pré-rempli (automatiquement sur
+    téléphone, bouton « Envoyer dans le groupe WhatsApp » sur PC) : choisir
+    le groupe WhatsApp de l'équipe puis envoyer (WhatsApp ne permet pas de
+    viser un groupe directement par lien) ;
+  - le lien « ou par SMS » reste disponible sur téléphone (numéros et
+    message pré-remplis).
 - Le tableau de la carte indique pour chaque joueur : non envoyée, envoyée
   sans réponse, ✓ Présent ou ✕ Absent.
 
