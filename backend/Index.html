@@ -548,6 +548,12 @@
           <input type="text" id="clubSiteInput" placeholder="https://…">
           <button class="secondary" style="margin-top:10px;" onclick="saveClubSite()">Enregistrer</button>
         </div>
+        <div class="card">
+          <h2>Notifications</h2>
+          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Sur l'appli installée : rappels automatiques (veille de match, date limite d'inscription, participation à confirmer) et notifications push (nouvelle convocation, inscription validée).</p>
+          <div id="pushStatus" style="font-size:14px;">…</div>
+          <button class="secondary" style="margin-top:10px;" onclick="sendTestPushFromAdmin()">Envoyer une notification de test</button>
+        </div>
         <div class="card" id="datesEditor"></div>
       </div>
     </main>
@@ -822,10 +828,157 @@
       });
   }
 
+  // ---------------------------------------------------------------------------
+  // NOTIFICATIONS (appli installée sur téléphone uniquement)
+  // ---------------------------------------------------------------------------
+  // 1) Rappels locaux : programmés sur le téléphone à partir des données de
+  //    l'appli (veille de match, date limite d'inscription, participation à
+  //    confirmer, veille de compétition). Recalculés à chaque mise à jour.
+  // 2) Notifications push (Firebase) : envoyées par le script (nouvelle
+  //    convocation, inscription validée/refusée), même appli fermée. Actives
+  //    seulement si l'APK a été compilé avec Firebase (PUSH_ENABLED).
+  function nativePlugin(name) {
+    var C = window.Capacitor;
+    if (!C || !C.isNativePlatform || !C.isNativePlatform()) return null;
+    return (C.Plugins && C.Plugins[name]) || null;
+  }
+  function notifPermissionOk(plugin) {
+    return plugin.checkPermissions().then(function (p) {
+      var st = p.display || p.receive;
+      if (st === 'granted') return true;
+      if (st === 'denied') return false;
+      return plugin.requestPermissions().then(function (r) { return (r.display || r.receive) === 'granted'; });
+    }).catch(function () { return false; });
+  }
+  function atHour(time, hour) { var d = new Date(time); d.setHours(hour, 0, 0, 0); return d; }
+  var DAY_MS = 86400000;
+
+  function buildLocalReminders() {
+    var out = [];
+    var now = Date.now();
+    var today = todayStart();
+    function add(when, title, body) { if (when.getTime() > now + 60000) out.push({ at: when, title: title, body: body }); }
+    var assigns = (STATE.profile && STATE.profile.assignments) || [];
+    if (!STATE.profile && STATE.homePlayerData) {
+      Object.keys(STATE.homePlayerData.assignments || {}).forEach(function (dt) {
+        assigns.push({ phase: STATE.phase, date: dt, teamId: STATE.homePlayerData.assignments[dt] });
+      });
+    }
+    assigns.forEach(function (a) {
+      var t = parseFrDate(a.date);
+      var team = teamById(a.teamId);
+      if (!t || t < today || !team) return;
+      var r = rencontreFor(a.phase, a.teamId, a.date);
+      add(atHour(t - DAY_MS, 18), '🏓 Match demain — ' + team.name,
+        team.name + ' ' + dayLabel(a.date) + (team.time ? ' à ' + team.time : '') + (r ? ' ' + rencontreLabel(r.adversaire, r.lieu) : '') + '.');
+    });
+    if (STATE.compet) {
+      var mine = STATE.compet.inscriptions || {};
+      // Rappel d'inscription seulement pour les compétitions que le joueur
+      // pratique (déjà inscrit à au moins un tour de la saison) : sinon,
+      // un senior recevrait un rappel à chaque tour de toutes les épreuves.
+      var played = {};
+      (STATE.compet.competitions || []).forEach(function (c) {
+        var i = mine[c.id];
+        if (i && i.statut !== 'Refusée') played[c.nom] = true;
+      });
+      (STATE.compet.competitions || []).forEach(function (c) {
+        var i = mine[c.id];
+        var name = c.nom + (c.epreuve ? ' – ' + c.epreuve : '');
+        var date = parseFrDate(c.date);
+        if (!date || date < today) return;
+        if (!i && played[c.nom] && c.type !== 'Tous' && STATE.compet.categorie && c.eligible && c.dateLimite && canRequest(c)) {
+          add(atHour(parseFrDate(c.dateLimite) - 2 * DAY_MS, 18), '⏰ Inscriptions bientôt closes', name + ' : inscription jusqu\'au ' + c.dateLimite + '.');
+        } else if (i && i.statut === 'Validée' && !i.participation) {
+          add(atHour(date - 3 * DAY_MS, 18), '✅ Confirmez votre participation', name + ' (' + dayLabel(c.date) + ').');
+        } else if (i && i.statut === 'Validée' && i.participation === 'Confirmée') {
+          add(atHour(date - DAY_MS, 18), '🏆 Compétition demain', name + (c.lieu ? ' — ' + c.lieu : '') + '.');
+        }
+      });
+    }
+    return out.sort(function (a, b) { return a.at - b.at; }).slice(0, 50);
+  }
+
+  var lastRemindersKey = '';
+  function scheduleLocalReminders() {
+    var LN = nativePlugin('LocalNotifications');
+    if (!LN || !STATE.session || STATE.session.isAdmin) return;
+    var list = buildLocalReminders();
+    var key = JSON.stringify(list.map(function (x) { return [x.at.getTime(), x.title, x.body]; }));
+    if (key === lastRemindersKey) return;
+    lastRemindersKey = key;
+    notifPermissionOk(LN).then(function (ok) {
+      if (!ok) return null;
+      return LN.getPending().then(function (p) {
+        var ids = ((p && p.notifications) || []).map(function (n) { return { id: n.id }; });
+        return ids.length ? LN.cancel({ notifications: ids }) : null;
+      }).then(function () {
+        if (!list.length) return null;
+        return LN.schedule({ notifications: list.map(function (x, i) {
+          return { id: 1000 + i, title: x.title, body: x.body, schedule: { at: x.at, allowWhileIdle: true } };
+        }) });
+      });
+    }).catch(function (err) { lastRemindersKey = ''; console.warn('Rappels non programmés :', err); });
+  }
+
+  function setupPush() {
+    if (!(window.APP_CONFIG && window.APP_CONFIG.PUSH_ENABLED)) return;
+    var PN = nativePlugin('PushNotifications');
+    if (!PN || !STATE.session || STATE.session.isAdmin || STATE.pushSetup) return;
+    STATE.pushSetup = true;
+    PN.addListener('registration', function (t) {
+      var token = t && t.value;
+      if (!token || !STATE.session) return;
+      var key = STATE.session.playerId + '|' + token;
+      if (localStorage.getItem('fri_push_token') === key) return;
+      callServer('registerPushToken', [STATE.session.playerId, token, window.Capacitor.getPlatform()])
+        .then(function () { try { localStorage.setItem('fri_push_token', key); } catch (e) { /* pas bloquant */ } })
+        .catch(function (err) { console.warn('Jeton de notification non enregistré :', err); });
+    });
+    PN.addListener('registrationError', function (err) { console.warn('Notifications push indisponibles :', err); });
+    // Notification reçue / touchée : on rafraîchit l'écran affiché.
+    var refresh = function () { if (STATE.session) { STATE.dataVersion = null; checkForUpdates(); } };
+    PN.addListener('pushNotificationReceived', refresh);
+    PN.addListener('pushNotificationActionPerformed', refresh);
+    notifPermissionOk(PN).then(function (ok) { if (ok) PN.register(); });
+  }
+
+  // Déconnexion : plus de notifications pour ce joueur sur ce téléphone.
+  function stopNotifications() {
+    var jobs = [];
+    var saved = null;
+    try { saved = localStorage.getItem('fri_push_token'); localStorage.removeItem('fri_push_token'); } catch (e) { /* pas bloquant */ }
+    if (saved) jobs.push(callServer('unregisterPushToken', [saved.slice(saved.indexOf('|') + 1)], 1).catch(function () {}));
+    var LN = nativePlugin('LocalNotifications');
+    if (LN) {
+      jobs.push(LN.getPending().then(function (p) {
+        var ids = ((p && p.notifications) || []).map(function (n) { return { id: n.id }; });
+        return ids.length ? LN.cancel({ notifications: ids }) : null;
+      }).catch(function () {}));
+    }
+    var timeout = new Promise(function (resolve) { setTimeout(resolve, 3000); });
+    return Promise.race([Promise.all(jobs), timeout]);
+  }
+
+  function loadPushStatus() {
+    var el = document.getElementById('pushStatus');
+    if (!el) return;
+    callServer('getPushStatus', [], 1).then(function (st) {
+      el.innerHTML = st.configured
+        ? '✅ Configurées (projet Firebase <b>' + escHtml(st.projectId) + '</b>) — ' + st.devices + ' téléphone' + (st.devices > 1 ? 's' : '') + ' inscrit' + (st.devices > 1 ? 's' : '') + '.'
+        : '⚪ Pas encore configurées : les rappels locaux fonctionnent, les notifications push s\'activeront après la configuration Firebase (voir README).';
+    }).catch(function () { el.textContent = 'État indisponible (script pas encore mis à jour ?).'; });
+  }
+  function sendTestPushFromAdmin() {
+    callServer('sendTestPush', []).then(function (r) {
+      alert('Notification de test envoyée à ' + r.sent + ' téléphone(s) sur ' + r.devices + ' inscrit(s).');
+    }).catch(onGsError);
+  }
+
   function logout() {
     sessionStorage.removeItem('fri_session');
     if (STATE.pollTimer) clearInterval(STATE.pollTimer);
-    location.reload();
+    stopNotifications().then(function () { location.reload(); });
   }
 
   function enterApp() {
@@ -858,10 +1011,12 @@
       renderDatesEditor();
       document.getElementById('ffttLinkInput').value = STATE.config.ffttLink || '';
       document.getElementById('clubSiteInput').value = STATE.config.siteClub || '';
+      loadPushStatus();
     } else {
       // Joueur ou capitaine : écran d'accueil (championnat par équipes ou
       // compétitions individuelles jeunes / adultes).
       showHome();
+      setupPush();
     }
     // Une disponibilité saisie hors-ligne ou dont l'envoi a échoué reste en
     // attente : on retente dès l'entrée dans l'appli, puis à chaque tick.
@@ -2189,12 +2344,13 @@
       saveCache(keyC, res[0]);
       saveCache(keyP, res[1]);
       if (res[2]) saveCache(keyPr, res[2]);
-      if (isUnchanged('home', res) && STATE.compet && STATE.homePlayerData) return;
+      if (isUnchanged('home', res) && STATE.compet && STATE.homePlayerData) { scheduleLocalReminders(); return; }
       STATE.compet = res[0];
       STATE.homePlayerData = res[1];
       STATE.profile = res[2] || STATE.profile;
       if (STATE.view === 'home') renderHome();
       if (STATE.view === 'compet') renderCompetView();
+      scheduleLocalReminders();
     }).catch(onGsError);
   }
 

@@ -113,6 +113,10 @@ const API_FUNCTIONS_ = {
   setFfttLink: setFfttLink,
   setSetting: setSetting,
   saveRencontre: saveRencontre,
+  registerPushToken: registerPushToken,
+  unregisterPushToken: unregisterPushToken,
+  getPushStatus: getPushStatus,
+  sendTestPush: sendTestPush,
 };
 
 // Fonctions en lecture seule : toutes les autres modifient les données et
@@ -120,6 +124,7 @@ const API_FUNCTIONS_ = {
 const READ_ONLY_FUNCTIONS_ = {
   login: true, getStaticConfig: true, getPlayerData: true, getAdminData: true, listPlayers: true,
   getCompetitions: true, getCompetitionsAdmin: true, getDataVersion: true, getProfile: true,
+  getPushStatus: true,
 };
 
 /** Numéro de version des données, changé à chaque modification faite via
@@ -253,7 +258,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V12';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V13';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -461,6 +466,15 @@ function ensureSheetsNow_() {
       renc.getRange(start, 3, missing.length, 2).setNumberFormat('@');
       renc.getRange(start, 1, missing.length, 6).setValues(missing);
     }
+  }
+
+  // --- Appareils (notifications push) ---
+  // Un téléphone par ligne : jeton Firebase de l'appli installée, rattaché
+  // au joueur connecté dessus.
+  if (!ss.getSheetByName('Appareils')) {
+    const dev = ss.insertSheet('Appareils');
+    dev.getRange(1, 1, 1, 4).setValues([['JoueurID', 'Jeton', 'Plateforme', 'MajLe']]);
+    dev.setFrozenRows(1);
   }
 
   // --- Convocations ---
@@ -1360,6 +1374,11 @@ function sendConvocations(phase, date, teamId, message) {
     rewriteTable_(sheet, header.slice(0, 8), kept);
   });
 
+  const team = TEAMS.find(function (t) { return t.id === Number(teamId); }) || {};
+  sendPush_(selected.map(function (r) { return r.JoueurID; }),
+    '📣 Convocation ' + (team.name || '') + ' — ' + date,
+    String(message || '').split('\n')[0] || 'Vous êtes convoqué(e). Répondez dans l\'appli.');
+
   return selectedIdsToPlayers_(readTable_('Joueurs'), selected);
 }
 
@@ -1671,6 +1690,13 @@ function setInscriptionStatus(competitionId, playerId, statut) {
     if (idx >= 0) { rows[idx][2] = statut; }
     else { rows.push([Number(competitionId), playerId, statut, new Date(), '', '']); }
   });
+  if (statut === 'Validée' || statut === 'Refusée') {
+    const c = readCompetitions_(competitionSettings_()).find(function (x) { return Number(x.id) === Number(competitionId); });
+    if (c) {
+      sendPush_([playerId], (statut === 'Validée' ? '✅ Inscription validée' : '❌ Inscription refusée'),
+        c.nom + (c.epreuve ? ' – ' + c.epreuve : '') + ' (' + c.date + ')' + (statut === 'Validée' ? ' : pensez à confirmer votre participation.' : ''));
+    }
+  }
   return getCompetitionsAdmin();
 }
 
@@ -2043,4 +2069,149 @@ function seedTeam_(teamId, roster, pinStart) {
     ' (les autres existaient déjà).' + (pins.length ? ' PIN provisoires -> ' + pins.join(', ') : '');
   Logger.log(msg);
   return msg;
+}
+
+
+// ----------------------------------------------------------------------------------
+// NOTIFICATIONS PUSH (Firebase Cloud Messaging)
+// ----------------------------------------------------------------------------------
+// Activées seulement si la propriété du script FCM_SERVICE_ACCOUNT contient
+// la clé JSON d'un compte de service Firebase (Paramètres du projet ›
+// Propriétés du script). Sans elle, tout le reste fonctionne normalement et
+// aucune notification n'est envoyée. Voir README.md.
+
+/** L'appli installée enregistre le jeton de notification du téléphone. */
+function registerPushToken(playerId, token, platform) {
+  ensureSheets_();
+  token = String(token || '').trim();
+  if (!token) return { ok: false };
+  const sheet = ss_().getSheetByName('Appareils');
+  const values = sheet.getDataRange().getValues();
+  for (let i = values.length - 1; i >= 1; i--) {
+    if (String(values[i][1]) === token) sheet.deleteRow(i + 1);
+  }
+  sheet.appendRow([playerId, token, String(platform || ''), new Date()]);
+  return { ok: true };
+}
+
+/** Déconnexion : le téléphone ne reçoit plus les notifications de ce joueur. */
+function unregisterPushToken(token) {
+  ensureSheets_();
+  removePushTokens_([String(token || '')]);
+  return { ok: true };
+}
+
+function removePushTokens_(tokens) {
+  const set = {};
+  tokens.forEach(function (t) { if (t) set[t] = true; });
+  const sheet = ss_().getSheetByName('Appareils');
+  if (!sheet) return;
+  const values = sheet.getDataRange().getValues();
+  for (let i = values.length - 1; i >= 1; i--) {
+    if (set[String(values[i][1])]) sheet.deleteRow(i + 1);
+  }
+}
+
+function fcmServiceAccount_() {
+  const raw = PropertiesService.getScriptProperties().getProperty('FCM_SERVICE_ACCOUNT');
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) { return null; }
+}
+
+/** Jeton d'accès OAuth du compte de service (gardé 50 min en cache). */
+function fcmAccessToken_(sa) {
+  const cache = CacheService.getScriptCache();
+  const cached = cache.get('FCM_ACCESS_TOKEN');
+  if (cached) return cached;
+  const now = Math.floor(Date.now() / 1000);
+  const enc = function (o) { return Utilities.base64EncodeWebSafe(JSON.stringify(o)).replace(/=+$/, ''); };
+  const unsigned = enc({ alg: 'RS256', typ: 'JWT' }) + '.' + enc({
+    iss: sa.client_email, scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: sa.token_uri || 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600,
+  });
+  const sig = Utilities.base64EncodeWebSafe(Utilities.computeRsaSha256Signature(unsigned, sa.private_key)).replace(/=+$/, '');
+  const res = UrlFetchApp.fetch(sa.token_uri || 'https://oauth2.googleapis.com/token', {
+    method: 'post', muteHttpExceptions: true,
+    payload: { grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: unsigned + '.' + sig },
+  });
+  const data = JSON.parse(res.getContentText() || '{}');
+  if (!data.access_token) throw new Error('Firebase : jeton refusé (' + res.getContentText().slice(0, 200) + ')');
+  cache.put('FCM_ACCESS_TOKEN', data.access_token, 3000);
+  return data.access_token;
+}
+
+/** Envoie une notification aux téléphones des joueurs donnés (null = tous).
+ * Ne lève jamais d'erreur : une notification ratée ne doit pas bloquer
+ * l'enregistrement (convocation, inscription…). Retourne le nombre envoyé. */
+function sendPush_(playerIds, title, body) {
+  try {
+    const sa = fcmServiceAccount_();
+    if (!sa) return 0;
+    const wanted = {};
+    (playerIds || []).forEach(function (id) { wanted[String(id)] = true; });
+    const devices = readTable_('Appareils').filter(function (d) {
+      return d.Jeton && (playerIds === null || wanted[String(d.JoueurID)]);
+    });
+    if (!devices.length) return 0;
+    const access = fcmAccessToken_(sa);
+    const url = 'https://fcm.googleapis.com/v1/projects/' + sa.project_id + '/messages:send';
+    const requests = devices.map(function (d) {
+      return {
+        url: url, method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+        headers: { Authorization: 'Bearer ' + access },
+        payload: JSON.stringify({ message: {
+          token: String(d.Jeton),
+          notification: { title: String(title || ''), body: String(body || '') },
+          android: { priority: 'high', notification: { sound: 'default' } },
+          apns: { payload: { aps: { sound: 'default' } } },
+        } }),
+      };
+    });
+    const responses = UrlFetchApp.fetchAll(requests);
+    const dead = [];
+    let sent = 0;
+    responses.forEach(function (r, i) {
+      const code = r.getResponseCode();
+      if (code === 200) { sent++; return; }
+      // Appli désinstallée / jeton expiré : on oublie ce téléphone.
+      if (code === 404 || /UNREGISTERED|not a valid FCM registration token/i.test(r.getContentText())) dead.push(String(devices[i].Jeton));
+      else console.warn('FCM ' + code + ' : ' + r.getContentText().slice(0, 300));
+    });
+    if (dead.length) removePushTokens_(dead);
+    return sent;
+  } catch (err) {
+    console.warn('Notification push non envoyée : ' + (err && err.message ? err.message : err));
+    return 0;
+  }
+}
+
+/** Admin : état des notifications push (réglages). */
+function getPushStatus() {
+  ensureSheets_();
+  const sa = fcmServiceAccount_();
+  return {
+    configured: !!sa,
+    projectId: sa ? String(sa.project_id || '') : '',
+    devices: readTable_('Appareils').filter(function (d) { return d.Jeton; }).length,
+  };
+}
+
+/** Admin : notification de test envoyée à tous les téléphones inscrits. */
+function sendTestPush() {
+  ensureSheets_();
+  if (!fcmServiceAccount_()) throw new Error("Notifications push non configurées : ajoutez la propriété du script FCM_SERVICE_ACCOUNT (voir README).");
+  const sent = sendPush_(null, '🔔 Brûlages FRI', 'Notification de test : les notifications fonctionnent.');
+  return { sent: sent, devices: getPushStatus().devices };
+}
+
+/** À lancer UNE FOIS depuis l'éditeur Apps Script (menu Exécuter) après
+ * avoir collé cette version du script : Google demande alors l'autorisation
+ * « se connecter à un service externe » (nécessaire pour Firebase).
+ * Envoie aussi une notification de test si Firebase est configuré. */
+function testerNotifications() {
+  if (!fcmServiceAccount_()) {
+    Logger.log('Autorisation OK. Notifications push pas encore configurées (propriété FCM_SERVICE_ACCOUNT absente) : les rappels locaux fonctionnent quand même.');
+    return;
+  }
+  Logger.log(JSON.stringify(sendTestPush()));
 }
