@@ -87,13 +87,13 @@
     }
     .date-row:last-child { border-bottom: none; }
     .date-row .info { flex: 1; }
-    .date-row .date { font-weight: 600; }
+    .date-row .date { font-weight: 700; font-size: 18px; line-height: 1.2; }
     .date-row .teams { font-size: 12px; color: var(--muted); }
     .date-row .assigned {
       font-size: 12px; margin-top: 2px; padding: 2px 8px; border-radius: 20px; display: inline-block;
       background: var(--gray-bg); color: var(--ink);
     }
-    .avail-toggle { display: flex; gap: 6px; }
+    .avail-toggle { display: flex; flex-direction: row; flex-wrap: nowrap; flex-shrink: 0; gap: 6px; }
     .avail-btn {
       width: 40px; height: 40px; border-radius: 8px; border: 2px solid var(--border); cursor: pointer;
       font-size: 18px; background: #fff; display: flex; align-items: center; justify-content: center;
@@ -137,10 +137,10 @@
     table.burn-table td.avail-red { background: #f6b8b8 !important; box-shadow: inset 0 0 0 2px var(--red); }
     table.burn-table td.avail-red.burned-cell { background: var(--burn-bg) !important; }
     .indispo-tag { display: block; font-size: 10px; font-weight: 700; color: var(--red); }
-    .avail-toggle { display: block; margin: 3px auto 0; padding: 1px 6px; font-size: 10px; line-height: 1.4; border-radius: 10px; border: 1px solid #c4c4c4; background: #fff; color: #777; cursor: pointer; white-space: nowrap; }
-    .avail-toggle:hover { border-color: var(--red); color: var(--red); }
-    .avail-toggle.to-dispo, .avail-toggle.to-dispo:hover { border-color: #2e7d32; color: #2e7d32; }
-    .avail-toggle.pending { opacity: .6; }
+    .admin-avail { display: block; margin: 3px auto 0; padding: 1px 6px; font-size: 10px; line-height: 1.4; border-radius: 10px; border: 1px solid #c4c4c4; background: #fff; color: #777; cursor: pointer; white-space: nowrap; }
+    .admin-avail:hover { border-color: var(--red); color: var(--red); }
+    .admin-avail.to-dispo, .admin-avail.to-dispo:hover { border-color: #2e7d32; color: #2e7d32; }
+    .admin-avail.pending { opacity: .6; }
     td.avail-none select.assign-select { background: #fff; }
     td.burned-cell { background: var(--burn-bg) !important; }
     td.burned-cell select.assign-select { border-color: var(--burn-border); }
@@ -184,9 +184,9 @@
       margin: 0 0 6px; font-size: 12px; font-weight: 700; text-transform: uppercase;
       letter-spacing: .02em; color: var(--muted);
     }
-    .avail-group-col .date-row { flex-wrap: wrap; row-gap: 6px; padding: 8px 0; }
+    .avail-group-col .date-row { flex-wrap: nowrap; padding: 8px 0; }
     .avail-group-col .date-row .info { min-width: 0; }
-    .avail-group-col .date-row .date { font-size: 13px; }
+    .avail-group-col .date-row .date { font-size: 17px; }
     .avail-group-col .date-row .teams { font-size: 11px; }
 
     .validate-bar {
@@ -236,7 +236,8 @@
     .convoc-text { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: 13px; }
     .convoc-ok { color: var(--green); font-weight: 600; }
     .convoc-ko { color: var(--red); }
-    .sms-link { display: inline-block; margin-left: 6px; padding: 6px 12px; border-radius: 6px; background: var(--green); color: #fff; text-decoration: none; font-weight: 600; }
+    .wa-link { display: inline-block; margin: 8px 0 4px; padding: 9px 16px; border-radius: 8px; background: #25d366; color: #fff; text-decoration: none; font-weight: 700; font-size: 15px; }
+    .sms-link { display: inline-block; margin-top: 6px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--green); color: var(--green); background: #fff; text-decoration: none; font-weight: 600; font-size: 13px; }
     button.primary:disabled { opacity: .5; cursor: default; }
     @media (max-width: 640px) { .convoc-form { grid-template-columns: 1fr; } }
     /* Accueil et compétitions individuelles */
@@ -1324,7 +1325,7 @@
       if (STATE.session && STATE.session.isAdmin && !viewOnly) {
         var unavailable = status === 'Indisponible';
         var waiting = isAvailabilityPending(p.id, STATE.phase, d.date);
-        html += '<button type="button" class="avail-toggle' + (unavailable ? ' to-dispo' : '') + (waiting ? ' pending' : '') + '" ' +
+        html += '<button type="button" class="admin-avail' + (unavailable ? ' to-dispo' : '') + (waiting ? ' pending' : '') + '" ' +
           'onclick="adminToggleAvail(\'' + p.id + '\',\'' + d.date + '\')" title="' +
           (unavailable ? 'Remettre ce joueur disponible' : 'Déclarer ce joueur indisponible') + (waiting ? ' (envoi en attente)' : '') + '">' +
           (unavailable ? '✓ dispo' : '✕ indispo') + (waiting ? ' ⏳' : '') + '</button>';
@@ -1958,6 +1959,13 @@
     return 'sms:' + list.join(',') + '?body=' + encodeURIComponent(body);
   }
 
+  // WhatsApp : ouvre l'appli (ou WhatsApp Web sur PC) avec le message
+  // pré-rempli ; il reste à choisir le groupe de l'équipe et à envoyer.
+  // (WhatsApp ne permet pas de cibler directement un groupe par lien.)
+  function whatsappUri(body) {
+    return 'https://wa.me/?text=' + encodeURIComponent(body);
+  }
+
   // Joueurs affectés (feuille de match enregistrée) à une équipe à une date.
   function selectedPlayersFor(dataset, teamId, date) {
     return (dataset || [])
@@ -2014,7 +2022,7 @@
     draft.teamId = teamId;
 
     var html = '<h2>📣 Envoyer les convocations</h2>' +
-      '<p style="color:var(--muted);font-size:13px;margin-top:-6px;">Les joueurs de la feuille de match enregistrée reçoivent la convocation dans l\'appli, et l\'appli SMS s\'ouvre avec leurs numéros et le message.</p>' +
+      '<p style="color:var(--muted);font-size:13px;margin-top:-6px;">Les joueurs de la feuille de match enregistrée reçoivent la convocation dans l\'appli, et WhatsApp s\'ouvre avec le message à envoyer dans le groupe de l\'équipe (SMS toujours possible).</p>' +
       '<div class="convoc-form">';
     if (!fixedTeamId) {
       html += '<div><label>Équipe</label><select onchange="onConvocTeam(\'' + containerId + '\', this.value)">' +
@@ -2139,9 +2147,13 @@
       var phones = players.map(function (p) { return p.phone; }).filter(function (p) { return normalizePhone(p); });
       var missing = players.filter(function (p) { return !normalizePhone(p.phone); }).map(function (p) { return p.name; });
       var uri = phones.length ? smsUri(phones, d.message) : '';
-      var html = '✓ Convocation enregistrée dans l\'appli pour ' + players.length + ' joueur' + (players.length > 1 ? 's' : '') + '.';
-      if (uri && isMobileDevice()) {
-        html += ' <a class="sms-link" href="' + escAttr(uri) + '">📱 Ouvrir les SMS</a>';
+      var mobile = isMobileDevice();
+      var wa = whatsappUri(d.message);
+      var html = '✓ Convocation enregistrée dans l\'appli pour ' + players.length + ' joueur' + (players.length > 1 ? 's' : '') + '.' +
+        '<br><a class="wa-link" href="' + escAttr(wa) + '"' + (mobile ? '' : ' target="_blank" rel="noopener"') + '>🟢 Envoyer dans le groupe WhatsApp</a>' +
+        '<br><span style="font-size:12px;color:var(--muted);">WhatsApp s\'ouvre avec le message : choisissez le groupe de l\'équipe puis envoyez.</span>';
+      if (uri && mobile) {
+        html += '<br><a class="sms-link" href="' + escAttr(uri) + '">📱 ou par SMS</a>';
       } else if (phones.length) {
         html += '<br><span style="font-size:12px;">SMS depuis un téléphone uniquement. Numéros : ' + escHtml(phones.join(', ')) + '</span>';
       }
@@ -2152,7 +2164,9 @@
       d.resultKey = d.teamId + '|' + d.date;
       d.resultHtml = html;
       if (resultEl) resultEl.innerHTML = html;
-      if (uri && isMobileDevice()) { window.location.href = uri; }
+      // Sur téléphone, WhatsApp s'ouvre directement (sur PC, un clic sur le
+      // lien est nécessaire : le navigateur bloquerait l'ouverture auto).
+      if (mobile) { window.location.href = wa; }
       // Rafraîchit les statuts "Envoyée" du tableau.
       if (STATE.session.isAdmin) { loadAdminData(true); } else { loadCaptainData(true); }
     }).catch(function (err) {
