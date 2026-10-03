@@ -167,6 +167,14 @@ de brûlage) :
   L'admin peut aussi relancer par **SMS** les joueurs concernés non inscrits
   ou non confirmés.
 
+## Lecture du tableau de brûlage (mobile)
+
+La colonne des joueurs est étroite (NOM sur une ligne, prénom en dessous),
+surtout sur téléphone, pour voir davantage de dates. À l'ouverture (et au
+changement de phase), chaque tableau défile automatiquement jusqu'à la
+**prochaine date de match** (aujourd'hui compris ; la dernière date si la
+phase est terminée). Ensuite, la position choisie est conservée.
+
 ## Indisponibilités saisies par l'administrateur
 
 Dans le tableau de brûlage, chaque case comporte un petit bouton

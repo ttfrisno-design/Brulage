@@ -114,8 +114,12 @@
       border: 1px solid var(--border); padding: 4px 6px; text-align: center; white-space: nowrap;
     }
     table.burn-table th.player-col, table.burn-table td.player-col {
-      text-align: left; position: sticky; left: 0; background: #fff; z-index: 2; min-width: 150px;
+      text-align: left; position: sticky; left: 0; background: #fff; z-index: 2;
+      width: 104px; min-width: 104px; max-width: 104px; white-space: normal; line-height: 1.2; overflow-wrap: anywhere;
     }
+    table.burn-table td.player-col .pc-nom { font-weight: 600; }
+    table.burn-table td.player-col .pc-prenom { display: block; font-size: 11px; }
+    table.burn-table td.player-col .pc-home { display: block; font-size: 10px; color: var(--muted); }
     table.burn-table thead th { background: #f0f3f7; position: sticky; top: 0; z-index: 1; }
     table.burn-table thead th.player-col { z-index: 3; }
     table.burn-table td.group-a { background: #f5fbff; }
@@ -305,6 +309,10 @@
       main { padding: 10px; }
       .add-player-row { grid-template-columns: 1fr; }
       .avail-groups { grid-template-columns: 1fr; }
+      /* Tableau de brûlage sur mobile : colonne des noms la plus étroite
+         possible, pour voir davantage de dates. */
+      table.burn-table th.player-col, table.burn-table td.player-col { width: 78px; min-width: 78px; max-width: 78px; padding: 3px 4px; font-size: 10px; }
+      table.burn-table td.player-col .pc-prenom { font-size: 10px; }
     }
   </style>
 </head>
@@ -1238,7 +1246,7 @@
     var html = '<tr><th class="player-col">Joueur</th>';
     dates.forEach(function (d) {
       var gc = GROUP_COLORS[d.group] || '#999';
-      html += '<th class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';"><div class="date-head">' + d.date + '</div><div class="grp-head">' + GROUP_LABEL[d.group] + '</div></th>';
+      html += '<th data-date="' + d.date + '" class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';"><div class="date-head">' + d.date + '</div><div class="grp-head">' + GROUP_LABEL[d.group] + '</div></th>';
     });
     TEAMS_forHeader().forEach(function (t) {
       var c = TEAM_COLORS[t.id] || { border: '#999', bg: '#f5f5f5' };
@@ -1256,9 +1264,10 @@
     var homeBadge = '';
     if (showHomeTeamBadge) {
       var homeTeam = STATE.config.teams.find(function (t) { return t.id === p.homeTeam; });
-      if (homeTeam) { homeBadge = ' <span style="font-size:11px;color:var(--muted);font-weight:400;">(' + homeTeam.name + ')</span>'; }
+      if (homeTeam) { homeBadge = '<span class="pc-home">(' + homeTeam.name + ')</span>'; }
     }
-    var html = '<tr><td class="player-col">' + p.prenom + ' ' + p.nom + homeBadge + '</td>';
+    var html = '<tr><td class="player-col" title="' + escAttr(p.prenom + ' ' + p.nom) + '"><span class="pc-nom">' + escHtml(p.nom) + '</span>' +
+      '<span class="pc-prenom">' + escHtml(p.prenom) + '</span>' + homeBadge + '</td>';
 
     // Une même "journée" (colonne F de la feuille Dates, ex. "J1") peut
     // regrouper plusieurs dates réelles (une par groupe) : un joueur ne
@@ -1346,14 +1355,37 @@
     var active = document.activeElement;
     var activeKey = active && container.contains(active) && active.dataset ? active.dataset.key : null;
     container.innerHTML = html;
+    // Première vue (ou changement de phase) : chaque tableau s'ouvre sur la
+    // date de match la plus proche à venir. Ensuite, on garde la position
+    // choisie par l'utilisateur.
+    var firstView = container.dataset.autoPhase !== String(STATE.phase);
     Array.prototype.forEach.call(container.querySelectorAll('.table-scroll'), function (el, i) {
-      if (lefts[i]) el.scrollLeft = lefts[i];
+      if (firstView) scrollToCurrentDate(el);
+      else if (lefts[i]) el.scrollLeft = lefts[i];
     });
+    if (firstView && container.offsetParent) container.dataset.autoPhase = String(STATE.phase);
     window.scrollTo(window.scrollX, scrollY);
     if (activeKey) {
       var again = container.querySelector('[data-key="' + activeKey + '"]');
       if (again) again.focus({ preventScroll: true });
     }
+  }
+
+  // Fait défiler un tableau de brûlage jusqu'à la colonne de la prochaine
+  // date (aujourd'hui compris) ; s'il n'y en a plus, la dernière date.
+  function scrollToCurrentDate(scrollEl) {
+    var ths = scrollEl.querySelectorAll('th[data-date]');
+    if (!ths.length) return;
+    var today = todayStart();
+    var target = null;
+    Array.prototype.some.call(ths, function (th) {
+      if (parseFrDate(th.dataset.date) >= today) { target = th; return true; }
+      return false;
+    });
+    target = target || ths[ths.length - 1];
+    var nameCol = scrollEl.querySelector('th.player-col');
+    var left = nameCol ? nameCol.getBoundingClientRect().right : scrollEl.getBoundingClientRect().left;
+    scrollEl.scrollLeft = Math.max(0, scrollEl.scrollLeft + target.getBoundingClientRect().left - left);
   }
 
   // Une liste d'équipe ouverte / en cours de choix : on ne redessine pas le
