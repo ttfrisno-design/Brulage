@@ -24,6 +24,21 @@ jobs:
           distribution: temurin
           java-version: 21
       - run: npm ci
+      # Notifications push : si le secret GOOGLE_SERVICES_JSON (fichier
+      # google-services.json du projet Firebase) est défini dans le dépôt,
+      # l'APK est compilé avec Firebase et l'appli active les notifications
+      # push. Sans ce secret, seuls les rappels locaux fonctionnent.
+      - name: Configuration Firebase (notifications push)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            echo 'window.APP_CONFIG.PUSH_ENABLED = true;' >> www/config.js
+            echo "Firebase configuré : notifications push activées."
+          else
+            echo "Secret GOOGLE_SERVICES_JSON absent : notifications push désactivées (rappels locaux seulement)."
+          fi
       - run: npx cap sync android
       - name: Compilation
         working-directory: android

@@ -170,6 +170,53 @@ de brûlage) :
   L'admin peut aussi relancer par **SMS** les joueurs concernés non inscrits
   ou non confirmés.
 
+## Notifications (appli installée)
+
+### Rappels automatiques (aucune configuration)
+L'appli Android / iPhone programme sur le téléphone, à partir de ses
+données (mises à jour à chaque ouverture) :
+- **veille de match** (18 h) pour chaque sélection : équipe, heure,
+  adversaire et lieu ;
+- **compétitions individuelles** : participation à confirmer (J-3), veille
+  de la compétition si la participation est confirmée, et date limite
+  d'inscription proche (J-2) pour les compétitions que le joueur pratique
+  déjà cette saison.
+
+Le téléphone demande l'autorisation d'afficher des notifications à la
+première ouverture.
+
+### Notifications push (nouvelle convocation, inscription validée / refusée)
+Elles arrivent même appli fermée, dès que la convocation est envoyée ou
+l'inscription traitée. Configuration à faire **une seule fois** (gratuit) :
+
+1. Sur https://console.firebase.google.com : **Créer un projet** (ex.
+   `brulages-fri`, Google Analytics inutile).
+2. Dans le projet : **Ajouter une application › Android**, nom du package
+   `fr.fri.brulages`, puis **télécharger `google-services.json`**.
+3. Sur GitHub, dépôt **Brulage › Settings › Secrets and variables ›
+   Actions › New repository secret** : nom `GOOGLE_SERVICES_JSON`, valeur =
+   tout le contenu du fichier `google-services.json`.
+4. Firebase › ⚙️ **Paramètres du projet › Comptes de service › Générer une
+   nouvelle clé privée** : un fichier JSON est téléchargé. **Il est secret**
+   (ne pas le mettre dans le classeur ni sur GitHub).
+5. Éditeur Apps Script › ⚙️ **Paramètres du projet › Propriétés du script ›
+   Ajouter une propriété** : nom `FCM_SERVICE_ACCOUNT`, valeur = tout le
+   contenu de ce fichier JSON.
+6. Onglet **Actions › Applications mobiles › Run workflow**, puis installer
+   le nouvel APK : chaque joueur ouvre l'appli, accepte les notifications.
+7. Administration › **Dates & Réglages › Notifications** : l'état indique le
+   nombre de téléphones inscrits ; bouton **« Envoyer une notification de
+   test »**.
+
+Après avoir collé cette version de `Code.gs`, lancer **une fois** la
+fonction `testerNotifications` depuis l'éditeur (menu ▶ Exécuter) pour
+accepter l'autorisation « se connecter à un service externe », puis créer la
+nouvelle version du déploiement.
+
+Sur **iPhone**, les rappels automatiques fonctionnent ; les notifications
+push demandent en plus le compte Apple Developer (clé APNs à ajouter dans
+Firebase). Sur **PC**, pas de notification (l'appli web reste inchangée).
+
 ## Lecture du tableau de brûlage (mobile)
 
 La colonne des joueurs est étroite (NOM sur une ligne, prénom en dessous),
