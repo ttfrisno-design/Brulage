@@ -131,6 +131,9 @@ Identifiant de l'application : `fr.fri.brulages` (modifiable dans
     message pré-remplis).
 - Le tableau de la carte indique pour chaque joueur : non envoyée, envoyée
   sans réponse, ✓ Présent ou ✕ Absent.
+- Convocation renvoyée pour le même match (composition modifiée) : les
+  joueurs qui avaient déjà répondu **gardent leur réponse** et ne sont pas
+  notifiés à nouveau ; seuls les autres reçoivent la notification.
 
 ## Coupe de Rouen (CDR1-CDR4) et Championnat Jeunes (CJ1-CJ4)
 
