@@ -1352,6 +1352,7 @@ function convocationToClient_(r) {
 function sendConvocations(phase, date, teamId, message) {
   ensureSheets_();
   let selected;
+  let answered = [];
   withScriptLock_(function () {
     selected = readTable_('Affectations').filter(function (r) {
       return Number(r.Phase) === Number(phase) && r.Date === date && Number(r.EquipeJouee) === Number(teamId);
@@ -1366,6 +1367,15 @@ function sendConvocations(phase, date, teamId, message) {
     const values = sheet.getDataRange().getValues();
     const header = values.shift();
     const now = new Date();
+    // Réponse déjà donnée par un joueur à une convocation précédente pour ce
+    // même match (même date, même équipe) : on la garde quand la convocation
+    // est renvoyée (composition modifiée, autre joueur ajouté…).
+    const previous = {};
+    values.forEach(function (row) {
+      if (Number(row[1]) === Number(phase) && cellDate_(row[2]) === date && Number(row[3]) === Number(teamId) && row[6]) {
+        previous[String(row[0])] = { reponse: row[6], le: row[7] };
+      }
+    });
     // On retire les anciennes convocations de cette date pour cette équipe
     // (joueurs retirés de la feuille de match depuis) et celles des joueurs
     // sélectionnés (remplacées ci-dessous).
@@ -1376,14 +1386,18 @@ function sendConvocations(phase, date, teamId, message) {
       return !selectedIds[String(row[0])] && Number(row[3]) !== Number(teamId);
     });
     selected.forEach(function (r) {
-      kept.push([r.JoueurID, Number(phase), date, Number(teamId), now, String(message || ''), '', '']);
+      const prev = previous[String(r.JoueurID)];
+      kept.push([r.JoueurID, Number(phase), date, Number(teamId), now, String(message || ''), prev ? prev.reponse : '', prev ? prev.le : '']);
     });
+    answered = selected.filter(function (r) { return previous[String(r.JoueurID)]; }).map(function (r) { return String(r.JoueurID); });
     sheet.getRange(2, 3, Math.max(kept.length, 1), 1).setNumberFormat('@');
     rewriteTable_(sheet, header.slice(0, 8), kept);
   });
 
   const team = TEAMS.find(function (t) { return t.id === Number(teamId); }) || {};
-  sendPush_(selected.map(function (r) { return r.JoueurID; }),
+  // Notification seulement aux joueurs qui n'ont pas encore répondu pour ce
+  // match (ceux qui ont déjà répondu gardent leur réponse).
+  sendPush_(selected.map(function (r) { return r.JoueurID; }).filter(function (id) { return answered.indexOf(String(id)) < 0; }),
     '📣 Convocation ' + (team.name || '') + ' — ' + date,
     String(message || '').split('\n')[0] || 'Vous êtes convoqué(e). Répondez dans l\'appli.');
 
