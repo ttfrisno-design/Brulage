@@ -841,8 +841,15 @@ function getStaticConfig() {
       rencontres[Number(r[0]) + '|' + Number(r[1]) + '|' + d] = { adversaire: String(r[4] || ''), lieu: String(r[5] || ''), heure: String(h || '') };
     });
   }
+  // Liens des poules (FFTT / PingPocket), par équipe et par phase :
+  // clés Config « LienPoule:<équipe>:<phase> » -> { '<phase>|<équipe>': url }.
+  const poolLinks = {};
+  readTable_('Config').forEach(function (r) {
+    const m = /^LienPoule:(\d+):(\d+)$/.exec(String(r.Clé || ''));
+    if (m && String(r.Valeur || '').trim()) poolLinks[Number(m[2]) + '|' + Number(m[1])] = String(r.Valeur).trim();
+  });
   return { teams: TEAMS, dates: dates, journeeByDate: journeeByDate, rencontres: rencontres, ffttLink: String(readConfigValue_('LienFicheFFTT', '') || ''),
-    siteClub: String(readConfigValue_('SiteClub', '') || '') };
+    siteClub: String(readConfigValue_('SiteClub', '') || ''), poolLinks: poolLinks };
 }
 
 function updateDates(phase, group, dates) {
@@ -1814,7 +1821,7 @@ function setFfttLink(template) {
 function setSetting(key, value) {
   ensureSheets_();
   key = String(key || '');
-  if (['LienFicheFFTT', 'SiteClub'].indexOf(key) < 0 && key.indexOf('MailInscription:') !== 0) {
+  if (['LienFicheFFTT', 'SiteClub'].indexOf(key) < 0 && key.indexOf('MailInscription:') !== 0 && !/^LienPoule:\d+:\d+$/.test(key)) {
     throw new Error('Réglage non modifiable : ' + key);
   }
   const v = String(value || '').trim();
