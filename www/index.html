@@ -128,6 +128,10 @@
     table.burn-table td.group-c { background: #f6fff5; }
     table.burn-table .date-head { font-weight: 600; }
     table.burn-table .grp-head { font-size: 10px; color: var(--muted); font-weight: 400; }
+    table.burn-table .opp-head { font-size: 10px; font-weight: 600; white-space: normal; max-width: 130px; margin: 2px auto 0; line-height: 1.2; color: var(--ink); }
+    table.burn-table .opp-head a { color: var(--primary); }
+    .pool-links td { padding: 4px 6px; }
+    .pool-links input { width: 100%; min-width: 160px; }
     select.assign-select {
       width: 56px; font-size: 12px; padding: 2px; border-radius: 4px; border: 1px solid var(--border);
     }
@@ -562,6 +566,12 @@
           <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Lien affiché dans le profil de chaque joueur.</p>
           <input type="text" id="clubSiteInput" placeholder="https://…">
           <button class="secondary" style="margin-top:10px;" onclick="saveClubSite()">Enregistrer</button>
+        </div>
+        <div class="card">
+          <h2>Liens des poules</h2>
+          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Adresse de la page de la poule de chaque équipe (FFTT ou PingPocket). Dans le tableau de brûlage, le nom de l'adversaire sous chaque date devient un lien vers cette page.</p>
+          <div class="table-scroll"><table class="pool-links" id="poolLinks"></table></div>
+          <button class="secondary" style="margin-top:10px;" onclick="savePoolLinks()">Enregistrer</button>
         </div>
         <div class="card">
           <h2>Notifications</h2>
@@ -1030,6 +1040,7 @@
       renderDatesEditor();
       document.getElementById('ffttLinkInput').value = STATE.config.ffttLink || '';
       document.getElementById('clubSiteInput').value = STATE.config.siteClub || '';
+      renderPoolLinks();
       loadPushStatus();
     } else {
       // Joueur ou capitaine : écran d'accueil (championnat par équipes ou
@@ -1399,11 +1410,29 @@
     }).join('');
   }
 
-  function burnTableHeaderHtml(dates, lastTeamId) {
+  // Sous la date, dans le cadre d'une équipe : son adversaire ce jour-là
+  // (feuille Rencontres), 🏠 à domicile / 🚗 à l'extérieur, avec le lien de
+  // la poule (FFTT / PingPocket, réglé dans Dates & Réglages).
+  function opponentHeadHtml(teamId, date, group) {
+    var team = teamById(teamId);
+    if (!team || team.group !== group) return '';
+    var r = rencontreFor(STATE.phase, teamId, date);
+    var link = (STATE.config.poolLinks || {})[STATE.phase + '|' + teamId] || '';
+    if (!r && !link) return '';
+    var icon = r && r.lieu === 'Domicile' ? '🏠 ' : r && r.lieu === 'Extérieur' ? '🚗 ' : '';
+    var label = r && r.adversaire ? escHtml(r.adversaire) : (link ? 'Poule' : '');
+    if (!label) return '<div class="opp-head">' + icon + '</div>';
+    var title = (r && r.adversaire ? 'Adversaire de ' + team.name + ' : ' + r.adversaire : 'Poule de ' + team.name) + (link ? ' — voir la poule' : '');
+    return '<div class="opp-head" title="' + escAttr(title) + '">' + icon +
+      (link ? '<a href="' + escAttr(link) + '" target="_blank" rel="noopener">' + label + ' ↗</a>' : label) + '</div>';
+  }
+
+  function burnTableHeaderHtml(dates, lastTeamId, teamId) {
     var html = '<tr><th class="player-col">Joueur</th>';
     dates.forEach(function (d) {
       var gc = GROUP_COLORS[d.group] || '#999';
-      html += '<th data-date="' + d.date + '" class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';"><div class="date-head">' + d.date + '</div><div class="grp-head">' + GROUP_LABEL[d.group] + '</div></th>';
+      html += '<th data-date="' + d.date + '" class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';"><div class="date-head">' + d.date + '</div><div class="grp-head">' + GROUP_LABEL[d.group] + '</div>' +
+        (teamId ? opponentHeadHtml(teamId, d.date, d.group) : '') + '</th>';
     });
     TEAMS_forHeader().forEach(function (t) {
       var c = TEAM_COLORS[t.id] || { border: '#999', bg: '#f5f5f5' };
@@ -1577,7 +1606,7 @@
         '<h3 class="team-frame-title">' + t.name + ' — ' + t.division +
         ' <span style="font-weight:400;color:var(--muted);">(' + (isFriTeam(t) ? teamPlayers.length : guestPlayers.length) + ' joueur' + ((isFriTeam(t) ? teamPlayers.length : guestPlayers.length) > 1 ? 's' : '') + ')</span></h3>';
       if (teamPlayers.length || guestPlayers.length) {
-        html += '<div class="table-scroll"><table class="burn-table"><thead>' + burnTableHeaderHtml(dates, lastTeamId) + '</thead><tbody>';
+        html += '<div class="table-scroll"><table class="burn-table"><thead>' + burnTableHeaderHtml(dates, lastTeamId, t.id) + '</thead><tbody>';
         teamPlayers.forEach(function (p, pIdx) {
           html += burnTableRowHtml(p, dates, lastTeamId, pIdx === teamPlayers.length - 1 && !guestPlayers.length);
         });
@@ -1773,7 +1802,7 @@
         ' <span style="font-weight:400;color:var(--muted);">(' + (isFriTeam(t) ? teamPlayers.length : guestPlayers.length) + ' joueur' + ((isFriTeam(t) ? teamPlayers.length : guestPlayers.length) > 1 ? 's' : '') + ')</span></h3>';
       if (teamPlayers.length || guestPlayers.length) {
         var colspan = dates.length + 1 + TEAMS_forHeader().length;
-        html += '<div class="table-scroll"><table class="burn-table"><thead>' + burnTableHeaderHtml(dates, lastTeamId) + '</thead><tbody>';
+        html += '<div class="table-scroll"><table class="burn-table"><thead>' + burnTableHeaderHtml(dates, lastTeamId, t.id) + '</thead><tbody>';
         teamPlayers.forEach(function (p, pIdx) {
           html += burnTableRowHtml(p, dates, lastTeamId, pIdx === teamPlayers.length - 1 && !guestPlayers.length, teamId, !isOwnTeam);
         });
@@ -2943,6 +2972,34 @@
     });
     STATE.adminCompet.settings.mails = mails;
     Promise.all(calls).then(function () { alert(calls.length ? 'Adresses enregistrées.' : 'Aucune modification.'); }).catch(onGsError);
+  }
+
+  function renderPoolLinks() {
+    var el = document.getElementById('poolLinks');
+    if (!el) return;
+    var links = STATE.config.poolLinks || {};
+    el.innerHTML = '<tr><th></th><th>Phase 1</th><th>Phase 2</th></tr>' + friTeams().map(function (t) {
+      return '<tr><td><b>' + t.name + '</b></td>' + [1, 2].map(function (ph) {
+        return '<td><input type="url" data-team="' + t.id + '" data-phase="' + ph + '" value="' + escAttr(links[ph + '|' + t.id] || '') + '" placeholder="https://…"></td>';
+      }).join('') + '</tr>';
+    }).join('');
+  }
+  function savePoolLinks() {
+    var links = STATE.config.poolLinks = STATE.config.poolLinks || {};
+    var changed = Array.prototype.filter.call(document.querySelectorAll('#poolLinks input'), function (inp) {
+      return inp.value.trim() !== (links[inp.dataset.phase + '|' + inp.dataset.team] || '');
+    });
+    if (!changed.length) { alert('Aucune modification.'); return; }
+    var chain = Promise.resolve();
+    changed.forEach(function (inp) {
+      var v = inp.value.trim();
+      chain = chain.then(function () {
+        return callServer('setSetting', ['LienPoule:' + inp.dataset.team + ':' + inp.dataset.phase, v]).then(function () {
+          if (v) links[inp.dataset.phase + '|' + inp.dataset.team] = v; else delete links[inp.dataset.phase + '|' + inp.dataset.team];
+        });
+      });
+    });
+    chain.then(function () { alert('Liens enregistrés.'); renderBurnTable(); }).catch(onGsError);
   }
 
   function saveClubSite() {

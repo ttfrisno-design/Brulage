@@ -240,6 +240,15 @@ Dans le tableau de brûlage et la feuille de match, la liste d'une case ne
 propose que les équipes qui jouent à cette date : date **Régional 3** →
 FRI1 ; date **D1/D2** → FRI2, FRI3, FRI4 ; date **D3/D4** → FRI5 à FRI8.
 
+## Adversaire et lien de la poule sous chaque date
+
+Dans le cadre de chaque équipe (tableau de brûlage et feuille de match),
+sous chaque date de match : l'adversaire du jour (feuille *Rencontres*),
+🏠 à domicile ou 🚗 à l'extérieur. Si le lien de la poule de l'équipe est
+renseigné (*Dates & Réglages › Liens des poules*, une adresse FFTT ou
+PingPocket par équipe et par phase ; feuille *Config*, clés
+`LienPoule:<équipe>:<phase>`), le nom de l'adversaire ouvre cette page.
+
 ## Limite de 4 joueurs par journée
 
 Dans le tableau de brûlage (administrateur) et la feuille de match
