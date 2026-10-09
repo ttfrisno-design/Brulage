@@ -1026,6 +1026,7 @@ function getAdminData(phase) {
         prenom: p.Prénom,
         homeTeam: Number(p.EquipeDomicile) || null,
         categorie: String(p.Catégorie || ''),
+        points: p.Points === '' || p.Points === undefined || p.Points === null ? '' : Number(p.Points) || '',
         availability: availByPlayer[p.ID] || {},
         assignments: assignByPlayer[p.ID] || {},
         matchesByTeam: matchesByPlayerTeam[p.ID] || {},
