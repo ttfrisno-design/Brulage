@@ -233,6 +233,12 @@ date (la case passe en rouge), puis **« ✓ dispo »** le remet disponible.
 L'enregistrement est le même que lorsque le joueur le saisit lui-même
 (feuille *Disponibilites*) : le joueur voit le changement dans son appli.
 
+## Équipes proposées selon la date
+
+Dans le tableau de brûlage et la feuille de match, la liste d'une case ne
+propose que les équipes qui jouent à cette date : date **Régional 3** →
+FRI1 ; date **D1/D2** → FRI2, FRI3, FRI4 ; date **D3/D4** → FRI5 à FRI8.
+
 ## Limite de 4 joueurs par journée
 
 Dans le tableau de brûlage (administrateur) et la feuille de match

@@ -1464,10 +1464,11 @@
         var isPending = !!STATE.pendingAssignments[pendingKey(p.id, d.date)];
         html += '<select data-key="' + p.id + '|' + d.date + '" class="assign-select' + (isPending ? ' pending' : '') + '" title="' + (isPending ? 'Modification non enregistrée' : (status === 'Indisponible' ? 'Joueur indisponible' : '')) + '" onchange="onAssignChange(\'' + p.id + '\',\'' + d.date + '\',this.value)">' +
           '<option value="">—</option>';
-        // Le capitaine, comme l'administrateur, peut affecter un joueur de
-        // son équipe à n'importe quelle équipe FRI1 à FRI8 (pas seulement
-        // la sienne), par exemple pour un joueur qui dépanne une autre équipe.
-        var teamOptions = friTeams();
+        // Seules les équipes qui jouent à cette date sont proposées : date
+        // Régional 3 -> FRI1, date D1/D2 -> FRI2 à FRI4, date D3/D4 -> FRI5 à
+        // FRI8 (même groupe de dates). Une affectation existante hors groupe
+        // (ancienne saisie) reste affichée pour pouvoir être corrigée.
+        var teamOptions = friTeams().filter(function (t) { return t.group === d.group || assigned === t.id; });
         teamOptions.forEach(function (t) {
           var isBurned = p.burned[t.id] && assigned !== t.id;
           html += '<option value="' + t.id + '" ' + (assigned === t.id ? 'selected' : '') + '>' +
