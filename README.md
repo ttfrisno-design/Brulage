@@ -219,7 +219,8 @@ Firebase). Sur **PC**, pas de notification (l'appli web reste inchangée).
 
 ## Lecture du tableau de brûlage (mobile)
 
-La colonne des joueurs est étroite (NOM sur une ligne, prénom en dessous),
+La colonne des joueurs est étroite (NOM sur une ligne, prénom et points FFTT —
+colonne *Points* de l'onglet Effectif — en dessous),
 surtout sur téléphone, pour voir davantage de dates. À l'ouverture (et au
 changement de phase), chaque tableau défile automatiquement jusqu'à la
 **prochaine date de match** (aujourd'hui compris ; la dernière date si la
