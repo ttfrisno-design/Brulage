@@ -248,6 +248,8 @@ sous chaque date de match : l'adversaire du jour (feuille *Rencontres*),
 renseigné (*Dates & Réglages › Liens des poules*, une adresse FFTT ou
 PingPocket par équipe et par phase ; feuille *Config*, clés
 `LienPoule:<équipe>:<phase>`), le nom de l'adversaire ouvre cette page.
+Sur PC, la page s'ouvre dans une fenêtre séparée, large d'un tiers de
+l'écran et collée à droite (affichage sur une colonne, à côté du tableau).
 
 ## Limite de 4 joueurs par journée
 

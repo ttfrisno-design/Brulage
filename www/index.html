@@ -1424,7 +1424,25 @@
     if (!label) return '<div class="opp-head">' + icon + '</div>';
     var title = (r && r.adversaire ? 'Adversaire de ' + team.name + ' : ' + r.adversaire : 'Poule de ' + team.name) + (link ? ' — voir la poule' : '');
     return '<div class="opp-head" title="' + escAttr(title) + '">' + icon +
-      (link ? '<a href="' + escAttr(link) + '" target="_blank" rel="noopener">' + label + ' ↗</a>' : label) + '</div>';
+      (link ? '<a href="' + escAttr(link) + '" target="_blank" rel="noopener" onclick="return openSideWindow(this.href)">' + label + ' ↗</a>' : label) + '</div>';
+  }
+
+  // Sur PC : ouvre le lien dans une fenêtre séparée large d'un tiers de
+  // l'écran, collée à droite, pour que la page (poule FFTT / PingPocket)
+  // s'affiche sur une seule colonne à côté du tableau de brûlage. La même
+  // fenêtre est réutilisée d'un lien à l'autre. Sur téléphone / tablette :
+  // ouverture normale.
+  function openSideWindow(url) {
+    if (isMobileDevice() || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return true;
+    var sw = window.screen.availWidth || window.innerWidth;
+    var sh = window.screen.availHeight || window.innerHeight;
+    var w = Math.max(360, Math.round(sw / 3));
+    var left = (window.screen.availLeft || 0) + sw - w;
+    var top = window.screen.availTop || 0;
+    var win = window.open(url, 'friPoule', 'popup=yes,width=' + w + ',height=' + sh + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes');
+    if (!win) return true; // fenêtre bloquée : ouverture classique
+    try { win.focus(); } catch (e) { /* pas bloquant */ }
+    return false;
   }
 
   function burnTableHeaderHtml(dates, lastTeamId, teamId) {
