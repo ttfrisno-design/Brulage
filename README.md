@@ -237,6 +237,16 @@ date (la case passe en rouge), puis **« ✓ dispo »** le remet disponible.
 L'enregistrement est le même que lorsque le joueur le saisit lui-même
 (feuille *Disponibilites*) : le joueur voit le changement dans son appli.
 
+## Règle de la 2e journée
+
+À la **2e journée** de chaque phase, une équipe ne peut accueillir qu'**un
+seul joueur ayant disputé la 1re journée dans une équipe supérieure**
+(ex. FRI3 ne peut aligner qu'un joueur venu de FRI1 ou FRI2 à la J1). Le
+choix d'un second joueur dans ce cas est refusé avec un avertissement
+(tableau de brûlage et feuille de match). Les journées sont lues dans la
+colonne F de la feuille *Dates* (J1, J2…) ; à défaut, la 1re date de chaque
+groupe compte comme J1 et la 2e comme J2.
+
 ## Équipes proposées selon la date
 
 Dans le tableau de brûlage et la feuille de match, la liste d'une case ne
