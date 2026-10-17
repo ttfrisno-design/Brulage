@@ -313,7 +313,8 @@ Côté joueur :
 - **Challenge 500 / Circuit Jeunes** : bouton **« 💳 Régler et m'inscrire »**
   sur chaque épreuve (inscription validée à cette épreuve).
 
-La page de règlement s'ouvre et l'inscription est enregistrée aussitôt
+La page de règlement s'ouvre dans un nouvel onglet (l'appli reste ouverte)
+et l'inscription est enregistrée aussitôt
 (colonne H *Reglement* de la feuille *Inscriptions*, « 💳 Réglé le … » côté
 joueur et admin). L'appli ne vérifie pas le paiement lui-même.
 
