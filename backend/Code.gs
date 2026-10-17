@@ -114,7 +114,9 @@ const API_FUNCTIONS_ = {
   setSetting: setSetting,
   saveRencontre: saveRencontre,
   registerPushToken: registerPushToken,
-  payInscription: payInscription,
+  createCheckout: createCheckout,
+  checkMyPayments: checkMyPayments,
+  getHelloAssoStatus: getHelloAssoStatus,
   unregisterPushToken: unregisterPushToken,
   getPushStatus: getPushStatus,
   sendTestPush: sendTestPush,
@@ -125,7 +127,7 @@ const API_FUNCTIONS_ = {
 const READ_ONLY_FUNCTIONS_ = {
   login: true, getStaticConfig: true, getPlayerData: true, getAdminData: true, listPlayers: true,
   getCompetitions: true, getCompetitionsAdmin: true, getDataVersion: true, getProfile: true,
-  getPushStatus: true,
+  getPushStatus: true, getHelloAssoStatus: true,
 };
 
 /** Numéro de version des données, changé à chaque modification faite via
@@ -181,6 +183,14 @@ function doPost(e) {
   let out;
   try {
     const body = JSON.parse(e.postData.contents);
+    // Notification envoyée par HelloAsso après un paiement : on ne fait pas
+    // confiance à son contenu, on revérifie les paiements en attente
+    // directement auprès de HelloAsso.
+    if (!body.fn && body.eventType) {
+      withScriptLock_(function () { checkPayments_(null); });
+      bumpDataVersion_();
+      return ContentService.createTextOutput('ok');
+    }
     const fn = API_FUNCTIONS_[body.fn];
     if (!fn) {
       throw new Error('Fonction inconnue : ' + body.fn);
@@ -1508,23 +1518,28 @@ function readConfigValue_(key, fallback) {
 
 function competitionSettings_() {
   const mails = {};
-  const payLinks = { serie: {}, epreuve: {} };
+  const prices = { serie: {}, epreuve: {} };
   readTable_('Config').forEach(function (r) {
     const k = String(r.Clé || '');
     if (k.indexOf('MailInscription:') === 0) mails[k.slice('MailInscription:'.length)] = String(r.Valeur || '');
-    // Liens de règlement : « LienReglement:<compétition> » (règlement unique
-    // pour toute la saison) ou « LienReglement:#<id> » (une épreuve).
-    if (k.indexOf('LienReglement:') === 0 && String(r.Valeur || '').trim()) {
-      const rest = k.slice('LienReglement:'.length);
-      if (rest.charAt(0) === '#') payLinks.epreuve[Number(rest.slice(1))] = String(r.Valeur).trim();
-      else payLinks.serie[rest] = String(r.Valeur).trim();
+    // Montants du paiement HelloAsso (en euros) : « PrixHelloAsso:<compétition> »
+    // (règlement unique pour la saison, ou montant par défaut d'une épreuve)
+    // ou « PrixHelloAsso:#<id> » (une épreuve).
+    if (k.indexOf('PrixHelloAsso:') === 0) {
+      const v = Number(String(r.Valeur || '').replace(',', '.'));
+      if (v > 0) {
+        const rest = k.slice('PrixHelloAsso:'.length);
+        if (rest.charAt(0) === '#') prices.epreuve[Number(rest.slice(1))] = v;
+        else prices.serie[rest] = v;
+      }
     }
   });
   return {
     delaiJours: Number(readConfigValue_('DelaiInscriptionJours', 15)) || 0,
     rappelJours: Number(readConfigValue_('RappelJours', 10)) || 0,
     mails: mails,
-    payLinks: payLinks,
+    prices: prices,
+    helloasso: !!helloAssoConfig_(),
   };
 }
 
@@ -1540,40 +1555,203 @@ function lateInscriptionAllowed_(nom) {
   return /crit[ée]rium/i.test(String(nom || ''));
 }
 
-/** Le joueur règle son inscription en ligne (lien du club) : inscription
- * validée automatiquement, à toutes les épreuves à venir de la compétition
- * (règlement unique) ou à cette épreuve seulement (Challenge 500, Circuit
- * Jeunes). */
-function payInscription(playerId, competitionId) {
+// ----------------------------------------------------------------------------------
+// PAIEMENT DES INSCRIPTIONS PAR HELLOASSO (Checkout API v5)
+// ----------------------------------------------------------------------------------
+// Le script crée un paiement HelloAsso (montant + nom de la compétition +
+// date) et renvoie la page de paiement. C'est HelloAsso qui valide : tant
+// que HelloAsso n'a pas confirmé le paiement, le joueur n'est pas inscrit.
+// Configuration (Paramètres du projet › Propriétés du script) :
+//   HELLOASSO_CLIENT_ID, HELLOASSO_CLIENT_SECRET : clés API (HelloAsso ›
+//     Mon compte › Intégrations et API) ;
+//   HELLOASSO_ORG : identifiant (slug) de l'association dans HelloAsso ;
+//   HELLOASSO_SANDBOX = oui : environnement de test (facultatif) ;
+//   APP_URL : page de retour après paiement (par défaut la version web).
+
+function helloAssoConfig_() {
+  const p = PropertiesService.getScriptProperties();
+  const id = p.getProperty('HELLOASSO_CLIENT_ID');
+  const secret = p.getProperty('HELLOASSO_CLIENT_SECRET');
+  const org = p.getProperty('HELLOASSO_ORG');
+  if (!id || !secret || !org) return null;
+  const sandbox = /^(oui|1|true|yes)$/i.test(String(p.getProperty('HELLOASSO_SANDBOX') || ''));
+  return {
+    id: id, secret: secret, org: String(org).trim(),
+    api: sandbox ? 'https://api.helloasso-sandbox.com' : 'https://api.helloasso.com',
+    sandbox: sandbox,
+    appUrl: p.getProperty('APP_URL') || 'https://ttfrisno-design.github.io/Brulage/',
+  };
+}
+
+function helloAssoToken_(cfg) {
+  const cache = CacheService.getScriptCache();
+  const key = 'HA_TOKEN_' + (cfg.sandbox ? 'S' : 'P');
+  const cached = cache.get(key);
+  if (cached) return cached;
+  const res = UrlFetchApp.fetch(cfg.api + '/oauth2/token', {
+    method: 'post', muteHttpExceptions: true,
+    payload: { grant_type: 'client_credentials', client_id: cfg.id, client_secret: cfg.secret },
+  });
+  const data = JSON.parse(res.getContentText() || '{}');
+  if (!data.access_token) throw new Error('HelloAsso : connexion refusée (vérifiez les clés API).');
+  cache.put(key, data.access_token, 1500); // valable 30 min
+  return data.access_token;
+}
+
+function helloAssoApi_(cfg, method, path, body) {
+  const opts = {
+    method: method, muteHttpExceptions: true, contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + helloAssoToken_(cfg) },
+  };
+  if (body) opts.payload = JSON.stringify(body);
+  const res = UrlFetchApp.fetch(cfg.api + '/v5/organizations/' + encodeURIComponent(cfg.org) + path, opts);
+  const code = res.getResponseCode();
+  const text = res.getContentText() || '{}';
+  if (code >= 300) throw new Error('HelloAsso (' + code + ') : ' + text.slice(0, 300));
+  return JSON.parse(text);
+}
+
+/** Compétitions réglées épreuve par épreuve (les autres : règlement unique
+ * qui vaut inscription à toutes les épreuves de la saison). */
+function perEpreuvePayment_(nom) {
+  return /challenge\s*500|circuit\s*jeune/i.test(String(nom || ''));
+}
+
+/** Seul le Critérium fédéral accepte encore les inscriptions après la date
+ * limite (jusqu'au jour de l'épreuve). */
+function lateInscriptionAllowed_(nom) {
+  return /crit[ée]rium/i.test(String(nom || ''));
+}
+
+function ensurePaymentsSheet_() {
+  let sh = ss_().getSheetByName('Paiements');
+  if (!sh) {
+    sh = ss_().insertSheet('Paiements');
+    sh.getRange(1, 1, 1, 9).setValues([['IntentID', 'JoueurID', 'CompetitionIDs', 'Montant', 'Libelle', 'Statut', 'CreeLe', 'PayeLe', 'OrderID']]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+/** Le joueur demande à payer son inscription : crée le paiement HelloAsso
+ * et renvoie l'adresse de la page de paiement. */
+function createCheckout(playerId, competitionId) {
   ensureSheets_();
+  const cfg = helloAssoConfig_();
+  if (!cfg) throw new Error('Le paiement HelloAsso n\'est pas encore configuré par le club.');
   const data = getCompetitions(playerId);
   const c = data.competitions.find(function (x) { return x.id === Number(competitionId); });
   if (!c) throw new Error('Épreuve introuvable.');
   const today = todayStart_();
-  const isOpen = function (x) {
-    const date = parseFrDate_(x.date);
-    const limit = parseFrDate_(x.dateLimite);
-    return x.eligible && date && date >= today && (!limit || limit >= today || lateInscriptionAllowed_(x.nom));
-  };
-  if (!isOpen(c)) throw new Error('Inscription impossible : date limite dépassée ou catégorie non concernée.');
-  const targets = perEpreuvePayment_(c.nom) ? [c] : data.competitions.filter(function (x) {
-    const date = parseFrDate_(x.date);
-    return x.nom === c.nom && x.type === c.type && x.eligible && date && date >= today;
+  const date = parseFrDate_(c.date);
+  const limit = parseFrDate_(c.dateLimite);
+  if (!c.eligible || !date || date < today || (limit && limit < today && !lateInscriptionAllowed_(c.nom))) {
+    throw new Error('Inscription impossible : date limite dépassée ou catégorie non concernée.');
+  }
+  const perEp = perEpreuvePayment_(c.nom);
+  const targets = perEp ? [c] : data.competitions.filter(function (x) {
+    const d = parseFrDate_(x.date);
+    return x.nom === c.nom && x.type === c.type && x.eligible && d && d >= today;
   });
+  const prices = data.settings.prices || { serie: {}, epreuve: {} };
+  const euros = (perEp && prices.epreuve[c.id]) || prices.serie[c.nom];
+  if (!euros) throw new Error('Montant non renseigné pour « ' + c.nom + ' » : demandez au club.');
+  const player = readTable_('Joueurs').find(function (p) { return String(p.ID) === String(playerId); }) || {};
+  const label = ('Inscription ' + c.nom + (perEp ? ' – ' + (c.epreuve ? c.epreuve + ' – ' : '') + c.date : ' – saison (' + targets.length + ' épreuve' + (targets.length > 1 ? 's' : '') + ')') +
+    ' – ' + (player.Prénom || '') + ' ' + (player.Nom || '')).replace(/\s+/g, ' ').trim().slice(0, 250);
+  const base = cfg.appUrl + (cfg.appUrl.indexOf('?') >= 0 ? '&' : '?');
+  const cents = Math.round(Number(euros) * 100);
+  const clean = function (v) { return String(v || '').replace(/[^A-Za-zÀ-ÖØ-öø-ÿ' -]/g, '').trim(); };
+  const body = {
+    totalAmount: cents, initialAmount: cents, itemName: label,
+    backUrl: base + 'helloasso=retour', errorUrl: base + 'helloasso=erreur', returnUrl: base + 'helloasso=ok',
+    containsDonation: false,
+    metadata: { joueur: String(playerId), competitions: targets.map(function (x) { return x.id; }).join(',') },
+  };
+  const first = clean(player.Prénom), last = clean(player.Nom);
+  if (first && last) body.payer = { firstName: first, lastName: last };
+  const intent = helloAssoApi_(cfg, 'post', '/checkout-intents', body);
+  if (!intent || !intent.redirectUrl) throw new Error('HelloAsso n\'a pas renvoyé de page de paiement.');
+  withScriptLock_(function () {
+    ensurePaymentsSheet_().appendRow([String(intent.id), playerId, targets.map(function (x) { return x.id; }).join(','), Number(euros), label, 'En attente', new Date(), '', '']);
+  });
+  return { redirectUrl: intent.redirectUrl, id: intent.id };
+}
+
+/** Interroge HelloAsso pour un paiement en attente ; s'il est payé,
+ * inscrit (validé) le joueur aux épreuves concernées. */
+function verifyCheckout_(cfg, rowIndex, row, sheet) {
+  let intent;
+  try { intent = helloAssoApi_(cfg, 'get', '/checkout-intents/' + encodeURIComponent(row[0])); }
+  catch (e) { console.warn('Vérification HelloAsso impossible : ' + e.message); return row[5]; }
+  const order = intent && intent.order;
+  if (!order) {
+    // Paiement jamais terminé : on le marque expiré au bout de 2 heures.
+    const created = row[6] instanceof Date ? row[6].getTime() : Date.parse(row[6]);
+    if (created && Date.now() - created > 2 * 3600 * 1000) {
+      sheet.getRange(rowIndex, 6).setValue('Expiré');
+      return 'Expiré';
+    }
+    return 'En attente';
+  }
   const now = new Date();
+  sheet.getRange(rowIndex, 6, 1, 4).setValues([['Payé', row[6], now, String(order.id || '')]]);
+  const ids = String(row[2]).split(',').map(Number).filter(Boolean);
   withInscriptionsSheet_(function (rows) {
-    targets.forEach(function (x) {
-      const row = findInscriptionRow_(rows, x.id, playerId);
-      if (row) {
-        row[2] = 'Validée';
-        while (row.length < 8) row.push('');
-        row[7] = now;
+    ids.forEach(function (cid) {
+      const r = findInscriptionRow_(rows, cid, row[1]);
+      if (r) {
+        r[2] = 'Validée';
+        while (r.length < 8) r.push('');
+        r[7] = now;
       } else {
-        rows.push([x.id, playerId, 'Validée', now, '', '', '', now]);
+        rows.push([cid, row[1], 'Validée', now, '', '', '', now]);
       }
     });
   });
+  return 'Payé';
+}
+
+/** Vérifie les paiements en attente (d'un joueur, ou de tous si playerId
+ * est vide). Appelé par l'appli au retour de HelloAsso et par la
+ * notification HelloAsso. */
+function checkPayments_(playerId) {
+  const cfg = helloAssoConfig_();
+  if (!cfg) return 0;
+  const sheet = ensurePaymentsSheet_();
+  const values = sheet.getDataRange().getValues();
+  let paid = 0;
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    if (row[5] !== 'En attente') continue;
+    if (playerId !== null && playerId !== undefined && String(row[1]) !== String(playerId)) continue;
+    if (verifyCheckout_(cfg, i + 1, row, sheet) === 'Payé') paid++;
+  }
+  return paid;
+}
+
+/** L'appli demande où en sont les paiements du joueur. */
+function checkMyPayments(playerId) {
+  ensureSheets_();
+  withScriptLock_(function () { checkPayments_(playerId); });
   return getCompetitions(playerId);
+}
+
+/** À programmer dans Apps Script (Déclencheurs › Ajouter › fonction
+ * verifierPaiementsEnAttente › déclencheur horaire, toutes les 10 minutes) :
+ * valide les paiements HelloAsso même si le joueur ne revient pas dans
+ * l'appli. Remplace l'URL de notification HelloAsso, déjà utilisée par un
+ * autre script du club. */
+function verifierPaiementsEnAttente() {
+  const n = withScriptLock_(function () { return checkPayments_(null); });
+  if (n) bumpDataVersion_();
+  Logger.log(n + ' paiement(s) validé(s).');
+}
+
+/** Admin : état de la configuration HelloAsso. */
+function getHelloAssoStatus() {
+  const cfg = helloAssoConfig_();
+  return cfg ? { configured: true, org: cfg.org, sandbox: cfg.sandbox } : { configured: false };
 }
 
 function parseFrDate_(s) {
@@ -1674,7 +1852,22 @@ function getCompetitions(playerId) {
       return c;
     }),
     inscriptions: mine,
+    paiementsEnAttente: pendingPaymentsOf_(playerId),
   };
+}
+
+/** Épreuves dont le paiement HelloAsso du joueur est en cours (moins de 2 h). */
+function pendingPaymentsOf_(playerId) {
+  const sh = ss_().getSheetByName('Paiements');
+  if (!sh) return [];
+  const out = [];
+  sh.getDataRange().getValues().slice(1).forEach(function (r) {
+    const created = r[6] instanceof Date ? r[6].getTime() : Date.parse(r[6]);
+    if (String(r[1]) === String(playerId) && r[5] === 'En attente' && created && Date.now() - created < 2 * 3600 * 1000) {
+      String(r[2]).split(',').map(Number).filter(Boolean).forEach(function (id) { out.push(id); });
+    }
+  });
+  return out;
 }
 
 function withInscriptionsSheet_(fn) {
@@ -1899,7 +2092,7 @@ function setFfttLink(template) {
 function setSetting(key, value) {
   ensureSheets_();
   key = String(key || '');
-  if (['LienFicheFFTT', 'SiteClub'].indexOf(key) < 0 && key.indexOf('MailInscription:') !== 0 && key.indexOf('LienReglement:') !== 0 && !/^LienPoule:\d+:\d+$/.test(key)) {
+  if (['LienFicheFFTT', 'SiteClub'].indexOf(key) < 0 && key.indexOf('MailInscription:') !== 0 && key.indexOf('PrixHelloAsso:') !== 0 && !/^LienPoule:\d+:\d+$/.test(key)) {
     throw new Error('Réglage non modifiable : ' + key);
   }
   const v = String(value || '').trim();
