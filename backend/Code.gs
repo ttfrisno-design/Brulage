@@ -114,6 +114,7 @@ const API_FUNCTIONS_ = {
   setSetting: setSetting,
   saveRencontre: saveRencontre,
   registerPushToken: registerPushToken,
+  payInscription: payInscription,
   unregisterPushToken: unregisterPushToken,
   getPushStatus: getPushStatus,
   sendTestPush: sendTestPush,
@@ -258,7 +259,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V13';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V14';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -433,6 +434,11 @@ function ensureSheetsNow_() {
   // classeurs existants : en-tête seulement.
   if (insc.getLastColumn() < 7) {
     insc.getRange(1, 7).setValue('Equipe');
+  }
+  // Colonne H "Reglement" : date du règlement en ligne (inscription
+  // automatique). En-tête seulement.
+  if (insc.getLastColumn() < 8) {
+    insc.getRange(1, 8).setValue('Reglement');
   }
 
   // --- Rencontres ---
@@ -1502,15 +1508,72 @@ function readConfigValue_(key, fallback) {
 
 function competitionSettings_() {
   const mails = {};
+  const payLinks = { serie: {}, epreuve: {} };
   readTable_('Config').forEach(function (r) {
     const k = String(r.Clé || '');
     if (k.indexOf('MailInscription:') === 0) mails[k.slice('MailInscription:'.length)] = String(r.Valeur || '');
+    // Liens de règlement : « LienReglement:<compétition> » (règlement unique
+    // pour toute la saison) ou « LienReglement:#<id> » (une épreuve).
+    if (k.indexOf('LienReglement:') === 0 && String(r.Valeur || '').trim()) {
+      const rest = k.slice('LienReglement:'.length);
+      if (rest.charAt(0) === '#') payLinks.epreuve[Number(rest.slice(1))] = String(r.Valeur).trim();
+      else payLinks.serie[rest] = String(r.Valeur).trim();
+    }
   });
   return {
     delaiJours: Number(readConfigValue_('DelaiInscriptionJours', 15)) || 0,
     rappelJours: Number(readConfigValue_('RappelJours', 10)) || 0,
     mails: mails,
+    payLinks: payLinks,
   };
+}
+
+/** Compétitions réglées épreuve par épreuve (les autres : règlement unique
+ * qui vaut inscription à toutes les épreuves de la saison). */
+function perEpreuvePayment_(nom) {
+  return /challenge\s*500|circuit\s*jeune/i.test(String(nom || ''));
+}
+
+/** Seul le Critérium fédéral accepte encore les inscriptions après la date
+ * limite (jusqu'au jour de l'épreuve). */
+function lateInscriptionAllowed_(nom) {
+  return /crit[ée]rium/i.test(String(nom || ''));
+}
+
+/** Le joueur règle son inscription en ligne (lien du club) : inscription
+ * validée automatiquement, à toutes les épreuves à venir de la compétition
+ * (règlement unique) ou à cette épreuve seulement (Challenge 500, Circuit
+ * Jeunes). */
+function payInscription(playerId, competitionId) {
+  ensureSheets_();
+  const data = getCompetitions(playerId);
+  const c = data.competitions.find(function (x) { return x.id === Number(competitionId); });
+  if (!c) throw new Error('Épreuve introuvable.');
+  const today = todayStart_();
+  const isOpen = function (x) {
+    const date = parseFrDate_(x.date);
+    const limit = parseFrDate_(x.dateLimite);
+    return x.eligible && date && date >= today && (!limit || limit >= today || lateInscriptionAllowed_(x.nom));
+  };
+  if (!isOpen(c)) throw new Error('Inscription impossible : date limite dépassée ou catégorie non concernée.');
+  const targets = perEpreuvePayment_(c.nom) ? [c] : data.competitions.filter(function (x) {
+    const date = parseFrDate_(x.date);
+    return x.nom === c.nom && x.type === c.type && x.eligible && date && date >= today;
+  });
+  const now = new Date();
+  withInscriptionsSheet_(function (rows) {
+    targets.forEach(function (x) {
+      const row = findInscriptionRow_(rows, x.id, playerId);
+      if (row) {
+        row[2] = 'Validée';
+        while (row.length < 8) row.push('');
+        row[7] = now;
+      } else {
+        rows.push([x.id, playerId, 'Validée', now, '', '', '', now]);
+      }
+    });
+  });
+  return getCompetitions(playerId);
 }
 
 function parseFrDate_(s) {
@@ -1573,6 +1636,7 @@ function readInscriptions_() {
       demandeLe: r.DemandeLe instanceof Date ? r.DemandeLe.toISOString() : String(r.DemandeLe || ''),
       participation: String(r.Participation || ''),
       equipe: String(r.Equipe || ''),
+      reglement: r.Reglement instanceof Date ? formatFrDate_(r.Reglement) : String(r.Reglement || ''),
     };
   });
 }
@@ -1643,7 +1707,7 @@ function requestInscriptions(playerId, competitionIds) {
       const c = byId[Number(cid)];
       if (!c) return;
       const limit = parseFrDate_(c.dateLimite);
-      if (!c.eligible || (limit && limit < today)) { refused.push(c.nom + ' ' + c.epreuve); return; }
+      if (!c.eligible || (limit && limit < today && !lateInscriptionAllowed_(c.nom))) { refused.push(c.nom + ' ' + c.epreuve); return; }
       const row = findInscriptionRow_(rows, c.id, playerId);
       if (row) {
         if (row[2] === 'Refusée' || row[2] === 'Annulée') { row[2] = 'Demandée'; row[3] = new Date(); row[4] = ''; row[5] = ''; }
@@ -1835,7 +1899,7 @@ function setFfttLink(template) {
 function setSetting(key, value) {
   ensureSheets_();
   key = String(key || '');
-  if (['LienFicheFFTT', 'SiteClub'].indexOf(key) < 0 && key.indexOf('MailInscription:') !== 0 && !/^LienPoule:\d+:\d+$/.test(key)) {
+  if (['LienFicheFFTT', 'SiteClub'].indexOf(key) < 0 && key.indexOf('MailInscription:') !== 0 && key.indexOf('LienReglement:') !== 0 && !/^LienPoule:\d+:\d+$/.test(key)) {
     throw new Error('Réglage non modifiable : ' + key);
   }
   const v = String(value || '').trim();
