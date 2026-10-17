@@ -287,6 +287,18 @@
     .stat .l { font-size: 12px; color: var(--muted); }
     .profile-section { border-top: 1px solid var(--border); padding: 8px 0; font-size: 13px; }
     .profile-section h4 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+    /* Cadres colorés du profil : championnat (bleu), compétitions
+       individuelles (vert), indisponibilités (rouge), brûlages (orange). */
+    .profile-section.box { border: 1px solid; border-left-width: 5px; border-radius: 8px; padding: 8px 10px; margin-top: 8px; }
+    .profile-section.box + .profile-section.box { border-top-width: 1px; }
+    .profile-section.box-team { background: #eef4fd; border-color: #c5d9f5; border-left-color: #1565c0; }
+    .profile-section.box-team h4 { color: #1565c0; }
+    .profile-section.box-compet { background: #edf7ee; border-color: #c8e6c9; border-left-color: #2e7d32; }
+    .profile-section.box-compet h4 { color: #2e7d32; }
+    .profile-section.box-indispo { background: #fdeeee; border-color: #f5c6c6; border-left-color: #c62828; }
+    .profile-section.box-indispo h4 { color: #c62828; }
+    .profile-section.box-burn { background: #fff4e5; border-color: #ffd8a8; border-left-color: #e65100; }
+    .profile-section.box-burn h4 { color: #e65100; }
     .chip { display: inline-block; padding: 2px 8px; border-radius: 12px; background: var(--gray-bg); margin: 2px 4px 2px 0; font-size: 12px; }
     .chip.red { background: var(--red-bg); color: var(--red); }
     /* Compétitions individuelles (admin) : une colonne par compétition */
@@ -3068,22 +3080,22 @@
       '<div class="stat"><div class="v">' + indispos.length + '</div><div class="l">indisponibilité' + (indispos.length > 1 ? 's' : '') + ' à venir</div></div>' +
       '</div>';
     if (played.length) {
-      html += '<div class="profile-section"><h4>Matchs joués par équipe</h4>' +
+      html += '<div class="profile-section box box-team"><h4>🏓 Matchs joués par équipe</h4>' +
         Object.keys(byTeam).map(function (id) { var t = teamById(id); return '<span class="chip">' + (t ? escHtml(t.name) : id) + ' × ' + byTeam[id] + '</span>'; }).join('') + '</div>';
     }
-    html += '<div class="profile-section"><h4>Prochain match</h4>' + (upcoming.length ? matchLine(upcoming[0]) : 'Aucune sélection pour le moment.') + '</div>';
+    html += '<div class="profile-section box box-team"><h4>🏓 Prochain match de championnat</h4>' + (upcoming.length ? matchLine(upcoming[0]) : 'Aucune sélection pour le moment.') + '</div>';
     if (upcoming.length > 1) {
-      html += '<div class="profile-section"><h4>Sélections suivantes</h4>' + upcoming.slice(1, 6).map(function (a) { return '<div>' + matchLine(a) + '</div>'; }).join('') + '</div>';
+      html += '<div class="profile-section box box-team"><h4>🏓 Sélections suivantes</h4>' + upcoming.slice(1, 6).map(function (a) { return '<div>' + matchLine(a) + '</div>'; }).join('') + '</div>';
     }
-    html += '<div class="profile-section"><h4>Prochaine compétition individuelle</h4>' + (nextComp.length
+    html += '<div class="profile-section box box-compet"><h4>🏆 Prochaine compétition individuelle</h4>' + (nextComp.length
       ? '<b>' + dayLabel(nextComp[0].date) + '</b> — ' + escHtml(nextComp[0].nom + (nextComp[0].epreuve ? ' – ' + nextComp[0].epreuve : '')) +
         (nextComp[0].statut === 'Validée' ? ' <span class="pill ok">Inscription validée' + (nextComp[0].equipe ? ' — ' + escHtml(nextComp[0].equipe) : '') + '</span>' : ' <span class="pill wait">Demande en attente</span>')
       : 'Aucune inscription en cours.') + '</div>';
     if (indispos.length) {
-      html += '<div class="profile-section"><h4>Mes indisponibilités</h4>' + indispos.slice(0, 12).map(function (d) { return '<span class="chip red">' + dayLabel(d.date) + '</span>'; }).join('') + '</div>';
+      html += '<div class="profile-section box box-indispo"><h4>✕ Mes indisponibilités</h4>' + indispos.slice(0, 12).map(function (d) { return '<span class="chip red">' + dayLabel(d.date) + '</span>'; }).join('') + '</div>';
     }
     if (burnedNow.length) {
-      html += '<div class="profile-section"><h4>Brûlé (phase ' + STATE.phase + ')</h4>' + burnedNow.map(function (n) { return '<span class="chip">' + escHtml(n) + ' 🔥</span>'; }).join('') + '</div>';
+      html += '<div class="profile-section box box-burn"><h4>🔥 Brûlé (phase ' + STATE.phase + ')</h4>' + burnedNow.map(function (n) { return '<span class="chip">' + escHtml(n) + ' 🔥</span>'; }).join('') + '</div>';
     }
     el.innerHTML = html + '</div>';
   }

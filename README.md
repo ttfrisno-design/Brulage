@@ -288,7 +288,9 @@ Après la saisie du code, le joueur voit un encadré **Mon profil** : équipe,
 catégorie, matchs joués dans la saison (par équipe), prochain match et
 sélections à venir (adversaire, lieu, réponse à la convocation), prochaine
 compétition individuelle, indisponibilités à venir et équipes pour
-lesquelles il est brûlé.
+lesquelles il est brûlé. Chaque rubrique est un cadre de couleur : bleu pour le
+championnat par équipes, vert pour les compétitions individuelles, rouge pour
+les indisponibilités, orange pour les brûlages.
 
 **FFTT** : l'onglet Effectif comporte les colonnes **Licence** et **Points**
 (feuille *Joueurs*, colonnes J et K) ; le classement est calculé (points /
