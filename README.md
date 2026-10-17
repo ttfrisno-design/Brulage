@@ -369,6 +369,18 @@ bouton « Demander l'inscription (toute la saison) », qui inscrit à toutes les
 épreuves à venir) ; impossible après la date limite de la compétition si elle
 est renseignée, sinon **dès que la date du 1er tour est passée**.
 
+## Stages de tennis de table (jeunes)
+
+Rubrique **« 🎒 Stages de tennis de table »** sur l'accueil, affichée
+uniquement aux joueurs d'une catégorie jeune (poussin à junior). Les stages
+du comité (CDTT76) pendant les vacances scolaires sont des lignes de type
+`Stages` de la feuille Competitions : ajoutés automatiquement une fois
+(Toussaint, Noël, hiver, Pâques, été 2026-2027, date limite une semaine
+avant ; repère `StagesAjoutes` dans Config), puis modifiables dans l'onglet
+admin *Compétitions individuelles*, section *Stages jeunes* (ou type
+« Stages (jeunes) » pour en ajouter). Inscription et paiement HelloAsso
+**stage par stage** (montant à renseigner comme pour le Challenge 500).
+
 ## Inscriptions par mail aux organisateurs
 
 Onglet admin **Compétitions individuelles** : les épreuves sont présentées
