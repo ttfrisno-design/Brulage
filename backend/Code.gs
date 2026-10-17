@@ -1737,6 +1737,17 @@ function checkMyPayments(playerId) {
   return getCompetitions(playerId);
 }
 
+/** À programmer dans Apps Script (Déclencheurs › Ajouter › fonction
+ * verifierPaiementsEnAttente › déclencheur horaire, toutes les 10 minutes) :
+ * valide les paiements HelloAsso même si le joueur ne revient pas dans
+ * l'appli. Remplace l'URL de notification HelloAsso, déjà utilisée par un
+ * autre script du club. */
+function verifierPaiementsEnAttente() {
+  const n = withScriptLock_(function () { return checkPayments_(null); });
+  if (n) bumpDataVersion_();
+  Logger.log(n + ' paiement(s) validé(s).');
+}
+
 /** Admin : état de la configuration HelloAsso. */
 function getHelloAssoStatus() {
   const cfg = helloAssoConfig_();

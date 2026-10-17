@@ -329,9 +329,13 @@ validation » (bouton *Vérifier mon paiement*). Suivi des paiements : feuille
    `HELLOASSO_CLIENT_ID`, `HELLOASSO_CLIENT_SECRET`, `HELLOASSO_ORG` (slug).
    Pour tester sans vrai paiement : `HELLOASSO_SANDBOX` = `oui` (avec des
    clés du site de test helloasso-sandbox.com).
-3. (Conseillé) HelloAsso › *Intégrations et API* › URL de notification :
-   l'adresse `/exec` du script (celle de `www/config.js`) ; HelloAsso
-   prévient alors le script à chaque paiement.
+3. **Ne pas toucher à l'URL de notification HelloAsso** (déjà utilisée par
+   le script des inscriptions du club). À la place, éditeur Apps Script ›
+   ⏰ *Déclencheurs › Ajouter un déclencheur* : fonction
+   `verifierPaiementsEnAttente`, source *Déclencheur horaire*, *Toutes les
+   10 minutes*. Les paiements sont ainsi validés même si le joueur ne
+   revient pas dans l'appli (sinon : au retour dans l'appli ou avec le
+   bouton *Vérifier mon paiement*).
 4. Administration › *Dates & Réglages › Paiement HelloAsso* : vérifier
    « ✅ Configuré ».
 
