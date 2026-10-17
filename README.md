@@ -350,6 +350,10 @@ validation » (bouton *Vérifier mon paiement*). Suivi des paiements : feuille
 (bouton remplacé par « Inscriptions closes »), sauf pour le **Critérium
 fédéral**, ouvert jusqu'au jour de l'épreuve.
 
+**Coupe de Rouen** : inscription **unique pour toute la saison** (un seul
+bouton « Demander l'inscription (toute la saison) », qui inscrit à toutes les
+épreuves à venir) ; impossible **dès que la date du 1er tour est passée**.
+
 ## Inscriptions par mail aux organisateurs
 
 Onglet admin **Compétitions individuelles** : les épreuves sont présentées

@@ -1555,18 +1555,6 @@ function competitionSettings_() {
   };
 }
 
-/** Compétitions réglées épreuve par épreuve (les autres : règlement unique
- * qui vaut inscription à toutes les épreuves de la saison). */
-function perEpreuvePayment_(nom) {
-  return /challenge\s*500|circuit\s*jeune/i.test(String(nom || ''));
-}
-
-/** Seul le Critérium fédéral accepte encore les inscriptions après la date
- * limite (jusqu'au jour de l'épreuve). */
-function lateInscriptionAllowed_(nom) {
-  return /crit[ée]rium/i.test(String(nom || ''));
-}
-
 // ----------------------------------------------------------------------------------
 // PAIEMENT DES INSCRIPTIONS PAR HELLOASSO (Checkout API v5)
 // ----------------------------------------------------------------------------------
@@ -1629,6 +1617,33 @@ function perEpreuvePayment_(nom) {
   return /challenge\s*500|circuit\s*jeune/i.test(String(nom || ''));
 }
 
+/** Inscription unique pour toute la saison (Coupe de Rouen) : impossible
+ * dès que la date du 1er tour est passée. */
+function singleInscription_(nom) {
+  return /coupe\s*de\s*rouen/i.test(String(nom || ''));
+}
+/** Date du 1er tour de la compétition (même nom, même type). */
+function seriesFirstDate_(competitions, c) {
+  let first = null;
+  competitions.forEach(function (x) {
+    if (x.nom !== c.nom || x.type !== c.type) return;
+    const d = parseFrDate_(x.date);
+    if (d && (!first || d < first)) first = d;
+  });
+  return first;
+}
+/** Inscription encore possible à cette épreuve aujourd'hui. */
+function inscriptionOpen_(competitions, c, today) {
+  const date = parseFrDate_(c.date);
+  if (!c.eligible || !date || date < today) return false;
+  if (singleInscription_(c.nom)) {
+    const first = seriesFirstDate_(competitions, c);
+    return !first || first >= today;
+  }
+  const limit = parseFrDate_(c.dateLimite);
+  return !limit || limit >= today || lateInscriptionAllowed_(c.nom);
+}
+
 /** Seul le Critérium fédéral accepte encore les inscriptions après la date
  * limite (jusqu'au jour de l'épreuve). */
 function lateInscriptionAllowed_(nom) {
@@ -1665,10 +1680,9 @@ function createCheckout(playerId, competitionId) {
   const c = data.competitions.find(function (x) { return x.id === Number(competitionId); });
   if (!c) throw new Error('Épreuve introuvable.');
   const today = todayStart_();
-  const date = parseFrDate_(c.date);
-  const limit = parseFrDate_(c.dateLimite);
-  if (!c.eligible || !date || date < today || (limit && limit < today && !lateInscriptionAllowed_(c.nom))) {
-    throw new Error('Inscription impossible : date limite dépassée ou catégorie non concernée.');
+  if (!inscriptionOpen_(data.competitions, c, today)) {
+    throw new Error(singleInscription_(c.nom) ? 'Inscription impossible : le 1er tour de « ' + c.nom + ' » est passé.'
+      : 'Inscription impossible : date limite dépassée ou catégorie non concernée.');
   }
   const perEp = perEpreuvePayment_(c.nom);
   const targets = perEp ? [c] : data.competitions.filter(function (x) {
@@ -1918,12 +1932,24 @@ function requestInscriptions(playerId, competitionIds) {
   data.competitions.forEach(function (c) { byId[c.id] = c; });
   const today = todayStart_();
   const refused = [];
+  // Inscription unique (Coupe de Rouen) : la demande vaut pour toutes les
+  // épreuves à venir de la compétition.
+  const ids = [];
+  (competitionIds || []).forEach(function (cid) {
+    const c = byId[Number(cid)];
+    if (c && singleInscription_(c.nom)) {
+      data.competitions.forEach(function (x) {
+        const d = parseFrDate_(x.date);
+        if (x.nom === c.nom && x.type === c.type && d && d >= today && ids.indexOf(x.id) < 0) ids.push(x.id);
+      });
+    } else if (ids.indexOf(Number(cid)) < 0) ids.push(Number(cid));
+  });
+  competitionIds = ids;
   withInscriptionsSheet_(function (rows) {
     (competitionIds || []).forEach(function (cid) {
       const c = byId[Number(cid)];
       if (!c) return;
-      const limit = parseFrDate_(c.dateLimite);
-      if (!c.eligible || (limit && limit < today && !lateInscriptionAllowed_(c.nom))) { refused.push(c.nom + ' ' + c.epreuve); return; }
+      if (!inscriptionOpen_(data.competitions, c, today)) { refused.push(c.nom + ' ' + c.epreuve); return; }
       const row = findInscriptionRow_(rows, c.id, playerId);
       if (row) {
         if (row[2] === 'Refusée' || row[2] === 'Annulée') { row[2] = 'Demandée'; row[3] = new Date(); row[4] = ''; row[5] = ''; }
