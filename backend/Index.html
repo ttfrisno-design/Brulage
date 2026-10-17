@@ -924,10 +924,9 @@
         if (!date || date < today) return;
         if (!i && played[c.nom] && c.type !== 'Tous' && STATE.compet.categorie && c.eligible && c.dateLimite && canRequest(c)) {
           add(atHour(parseFrDate(c.dateLimite) - 2 * DAY_MS, 18), '⏰ Inscriptions bientôt closes', name + ' : inscription jusqu\'au ' + c.dateLimite + '.');
-        } else if (i && i.statut === 'Validée' && !i.participation) {
-          add(atHour(date - 3 * DAY_MS, 18), '✅ Confirmez votre participation', name + ' (' + dayLabel(c.date) + ').');
-        } else if (i && i.statut === 'Validée' && i.participation === 'Confirmée') {
-          add(atHour(date - DAY_MS, 18), '🏆 Compétition demain', name + (c.lieu ? ' — ' + c.lieu : '') + '.');
+        } else if (i && i.statut === 'Validée' && i.participation !== 'Annulée') {
+          if (!i.participation) add(atHour(date - 3 * DAY_MS, 18), '✅ Confirmez votre participation', name + ' (' + dayLabel(c.date) + ').');
+          add(atHour(date - DAY_MS, 18), '🏆 Compétition demain', name + ' ' + dayLabel(c.date) + (c.lieu ? ' — ' + c.lieu : '') + '.');
         }
       });
     }
@@ -2526,8 +2525,9 @@
     return (STATE.compet ? STATE.compet.competitions : []).filter(function (c) { return c.type === type || c.type === 'Tous'; });
   }
   // Après la date limite, on ne peut plus s'inscrire, sauf au Critérium
-  // fédéral (jusqu'au jour de l'épreuve).
-  function lateAllowed(c) { return /crit[ée]rium/i.test(c.nom || ''); }
+  // fédéral, au Challenge 500 et au Circuit Jeunes (jusqu'au jour de
+  // l'épreuve).
+  function lateAllowed(c) { return /crit[ée]rium|challenge\s*500|circuit\s*jeune/i.test(c.nom || ''); }
   // Coupe de Rouen : inscription unique pour toute la saison, impossible
   // dès que la date du 1er tour est passée.
   function frDateStr(t) {
@@ -2544,10 +2544,14 @@
     });
     return first || parseFrDate(c.date);
   }
+  // Inscription unique : date limite de la compétition si l'admin l'a
+  // fixée, sinon date du 1er tour.
+  function seriesLimit(c) { return parseFrDate(c.dateLimiteSerie || '') || seriesFirstDate(c); }
   function canRequest(c) {
     if (!c.eligible || daysUntil(c.date) < 0) return false;
-    if (singleInscription(c.nom)) return seriesFirstDate(c) >= todayStart();
-    return daysUntil(c.dateLimite) >= 0 || lateAllowed(c);
+    if (lateAllowed(c)) return true;
+    if (singleInscription(c.nom)) return seriesLimit(c) >= todayStart();
+    return daysUntil(c.dateLimite) >= 0;
   }
   // Règlement en ligne : épreuve par épreuve pour le Challenge 500 et le
   // Circuit Jeunes, règlement unique (toutes les épreuves) pour les autres.
@@ -2662,6 +2666,14 @@
       byName[c.nom].items.push(c);
     });
     var mine = STATE.compet.inscriptions || {};
+    // Simplification : une épreuve n'apparaît que si le joueur y est
+    // inscrit (ou a une demande en cours) ou peut encore s'y inscrire ; une
+    // compétition sans aucune épreuve à afficher disparaît.
+    var isMine = function (c) { return mine[c.id] && mine[c.id].statut !== 'Refusée'; };
+    groups = groups.filter(function (g) {
+      g.items = g.items.filter(function (c) { return isMine(c) || canRequest(c); });
+      return g.items.length;
+    });
     var html = '';
     groups.forEach(function (g) {
       g.items.sort(function (a, b) { return frDateToTime(a.date) - frDateToTime(b.date); });
@@ -2706,16 +2718,16 @@
       }
       html += '</div>';
     });
-    document.getElementById('competList').innerHTML = html || '<div class="card">Aucune compétition.</div>';
+    document.getElementById('competList').innerHTML = html || '<div class="card">Aucune compétition ouverte aux inscriptions pour le moment.</div>';
   }
 
   function competRowHtml(c, insc, past) {
     var dl = daysUntil(c.dateLimite);
     var rappel = STATE.compet.settings.rappelJours;
-    var first = singleInscription(c.nom) ? seriesFirstDate(c) : 0;
-    var limitTxt = first ? (first >= todayStart() ? 'Inscription unique pour la saison, jusqu\'au 1er tour (' + dayLabel(frDateStr(first)) + ')' : 'Inscriptions closes (1er tour passé)')
+    var first = singleInscription(c.nom) && !lateAllowed(c) ? seriesLimit(c) : 0;
+    var limitTxt = first ? (first >= todayStart() ? 'Inscription unique pour la saison, jusqu\'au ' + (c.dateLimiteSerie ? dayLabel(frDateStr(first)) : '1er tour (' + dayLabel(frDateStr(first)) + ')') : 'Inscriptions closes')
       : dl >= 0 ? 'Inscription avant le ' + c.dateLimite
-      : lateAllowed(c) ? 'Date limite passée (' + c.dateLimite + ') — inscription encore possible'
+      : lateAllowed(c) ? 'Date limite passée (' + c.dateLimite + ') — inscription encore possible jusqu\'au jour de l\'épreuve'
       : 'Inscriptions closes depuis le ' + c.dateLimite;
     var html = '<div class="compet-row"><div><div class="when">' + dayLabel(c.date) + (c.epreuve ? ' — ' + escHtml(c.epreuve) : '') + '</div>' +
       (c.lieu ? '<div class="where">📍 ' + escHtml(c.lieu) + '</div>' : '') +
@@ -2902,6 +2914,12 @@
       var mail = (data.settings.mails || {})[nom];
       html += '<div class="compet-col"><div class="compet-col-head">' + escHtml(nom) +
         (mail ? '<span class="mail">✉️ ' + escHtml(mail) + '</span>' : '') + '</div>';
+      var serie = (data.settings.deadlines || {})[nom] || '';
+      html += '<div class="pay-link-box">📅 Date limite d\'inscription (toutes les épreuves)' +
+        '<input class="adm-serie-limit" data-nom="' + escAttr(nom) + '" value="' + escAttr(serie) + '" placeholder="' +
+        escAttr(singleInscription(nom) ? 'date du 1er tour' : 'jj/mm/aaaa (sinon par épreuve)') + '" onchange="saveSeriesLimit(this.dataset.nom, this.value)">' +
+        (lateAllowed({ nom: nom }) ? '<div style="color:var(--muted);margin-top:2px;">Inscription encore possible après cette date (jusqu\'au jour de l\'épreuve).</div>'
+          : '<div style="color:var(--muted);margin-top:2px;">Après cette date, plus d\'inscription possible.</div>') + '</div>';
       byNom[nom].forEach(function (c) {
         var ins = inscByComp[c.id] || [];
         var nDem = ins.filter(function (i) { return i.statut === 'Demandée'; }).length;
@@ -2913,8 +2931,8 @@
           (nVal ? ' <span class="pill ok">' + nVal + ' validée' + (nVal > 1 ? 's' : '') + ' · ' + nConf + ' confirmée' + (nConf > 1 ? 's' : '') + '</span>' : '') +
           '</summary><div class="ep-body">' +
           '<div style="font-size:13px;">📍 ' + escHtml(c.lieu || '—') + ' · Catégories : ' + escHtml(c.categories.join(', ') || 'toutes (' + c.type + ')') + '</div>' +
-          '<div style="font-size:13px;margin:6px 0;">Date limite : <input class="adm-ep-limit" value="' + escAttr(c.dateLimiteAuto ? '' : c.dateLimite) + '" placeholder="' + escAttr(c.dateLimite) + '" onchange="saveCompetLimit(' + c.id + ', this.value)"> ' +
-          (c.dateLimiteAuto ? '<span style="color:var(--muted);">(par défaut : ' + c.dateLimite + ')</span>' : '') +
+          '<div style="font-size:13px;margin:6px 0;">Date limite : <input class="adm-ep-limit" value="' + escAttr(c.dateLimiteEpreuve || '') + '" placeholder="' + escAttr(c.dateLimite) + '" onchange="saveCompetLimit(' + c.id + ', this.value)"> ' +
+          (!c.dateLimiteEpreuve && c.dateLimite ? '<span style="color:var(--muted);">(' + (c.dateLimiteSerie ? 'compétition' : 'par défaut') + ' : ' + c.dateLimite + ')</span>' : '') +
           ' <button class="btn-sm red" onclick="removeCompetition(' + c.id + ')">Supprimer l\'épreuve</button></div>';
         if (ins.length) {
           var hasTeams = c.teams && c.teams.length;
@@ -2945,7 +2963,7 @@
           '</select><button class="btn-sm" onclick="adminAddInsc(' + c.id + ')">Inscrire (validé)</button></div>';
         // Relances SMS : joueurs concernés non inscrits (avant la date
         // limite) et inscrits validés n'ayant pas confirmé.
-        var toRegister = (daysUntil(c.dateLimite) >= 0 || lateAllowed(c)) && daysUntil(c.date) >= 0 ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie); }) : [];
+        var toRegister = canRequest({ eligible: true, nom: c.nom, type: c.type, date: c.date, dateLimite: c.dateLimite, dateLimiteSerie: c.dateLimiteSerie }) ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie); }) : [];
         var toConfirm = ins.filter(function (i) { return i.statut === 'Validée' && !i.participation; }).map(function (i) { return playersById[String(i.playerId)]; }).filter(Boolean);
         html += '<div class="compet-actions" style="margin-top:8px;">' +
           (toRegister.length ? '<button class="btn-sm" onclick="competSms(' + c.id + ',\'inscription\')">📱 Relancer les non-inscrits (' + toRegister.length + ')</button>' : '') +
@@ -3031,6 +3049,10 @@
     if (!sel || !sel.value) return;
     setInscStatus(id, sel.value, 'Validée');
   }
+  function saveSeriesLimit(nom, value) {
+    callServer('setSeriesDeadline', [nom, value.trim()])
+      .then(function (res) { STATE.adminCompet = res; renderAdminCompet(); }).catch(onGsError);
+  }
   function saveCompetLimit(id, value) {
     var c = STATE.adminCompet.competitions.find(function (x) { return x.id === id; });
     STATE.openCompet = id;
@@ -3115,9 +3137,11 @@
     if (upcoming.length > 1) {
       html += '<div class="profile-section box box-team"><h4>🏓 Sélections suivantes</h4>' + upcoming.slice(1, 6).map(function (a) { return '<div>' + matchLine(a) + '</div>'; }).join('') + '</div>';
     }
-    html += '<div class="profile-section box box-compet"><h4>🏆 Prochaine compétition individuelle</h4>' + (nextComp.length
-      ? '<b>' + dayLabel(nextComp[0].date) + '</b> — ' + escHtml(nextComp[0].nom + (nextComp[0].epreuve ? ' – ' + nextComp[0].epreuve : '')) +
-        (nextComp[0].statut === 'Validée' ? ' <span class="pill ok">Inscription validée' + (nextComp[0].equipe ? ' — ' + escHtml(nextComp[0].equipe) : '') + '</span>' : ' <span class="pill wait">Demande en attente</span>')
+    html += '<div class="profile-section box box-compet"><h4>🏆 Mes compétitions individuelles</h4>' + (nextComp.length
+      ? nextComp.slice(0, 8).map(function (i) {
+          return '<div><b>' + dayLabel(i.date) + '</b> — ' + escHtml(i.nom + (i.epreuve ? ' – ' + i.epreuve : '')) +
+            (i.statut === 'Validée' ? ' <span class="pill ok">Inscription validée' + (i.equipe ? ' — ' + escHtml(i.equipe) : '') + '</span>' : ' <span class="pill wait">Demande en attente</span>') + '</div>';
+        }).join('')
       : 'Aucune inscription en cours.') + '</div>';
     if (indispos.length) {
       html += '<div class="profile-section box box-indispo"><h4>✕ Mes indisponibilités</h4>' + indispos.slice(0, 12).map(function (d) { return '<span class="chip red">' + dayLabel(d.date) + '</span>'; }).join('') + '</div>';
