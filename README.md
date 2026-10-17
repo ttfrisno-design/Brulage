@@ -298,25 +298,42 @@ numéro de licence : un lien « Ma fiche FFTT » apparaît alors dans son
 profil. La récupération automatique des points nécessite l'API officielle
 de la FFTT (identifiants à demander par le club).
 
-## Règlement en ligne des inscriptions
+## Paiement des inscriptions par HelloAsso
 
-Onglet admin **Compétitions individuelles** : sous les dates de chaque
-compétition, champ **« Lien de règlement »** (HelloAsso ou autre ; feuille
-*Config*, clé `LienReglement:<compétition>`). Pour le **Challenge 500** et
-le **Circuit Jeunes**, réglés épreuve par épreuve, chaque épreuve a aussi
-son propre lien (`LienReglement:#<id>`, sinon le lien de la compétition).
+Les joueurs paient leur inscription sur **HelloAsso** (paiement de type
+« checkout ») ; c'est **HelloAsso qui valide** : le joueur n'est inscrit
+qu'une fois le paiement confirmé.
 
-Côté joueur :
-- **règlement unique** (toutes les autres compétitions) : sous les dates,
-  bouton **« 💳 Régler mon inscription »** ; le règlement vaut inscription
-  **validée** à toutes les épreuves à venir de la compétition ;
-- **Challenge 500 / Circuit Jeunes** : bouton **« 💳 Régler et m'inscrire »**
-  sur chaque épreuve (inscription validée à cette épreuve).
+**Montants** (onglet admin *Compétitions individuelles*, sous les dates de
+chaque compétition, en euros ; feuille *Config*, clés `PrixHelloAsso:…`) :
+- règlement unique (toutes les compétitions sauf Challenge 500 / Circuit
+  Jeunes) : un montant pour la saison, qui vaut inscription à toutes les
+  épreuves à venir ;
+- **Challenge 500** et **Circuit Jeunes** : montant par épreuve (champ dans
+  chaque épreuve, sinon montant de la compétition).
 
-La page de règlement s'ouvre dans un nouvel onglet (l'appli reste ouverte)
-et l'inscription est enregistrée aussitôt
-(colonne H *Reglement* de la feuille *Inscriptions*, « 💳 Réglé le … » côté
-joueur et admin). L'appli ne vérifie pas le paiement lui-même.
+**Côté joueur** : bouton **« 💳 Payer XX € et m'inscrire »**. Le script crée
+le paiement HelloAsso (montant, nom de la compétition, date de l'épreuve,
+nom du joueur) et la page HelloAsso s'ouvre dans un nouvel onglet. Au
+retour, l'appli vérifie auprès de HelloAsso : paiement validé → inscription
+**validée** (colonne H *Reglement* de la feuille *Inscriptions*, « 💳 Payé le
+… »). Tant que HelloAsso n'a pas confirmé : « ⏳ Paiement en cours de
+validation » (bouton *Vérifier mon paiement*). Suivi des paiements : feuille
+*Paiements*.
+
+**Configuration (une seule fois)** :
+1. HelloAsso › *Mon compte › Intégrations et API* : créer les clés API
+   (identifiant client et secret) et noter l'identifiant (slug) de
+   l'association (dans l'adresse de sa page HelloAsso).
+2. Éditeur Apps Script › ⚙️ *Paramètres du projet › Propriétés du script* :
+   `HELLOASSO_CLIENT_ID`, `HELLOASSO_CLIENT_SECRET`, `HELLOASSO_ORG` (slug).
+   Pour tester sans vrai paiement : `HELLOASSO_SANDBOX` = `oui` (avec des
+   clés du site de test helloasso-sandbox.com).
+3. (Conseillé) HelloAsso › *Intégrations et API* › URL de notification :
+   l'adresse `/exec` du script (celle de `www/config.js`) ; HelloAsso
+   prévient alors le script à chaque paiement.
+4. Administration › *Dates & Réglages › Paiement HelloAsso* : vérifier
+   « ✅ Configuré ».
 
 **Date limite** : une fois passée, l'inscription n'est plus proposée
 (bouton remplacé par « Inscriptions closes »), sauf pour le **Critérium
