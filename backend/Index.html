@@ -2528,8 +2528,26 @@
   // Après la date limite, on ne peut plus s'inscrire, sauf au Critérium
   // fédéral (jusqu'au jour de l'épreuve).
   function lateAllowed(c) { return /crit[ée]rium/i.test(c.nom || ''); }
+  // Coupe de Rouen : inscription unique pour toute la saison, impossible
+  // dès que la date du 1er tour est passée.
+  function frDateStr(t) {
+    var d = new Date(t), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
+  }
+  function singleInscription(nom) { return /coupe\s*de\s*rouen/i.test(nom || ''); }
+  function seriesFirstDate(c) {
+    var first = 0;
+    ((STATE.compet && STATE.compet.competitions) || (STATE.adminCompet && STATE.adminCompet.competitions) || []).forEach(function (x) {
+      if (x.nom !== c.nom || x.type !== c.type) return;
+      var d = parseFrDate(x.date);
+      if (d && (!first || d < first)) first = d;
+    });
+    return first || parseFrDate(c.date);
+  }
   function canRequest(c) {
-    return c.eligible && (daysUntil(c.dateLimite) >= 0 || lateAllowed(c)) && daysUntil(c.date) >= 0;
+    if (!c.eligible || daysUntil(c.date) < 0) return false;
+    if (singleInscription(c.nom)) return seriesFirstDate(c) >= todayStart();
+    return daysUntil(c.dateLimite) >= 0 || lateAllowed(c);
   }
   // Règlement en ligne : épreuve par épreuve pour le Challenge 500 et le
   // Circuit Jeunes, règlement unique (toutes les épreuves) pour les autres.
@@ -2561,7 +2579,8 @@
       // Pas de rappel d'inscription pour les rendez-vous "Tous" (ex.
       // rassemblements féminins) : sans information sur le joueur, ce
       // serait envoyé à tout le monde.
-      if (!i && c.type !== 'Tous' && STATE.compet.categorie && c.eligible && canRequest(c) && daysUntil(c.dateLimite) <= rappel) {
+      if (!i && c.type !== 'Tous' && STATE.compet.categorie && c.eligible && canRequest(c) &&
+          (singleInscription(c.nom) ? (parseFrDate(c.date) === seriesFirstDate(c) && daysUntil(c.date) <= rappel) : daysUntil(c.dateLimite) <= rappel)) {
         out.push({ kind: 'inscription', c: c });
       } else if (i && i.statut === 'Validée' && !i.participation && daysUntil(c.date) >= 0 && daysUntil(c.date) <= rappel) {
         out.push({ kind: 'confirmation', c: c });
@@ -2655,7 +2674,11 @@
         (first.tarif ? ' <b>Tarif :</b> ' + escHtml(first.tarif) + '.' : '') +
         (first.categories.length ? ' <b>Catégories :</b> ' + escHtml(first.categories.join(', ')) + '.' : '') +
         (eligible ? '' : ' <span class="pill ko">Non concerné(e) par votre catégorie</span>') + '</div>';
-      if (openIds.length > 1) {
+      if (singleInscription(g.nom) && eligible) {
+        html += openIds.length
+          ? '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds[0] + '])">Demander l\'inscription (toute la saison, ' + openIds.length + ' épreuves)</button>'
+          : (upcoming.length && !g.items.some(function (c) { return mine[c.id]; }) ? '<div class="compet-meta">Inscriptions closes : le 1er tour est passé.</div>' : '');
+      } else if (openIds.length > 1) {
         html += '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds.join(',') + '])">Demander l\'inscription aux ' + openIds.length + ' épreuves ouvertes</button>';
       }
       if (!upcoming.length) html += '<div class="compet-meta">Toutes les épreuves sont passées.</div>';
@@ -2689,7 +2712,9 @@
   function competRowHtml(c, insc, past) {
     var dl = daysUntil(c.dateLimite);
     var rappel = STATE.compet.settings.rappelJours;
-    var limitTxt = dl >= 0 ? 'Inscription avant le ' + c.dateLimite
+    var first = singleInscription(c.nom) ? seriesFirstDate(c) : 0;
+    var limitTxt = first ? (first >= todayStart() ? 'Inscription unique pour la saison, jusqu\'au 1er tour (' + dayLabel(frDateStr(first)) + ')' : 'Inscriptions closes (1er tour passé)')
+      : dl >= 0 ? 'Inscription avant le ' + c.dateLimite
       : lateAllowed(c) ? 'Date limite passée (' + c.dateLimite + ') — inscription encore possible'
       : 'Inscriptions closes depuis le ' + c.dateLimite;
     var html = '<div class="compet-row"><div><div class="when">' + dayLabel(c.date) + (c.epreuve ? ' — ' + escHtml(c.epreuve) : '') + '</div>' +
@@ -2703,7 +2728,8 @@
         if (paymentPending(c)) html += '<span class="pill wait">⏳ Paiement en cours de validation</span><button class="btn-sm" onclick="checkPayments(true)">Vérifier</button>';
         else html += '<button class="btn-sm pay" onclick="payCompet(' + c.id + ')">💳 Payer ' + euros(priceFor(c, STATE.compet.settings)) + ' et m\'inscrire</button>';
       }
-      if (canRequest(c)) html += '<button class="btn-sm fill" onclick="requestCompet([' + c.id + '])">Demander l\'inscription</button>';
+      if (canRequest(c) && !singleInscription(c.nom)) html += '<button class="btn-sm fill" onclick="requestCompet([' + c.id + '])">Demander l\'inscription</button>';
+      else if (canRequest(c)) html += '<span class="pill">Inscription pour toute la saison (ci-dessus)</span>';
       else if (!c.eligible) html += '<span class="pill">Non concerné(e)</span>';
       else html += '<span class="pill">Inscriptions closes</span>';
     } else if (insc.statut === 'Demandée') {
@@ -2731,7 +2757,9 @@
     if (STATE.view === 'compet') renderCompetView();
   }
   function requestCompet(ids) {
-    if (!confirm('Envoyer votre demande d\'inscription au club (' + ids.length + ' épreuve' + (ids.length > 1 ? 's' : '') + ') ?')) return;
+    var c0 = (STATE.compet.competitions || []).find(function (x) { return x.id === ids[0]; });
+    var what = c0 && singleInscription(c0.nom) ? 'toute la saison de « ' + c0.nom + ' »' : ids.length + ' épreuve' + (ids.length > 1 ? 's' : '');
+    if (!confirm('Envoyer votre demande d\'inscription au club (' + what + ') ?')) return;
     callServer('requestInscriptions', [STATE.session.playerId, ids]).then(applyCompetResult).catch(onGsError);
   }
   // Paiement HelloAsso : le script crée le paiement (montant, compétition,
