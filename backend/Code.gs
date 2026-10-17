@@ -106,6 +106,7 @@ const API_FUNCTIONS_ = {
   setInscriptionStatus: setInscriptionStatus,
   setInscriptionEquipe: setInscriptionEquipe,
   saveCompetition: saveCompetition,
+  setSeriesDeadline: setSeriesDeadline,
   deleteCompetition: deleteCompetition,
   setCompetitionSettings: setCompetitionSettings,
   getDataVersion: getDataVersion,
@@ -1527,8 +1528,15 @@ function readConfigValue_(key, fallback) {
 function competitionSettings_() {
   const mails = {};
   const prices = { serie: {}, epreuve: {}, categorie: {} };
+  const deadlines = {};
   readTable_('Config').forEach(function (r) {
     const k = String(r.Clé || '');
+    // Date limite d'inscription d'une compétition (toutes ses épreuves) :
+    // « DateLimite:<compétition> » = jj/mm/aaaa.
+    if (k.indexOf('DateLimite:') === 0) {
+      const v = r.Valeur instanceof Date ? formatFrDate_(r.Valeur) : normalizeDateFr_(String(r.Valeur || ''));
+      if (v) deadlines[k.slice('DateLimite:'.length)] = v;
+    }
     if (k.indexOf('MailInscription:') === 0) mails[k.slice('MailInscription:'.length)] = String(r.Valeur || '');
     // Montants du paiement HelloAsso (en euros) : « PrixHelloAsso:<compétition> »
     // (règlement unique pour la saison, ou montant par défaut d'une épreuve)
@@ -1551,6 +1559,7 @@ function competitionSettings_() {
     rappelJours: Number(readConfigValue_('RappelJours', 10)) || 0,
     mails: mails,
     prices: prices,
+    deadlines: deadlines,
     helloasso: !!helloAssoConfig_(),
   };
 }
@@ -1636,18 +1645,21 @@ function seriesFirstDate_(competitions, c) {
 function inscriptionOpen_(competitions, c, today) {
   const date = parseFrDate_(c.date);
   if (!c.eligible || !date || date < today) return false;
+  if (lateInscriptionAllowed_(c.nom)) return true;
   if (singleInscription_(c.nom)) {
-    const first = seriesFirstDate_(competitions, c);
-    return !first || first >= today;
+    // Inscription unique : date limite de la compétition si elle est
+    // réglée, sinon le jour du 1er tour.
+    const lim = parseFrDate_(c.dateLimiteSerie || '') || seriesFirstDate_(competitions, c);
+    return !lim || lim >= today;
   }
   const limit = parseFrDate_(c.dateLimite);
-  return !limit || limit >= today || lateInscriptionAllowed_(c.nom);
+  return !limit || limit >= today;
 }
 
-/** Seul le Critérium fédéral accepte encore les inscriptions après la date
- * limite (jusqu'au jour de l'épreuve). */
+/** Inscription encore possible après la date limite (jusqu'au jour de
+ * l'épreuve) : Critérium fédéral, Challenge 500, Circuit Jeunes. */
 function lateInscriptionAllowed_(nom) {
-  return /crit[ée]rium/i.test(String(nom || ''));
+  return /crit[ée]rium|challenge\s*500|circuit\s*jeune/i.test(String(nom || ''));
 }
 
 /** Montant à payer : épreuve (Challenge 500 / Circuit Jeunes), sinon tarif
@@ -1805,6 +1817,9 @@ function readCompetitions_(settings) {
     const date = parseFrDate_(r.Date);
     let deadline = r.DateLimite ? String(r.DateLimite) : '';
     let deadlineAuto = false;
+    // Date limite de la compétition (réglée par l'admin pour toutes ses
+    // épreuves), si l'épreuve n'a pas sa propre date limite.
+    if (!deadline && (settings.deadlines || {})[String(r.Nom)]) deadline = settings.deadlines[String(r.Nom)];
     if (!deadline && date) {
       const d = new Date(date.getTime());
       d.setDate(d.getDate() - settings.delaiJours);
@@ -1813,7 +1828,7 @@ function readCompetitions_(settings) {
     }
     return {
       id: Number(r.ID), type: String(r.Type), nom: String(r.Nom), epreuve: String(r.Epreuve || ''),
-      date: String(r.Date), lieu: String(r.Lieu || ''), dateLimite: deadline, dateLimiteAuto: deadlineAuto,
+      date: String(r.Date), lieu: String(r.Lieu || ''), dateLimite: deadline, dateLimiteAuto: deadlineAuto, dateLimiteEpreuve: r.DateLimite ? String(r.DateLimite) : '', dateLimiteSerie: String((settings.deadlines || {})[String(r.Nom)] || ''),
       categories: String(r.Categories || '').split(',').map(function (c) { return c.trim(); }).filter(Boolean),
       tarif: String(r.Tarif || ''), infos: String(r.Infos || ''),
       teams: competitionTeams_(String(r.Nom)),
@@ -2053,6 +2068,20 @@ function saveCompetition(c) {
   return getCompetitionsAdmin();
 }
 
+// Date limite d'inscription commune à toutes les épreuves d'une compétition
+// (Config « DateLimite:<nom> ») ; une date saisie sur une épreuve reste
+// prioritaire. Vide = date par défaut (date de l'épreuve - délai).
+function setSeriesDeadline(nom, value) {
+  ensureSheets_();
+  nom = String(nom || '').trim();
+  if (!nom) throw new Error('Compétition inconnue.');
+  const raw = String(value || '').trim();
+  const d = normalizeDateFr_(raw);
+  if (raw && !d) throw new Error('Date invalide : ' + raw + ' (format jj/mm/aaaa).');
+  setSetting('DateLimite:' + nom, d);
+  return getCompetitionsAdmin();
+}
+
 function deleteCompetition(id) {
   ensureSheets_();
   const sheet = ss_().getSheetByName('Competitions');
@@ -2141,7 +2170,7 @@ function setFfttLink(template) {
 function setSetting(key, value) {
   ensureSheets_();
   key = String(key || '');
-  if (['LienFicheFFTT', 'SiteClub'].indexOf(key) < 0 && key.indexOf('MailInscription:') !== 0 && key.indexOf('PrixHelloAsso:') !== 0 && !/^LienPoule:\d+:\d+$/.test(key)) {
+  if (['LienFicheFFTT', 'SiteClub'].indexOf(key) < 0 && key.indexOf('MailInscription:') !== 0 && key.indexOf('PrixHelloAsso:') !== 0 && key.indexOf('DateLimite:') !== 0 && !/^LienPoule:\d+:\d+$/.test(key)) {
     throw new Error('Réglage non modifiable : ' + key);
   }
   const v = String(value || '').trim();

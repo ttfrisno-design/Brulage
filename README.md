@@ -346,13 +346,28 @@ validation » (bouton *Vérifier mon paiement*). Suivi des paiements : feuille
 4. Administration › *Dates & Réglages › Paiement HelloAsso* : vérifier
    « ✅ Configuré ».
 
-**Date limite** : une fois passée, l'inscription n'est plus proposée
-(bouton remplacé par « Inscriptions closes »), sauf pour le **Critérium
-fédéral**, ouvert jusqu'au jour de l'épreuve.
+**Dates limites d'inscription** (onglet admin *Compétitions individuelles*) :
+- en tête de chaque colonne, **« 📅 Date limite d'inscription (toutes les
+  épreuves) »** fixe une date commune à la compétition (Config
+  `DateLimite:<nom>`) ; vide = date de chaque épreuve ;
+- sur chaque épreuve, le champ *Date limite* reste prioritaire ; vide = date
+  de la compétition, sinon date de l'épreuve moins le délai par défaut.
+
+Une fois la date limite passée, on ne peut plus s'inscrire, sauf au
+**Critérium fédéral**, au **Challenge 500** et au **Circuit Jeunes**
+(ouverts jusqu'au jour de l'épreuve).
+
+Côté joueur, pour simplifier l'affichage, une épreuve n'apparaît que si le
+joueur y est inscrit (ou a une demande en cours) ou peut encore s'y
+inscrire : une compétition fermée où il n'est pas inscrit disparaît. Les
+épreuves où il est inscrit restent affichées, sont listées dans son profil
+(« 🏆 Mes compétitions individuelles ») et l'application lui rappelle chaque
+date (notification la veille, et 3 jours avant s'il n'a pas confirmé).
 
 **Coupe de Rouen** : inscription **unique pour toute la saison** (un seul
 bouton « Demander l'inscription (toute la saison) », qui inscrit à toutes les
-épreuves à venir) ; impossible **dès que la date du 1er tour est passée**.
+épreuves à venir) ; impossible après la date limite de la compétition si elle
+est renseignée, sinon **dès que la date du 1er tour est passée**.
 
 ## Inscriptions par mail aux organisateurs
 
