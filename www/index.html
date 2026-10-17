@@ -2991,9 +2991,9 @@
         }
         var registered = {};
         ins.forEach(function (i) { registered[String(i.playerId)] = true; });
-        var others = data.players.filter(function (p) { return !registered[String(p.id)]; })
+        var others = data.players.filter(function (p) { return !registered[String(p.id)] && String(p.nom || p.prenom || '').trim(); })
           .sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); });
-        html += '<div class="compet-actions" style="margin-top:6px;"><select id="addInsc-' + c.id + '" style="width:auto;max-width:220px;padding:5px;font-size:13px;">' +
+        html += '<div class="compet-actions" style="margin-top:6px;"><select id="addInsc-' + c.id + '" style="width:auto;max-width:220px;padding:5px;font-size:13px;"><option value="">— Choisir un joueur —</option>' +
           others.map(function (p) { return '<option value="' + escAttr(p.id) + '">' + escHtml(p.nom + ' ' + p.prenom) + (p.categorie ? ' (' + escHtml(p.categorie) + ')' : '') + '</option>'; }).join('') +
           '</select><button class="btn-sm" onclick="adminAddInsc(' + c.id + ')">Inscrire (validé)</button></div>';
         // Relances SMS : joueurs concernés non inscrits (avant la date
