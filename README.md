@@ -311,6 +311,11 @@ chaque compétition, en euros ; feuille *Config*, clés `PrixHelloAsso:…`) :
   épreuves à venir ;
 - **Challenge 500** et **Circuit Jeunes** : montant par épreuve (champ dans
   chaque épreuve, sinon montant de la compétition).
+- **tarif selon la catégorie** du joueur (« Tarif selon la catégorie », sous
+  le montant ; clés `PrixHelloAsso:<compétition>@<catégorie>`), prioritaire
+  sur le montant de la compétition. Pré-rempli pour le **Critérium
+  fédéral** : poussins à cadets 20 €, juniors 25 €, seniors et vétérans
+  35 €.
 
 **Côté joueur** : bouton **« 💳 Payer XX € et m'inscrire »**. Le script crée
 le paiement HelloAsso (montant, nom de la compétition, date de l'épreuve,

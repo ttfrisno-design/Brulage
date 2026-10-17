@@ -296,6 +296,9 @@
     .compet-col-head .mail { display: block; font-weight: 400; font-size: 11px; color: var(--muted); word-break: break-all; }
     .pay-link-box { margin-top: 8px; padding: 6px 8px; border: 1px dashed var(--border); border-radius: 8px; font-size: 12px; background: #fff; }
     .pay-link-box input { width: 100%; font-size: 12px; padding: 4px 6px; margin-top: 3px; }
+    .cat-prices { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 4px 6px; margin-top: 4px; }
+    .cat-prices label { font-size: 11px; }
+    .cat-prices input { margin-top: 1px; }
     .btn-sm.pay { background: #2e7d32; border-color: #2e7d32; color: #fff; text-decoration: none; display: inline-block; }
     .pay-block { margin-top: 10px; padding: 10px; border-radius: 8px; background: #f1f8f1; border: 1px solid #c8e6c9; font-size: 13px; }
     .mail-box textarea { width: 100%; font: inherit; font-size: 12px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; margin-top: 6px; }
@@ -2524,8 +2527,11 @@
   // de la saison pour les autres.
   function priceFor(c, settings) {
     if (!settings || !settings.helloasso) return 0;
-    var pr = settings.prices || { serie: {}, epreuve: {} };
-    return (perEpreuvePayment(c.nom) && (pr.epreuve || {})[c.id]) || (pr.serie || {})[c.nom] || 0;
+    var pr = settings.prices || { serie: {}, epreuve: {}, categorie: {} };
+    var cat = STATE.compet && STATE.compet.categorie;
+    return (perEpreuvePayment(c.nom) && (pr.epreuve || {})[c.id]) ||
+      (((pr.categorie || {})[c.nom] || {})[cat]) ||
+      (pr.serie || {})[c.nom] || 0;
   }
   function euros(v) { return (Math.round(Number(v) * 100) / 100).toString().replace('.', ',') + ' €'; }
   function paymentPending(c) { return ((STATE.compet && STATE.compet.paiementsEnAttente) || []).indexOf(c.id) >= 0; }
@@ -2788,9 +2794,16 @@
   function savePrice(target, value) {
     var v = String(value || '').trim().replace(',', '.');
     callServer('setSetting', ['PrixHelloAsso:' + target, v]).then(function () {
-      var pr = STATE.adminCompet.settings.prices = STATE.adminCompet.settings.prices || { serie: {}, epreuve: {} };
+      var pr = STATE.adminCompet.settings.prices = STATE.adminCompet.settings.prices || { serie: {}, epreuve: {}, categorie: {} };
+      pr.categorie = pr.categorie || {};
       var n = Number(v);
+      var at = target.lastIndexOf('@');
       if (target.charAt(0) === '#') { if (n > 0) pr.epreuve[Number(target.slice(1))] = n; else delete pr.epreuve[Number(target.slice(1))]; }
+      else if (at > 0) {
+        var nm = target.slice(0, at), ct = target.slice(at + 1);
+        pr.categorie[nm] = pr.categorie[nm] || {};
+        if (n > 0) pr.categorie[nm][ct] = n; else delete pr.categorie[nm][ct];
+      }
       else { if (n > 0) pr.serie[target] = n; else delete pr.serie[target]; }
     }).catch(onGsError);
   }
@@ -2912,7 +2925,21 @@
       // unique, ou lien par défaut des épreuves pour Challenge 500 /
       // Circuit Jeunes).
       html += '<div class="pay-link-box">💳 ' + (perEpreuvePayment(nom) ? 'Montant HelloAsso par épreuve (€, par défaut)' : 'Montant HelloAsso pour la saison (€, paiement unique = inscription à toutes les épreuves)') +
-        '<input type="number" min="0" step="0.5" value="' + escAttr(((data.settings.prices || {}).serie || {})[nom] || '') + '" placeholder="ex. 25" onchange="savePrice(' + escAttr(JSON.stringify(nom)) + ', this.value)"></div>';
+        '<input type="number" min="0" step="0.5" value="' + escAttr(((data.settings.prices || {}).serie || {})[nom] || '') + '" placeholder="ex. 25" onchange="savePrice(' + escAttr(JSON.stringify(nom)) + ', this.value)">';
+      // Tarif selon la catégorie du joueur (prioritaire sur le montant
+      // ci-dessus), ex. Critérium fédéral : jeunes 20 €, juniors 25 €…
+      var catPrices = ((data.settings.prices || {}).categorie || {})[nom] || {};
+      var colCats = [];
+      byNom[nom].forEach(function (c) {
+        (c.categories.length ? c.categories : (c.type === 'Jeunes' ? YOUTH_CATEGORIES : c.type === 'Adultes' ? ADULT_CATEGORIES : ALL_CATEGORIES))
+          .forEach(function (k) { if (colCats.indexOf(k) < 0) colCats.push(k); });
+      });
+      colCats.sort(function (a, b) { return ALL_CATEGORIES.indexOf(a) - ALL_CATEGORIES.indexOf(b); });
+      var nCat = Object.keys(catPrices).filter(function (k) { return colCats.indexOf(k) >= 0; }).length;
+      html += '<details style="margin-top:6px;"' + (nCat ? ' open' : '') + '><summary style="cursor:pointer;">Tarif selon la catégorie' + (nCat ? ' (' + nCat + ')' : '') + '</summary>' +
+        '<div class="cat-prices">' + colCats.map(function (k) {
+          return '<label>' + k + '<input type="number" min="0" step="0.5" value="' + escAttr(catPrices[k] || '') + '" onchange="savePrice(' + escAttr(JSON.stringify(nom + '@' + k)) + ', this.value)"></label>';
+        }).join('') + '</div></details></div>';
       html += '</div>';
       });
       html += '</div>';

@@ -269,7 +269,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V14';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V15';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -412,6 +412,14 @@ function ensureSheetsNow_() {
     ['MailInscription:Challenge SERANO', 'girard76@wanadoo.fr'],
     ['MailInscription:Coupe de Rouen', 'coupederouen@gmail.com'],
     ['MailInscription:Championnat Jeunes (équipe de 2)', 'lefebvrejmichel@hotmail.com'],
+    // Tarifs du Critérium fédéral selon la catégorie du joueur (paiement
+    // HelloAsso), clés "PrixHelloAsso:<compétition>@<catégorie>".
+    ['PrixHelloAsso:Critérium Fédéral@Poussin', '20'], ['PrixHelloAsso:Critérium Fédéral@Benjamin', '20'],
+    ['PrixHelloAsso:Critérium Fédéral@Minime', '20'], ['PrixHelloAsso:Critérium Fédéral@Cadet', '20'],
+    ['PrixHelloAsso:Critérium Fédéral@Junior', '25'], ['PrixHelloAsso:Critérium Fédéral@Senior', '35'],
+    ['PrixHelloAsso:Critérium Fédéral@V40', '35'], ['PrixHelloAsso:Critérium Fédéral@V50', '35'],
+    ['PrixHelloAsso:Critérium Fédéral@V60', '35'], ['PrixHelloAsso:Critérium Fédéral@V70', '35'],
+    ['PrixHelloAsso:Critérium Fédéral@V80', '35'],
   ].forEach(function (kv) {
     if (cfgKeys.indexOf(kv[0]) < 0) {
       const row = cfg.getLastRow() + 1;
@@ -1518,7 +1526,7 @@ function readConfigValue_(key, fallback) {
 
 function competitionSettings_() {
   const mails = {};
-  const prices = { serie: {}, epreuve: {} };
+  const prices = { serie: {}, epreuve: {}, categorie: {} };
   readTable_('Config').forEach(function (r) {
     const k = String(r.Clé || '');
     if (k.indexOf('MailInscription:') === 0) mails[k.slice('MailInscription:'.length)] = String(r.Valeur || '');
@@ -1529,8 +1537,12 @@ function competitionSettings_() {
       const v = Number(String(r.Valeur || '').replace(',', '.'));
       if (v > 0) {
         const rest = k.slice('PrixHelloAsso:'.length);
+        const at = rest.lastIndexOf('@');
         if (rest.charAt(0) === '#') prices.epreuve[Number(rest.slice(1))] = v;
-        else prices.serie[rest] = v;
+        else if (at > 0) { // tarif selon la catégorie du joueur
+          const nom = rest.slice(0, at);
+          (prices.categorie[nom] = prices.categorie[nom] || {})[rest.slice(at + 1)] = v;
+        } else prices.serie[rest] = v;
       }
     }
   });
@@ -1623,6 +1635,16 @@ function lateInscriptionAllowed_(nom) {
   return /crit[ée]rium/i.test(String(nom || ''));
 }
 
+/** Montant à payer : épreuve (Challenge 500 / Circuit Jeunes), sinon tarif
+ * de la catégorie du joueur (ex. Critérium fédéral), sinon montant de la
+ * compétition. */
+function priceOf_(c, prices, categorie) {
+  const p = prices || {};
+  return (perEpreuvePayment_(c.nom) && (p.epreuve || {})[c.id]) ||
+    (((p.categorie || {})[c.nom] || {})[categorie]) ||
+    (p.serie || {})[c.nom] || 0;
+}
+
 function ensurePaymentsSheet_() {
   let sh = ss_().getSheetByName('Paiements');
   if (!sh) {
@@ -1653,11 +1675,12 @@ function createCheckout(playerId, competitionId) {
     const d = parseFrDate_(x.date);
     return x.nom === c.nom && x.type === c.type && x.eligible && d && d >= today;
   });
-  const prices = data.settings.prices || { serie: {}, epreuve: {} };
-  const euros = (perEp && prices.epreuve[c.id]) || prices.serie[c.nom];
+  const prices = data.settings.prices || { serie: {}, epreuve: {}, categorie: {} };
+  const euros = priceOf_(c, prices, data.categorie);
   if (!euros) throw new Error('Montant non renseigné pour « ' + c.nom + ' » : demandez au club.');
   const player = readTable_('Joueurs').find(function (p) { return String(p.ID) === String(playerId); }) || {};
-  const label = ('Inscription ' + c.nom + (perEp ? ' – ' + (c.epreuve ? c.epreuve + ' – ' : '') + c.date : ' – saison (' + targets.length + ' épreuve' + (targets.length > 1 ? 's' : '') + ')') +
+  const catPrice = ((prices.categorie || {})[c.nom] || {})[data.categorie];
+  const label = ('Inscription ' + c.nom + (catPrice ? ' (' + data.categorie + ')' : '') + (perEp ? ' – ' + (c.epreuve ? c.epreuve + ' – ' : '') + c.date : ' – saison (' + targets.length + ' épreuve' + (targets.length > 1 ? 's' : '') + ')') +
     ' – ' + (player.Prénom || '') + ' ' + (player.Nom || '')).replace(/\s+/g, ' ').trim().slice(0, 250);
   const base = cfg.appUrl + (cfg.appUrl.indexOf('?') >= 0 ? '&' : '?');
   const cents = Math.round(Number(euros) * 100);
