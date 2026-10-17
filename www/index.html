@@ -382,12 +382,12 @@
           <span class="home-sub">Disponibilités, feuilles de match, brûlages</span>
           <span class="home-badge hidden" id="badgeTeam"></span>
         </button>
-        <button class="home-choice" onclick="openCompetView('Jeunes')">
+        <button class="home-choice" id="homeJeunesChoice" onclick="openCompetView('Jeunes')">
           <span class="home-icon">🧒</span><span class="home-label">Compétitions individuelles jeunes</span>
           <span class="home-sub">Challenge 500, Circuit Jeunes, Critérium…</span>
           <span class="home-badge hidden" id="badgeJeunes"></span>
         </button>
-        <button class="home-choice" onclick="openCompetView('Adultes')">
+        <button class="home-choice" id="homeAdultesChoice" onclick="openCompetView('Adultes')">
           <span class="home-icon">🧑</span><span class="home-label">Compétitions individuelles adultes</span>
           <span class="home-sub">Critérium, Coupe de Rouen, Vétérans…</span>
           <span class="home-badge hidden" id="badgeAdultes"></span>
@@ -2674,7 +2674,13 @@
     setBadge('badgeTeam', pendingConvoc.length);
     setBadge('badgeJeunes', competReminders('Jeunes').length);
     setBadge('badgeAdultes', competReminders('Adultes').length);
-    // Stages : réservés aux jeunes.
+    // Rubriques selon la catégorie : compétitions jeunes et stages pour les
+    // jeunes, compétitions adultes pour les adultes (catégorie inconnue :
+    // les deux rubriques de compétitions restent proposées).
+    var cat = STATE.compet && STATE.compet.categorie;
+    var adult = !!cat && ADULT_CATEGORIES.indexOf(cat) >= 0;
+    document.getElementById('homeJeunesChoice').classList.toggle('hidden', adult);
+    document.getElementById('homeAdultesChoice').classList.toggle('hidden', isYouth());
     document.getElementById('homeStagesChoice').classList.toggle('hidden', !isYouth());
     setBadge('badgeStages', competReminders('Stages').length);
   }
