@@ -270,7 +270,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V15';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V16';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -440,6 +440,20 @@ function ensureSheetsNow_() {
     compet.setFrozenRows(1);
     const seed = defaultCompetitions_();
     compet.getRange(2, 1, seed.length, 10).setValues(seed);
+  }
+  // Stages jeunes pendant les vacances (CDTT76) : ajoutés une seule fois, y
+  // compris à une feuille existante (lignes ajoutées en bas, les autres ne
+  // sont pas touchées) ; l'admin peut ensuite les modifier ou les supprimer.
+  if (!readConfigValue_('StagesAjoutes', '')) {
+    const existing = compet.getDataRange().getValues();
+    if (!existing.slice(1).some(function (r) { return r[1] === 'Stages'; })) {
+      let nextId = existing.slice(1).reduce(function (m, r) { return Math.max(m, Number(r[0]) || 0); }, 0);
+      const stages = defaultStages_().map(function (r) { return [String(++nextId)].concat(r); });
+      const range = compet.getRange(compet.getLastRow() + 1, 1, stages.length, 10);
+      range.setNumberFormat('@');
+      range.setValues(stages);
+    }
+    cfg.getRange(cfg.getLastRow() + 1, 1, 1, 2).setNumberFormat('@').setValues([['StagesAjoutes', 'oui']]);
   }
 
   // --- Inscriptions ---
@@ -1520,6 +1534,21 @@ function defaultCompetitions_() {
   return rows;
 }
 
+/** Stages de tennis de table du comité (CDTT76) pendant les vacances
+ * scolaires, réservés aux jeunes. Date = 1er jour du stage. */
+function defaultStages_() {
+  const nom = 'Stage de tennis de table';
+  const infos = 'Stage du comité départemental (CDTT76) pendant les vacances scolaires, de 9h00 à 16h00 : ' +
+    'enchaînements de travail technique et montées de table. Prévoir un panier repas pour le midi, une gourde et une serviette.';
+  return [
+    ['Vacances de la Toussaint : lundi 26, mardi 27 et mercredi 28 octobre (3 jours)', '26/10/2026', '19/10/2026'],
+    ['Vacances de Noël : dimanche 20 et lundi 21 décembre (2 jours)', '20/12/2026', '13/12/2026'],
+    ['Vacances d\'hiver : lundi 1er, mardi 2 et mercredi 3 mars (3 jours)', '01/03/2027', '22/02/2027'],
+    ['Vacances de Pâques : lundi 26, mardi 27 et mercredi 28 avril (3 jours)', '26/04/2027', '19/04/2027'],
+    ['Vacances d\'été : lundi 5, mardi 6, mercredi 7 et jeudi 8 juillet (4 jours)', '05/07/2027', '28/06/2027'],
+  ].map(function (e) { return ['Stages', nom, e[0], e[1], '', e[2], '', '', infos]; });
+}
+
 function readConfigValue_(key, fallback) {
   const row = readTable_('Config').find(function (r) { return r.Clé === key; });
   return row && String(row.Valeur) !== '' ? row.Valeur : fallback;
@@ -1620,10 +1649,11 @@ function helloAssoApi_(cfg, method, path, body) {
   return JSON.parse(text);
 }
 
-/** Compétitions réglées épreuve par épreuve (les autres : règlement unique
+/** Compétitions réglées épreuve par épreuve (Challenge 500, Circuit Jeunes,
+ * stages ; les autres : règlement unique
  * qui vaut inscription à toutes les épreuves de la saison). */
 function perEpreuvePayment_(nom) {
-  return /challenge\s*500|circuit\s*jeune/i.test(String(nom || ''));
+  return /challenge\s*500|circuit\s*jeune|stage/i.test(String(nom || ''));
 }
 
 /** Inscription unique pour toute la saison (Coupe de Rouen) : impossible
@@ -1874,7 +1904,7 @@ function readInscriptions_() {
 function isEligible_(compet, categorie) {
   if (!categorie) return true; // catégorie non renseignée : on ne bloque pas
   const allowed = compet.categories.length ? compet.categories
-    : compet.type === 'Jeunes' ? YOUTH_CATEGORIES_
+    : compet.type === 'Jeunes' || compet.type === 'Stages' ? YOUTH_CATEGORIES_
     : compet.type === 'Adultes' ? ADULT_CATEGORIES_
     : YOUTH_CATEGORIES_.concat(ADULT_CATEGORIES_);
   return allowed.indexOf(categorie) >= 0;

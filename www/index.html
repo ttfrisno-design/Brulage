@@ -392,6 +392,11 @@
           <span class="home-sub">Critérium, Coupe de Rouen, Vétérans…</span>
           <span class="home-badge hidden" id="badgeAdultes"></span>
         </button>
+        <button class="home-choice hidden" id="homeStagesChoice" onclick="openCompetView('Stages')">
+          <span class="home-icon">🎒</span><span class="home-label">Stages de tennis de table</span>
+          <span class="home-sub">Pendant les vacances scolaires (jeunes)</span>
+          <span class="home-badge hidden" id="badgeStages"></span>
+        </button>
       </div>
     </main>
   </div>
@@ -548,7 +553,7 @@
         <div class="card">
           <h2>Ajouter une épreuve</h2>
           <div class="compet-form">
-            <div><label>Type</label><select id="ncType"><option>Jeunes</option><option>Adultes</option><option>Tous</option></select></div>
+            <div><label>Type</label><select id="ncType"><option>Jeunes</option><option>Adultes</option><option>Tous</option><option value="Stages">Stages (jeunes)</option></select></div>
             <div><label>Compétition</label><input type="text" id="ncNom" list="ncNoms" placeholder="Critérium Fédéral"><datalist id="ncNoms"></datalist></div>
             <div><label>Épreuve</label><input type="text" id="ncEpreuve" placeholder="Tour 1"></div>
             <div><label>Date</label><input type="text" id="ncDate" placeholder="jj/mm/aaaa"></div>
@@ -2545,7 +2550,7 @@
     STATE.view = 'compet';
     STATE.competType = type;
     showView('competView');
-    document.getElementById('competHeader').textContent = 'Compétitions ' + type.toLowerCase();
+    document.getElementById('competHeader').textContent = type === 'Stages' ? 'Stages de tennis de table' : 'Compétitions ' + type.toLowerCase();
     if (STATE.compet) renderCompetView();
     loadHomeData();
   }
@@ -2557,7 +2562,8 @@
     return t ? FR_DAYS[new Date(t).getDay()] + ' ' + s : s;
   }
   function competsOfType(type) {
-    return (STATE.compet ? STATE.compet.competitions : []).filter(function (c) { return c.type === type || c.type === 'Tous'; });
+    // Stages : rubrique à part, sans les rendez-vous « Tous ».
+    return (STATE.compet ? STATE.compet.competitions : []).filter(function (c) { return c.type === type || (c.type === 'Tous' && type !== 'Stages'); });
   }
   // Après la date limite, on ne peut plus s'inscrire, sauf au Critérium
   // fédéral, au Challenge 500 et au Circuit Jeunes (jusqu'au jour de
@@ -2590,7 +2596,7 @@
   }
   // Règlement en ligne : épreuve par épreuve pour le Challenge 500 et le
   // Circuit Jeunes, règlement unique (toutes les épreuves) pour les autres.
-  function perEpreuvePayment(nom) { return /challenge\s*500|circuit\s*jeune/i.test(nom || ''); }
+  function perEpreuvePayment(nom) { return /challenge\s*500|circuit\s*jeune|stage/i.test(nom || ''); }
   // Montant du paiement HelloAsso (euros) : par épreuve pour le Challenge
   // 500 / Circuit Jeunes (sinon montant de la compétition), montant unique
   // de la saison pour les autres.
@@ -2613,7 +2619,7 @@
     var mine = STATE.compet.inscriptions || {};
     var out = [];
     STATE.compet.competitions.forEach(function (c) {
-      if (type && c.type !== type && c.type !== 'Tous') return;
+      if (type && c.type !== type && (c.type !== 'Tous' || type === 'Stages')) return;
       var i = mine[c.id];
       // Pas de rappel d'inscription pour les rendez-vous "Tous" (ex.
       // rassemblements féminins) : sans information sur le joueur, ce
@@ -2668,6 +2674,9 @@
     setBadge('badgeTeam', pendingConvoc.length);
     setBadge('badgeJeunes', competReminders('Jeunes').length);
     setBadge('badgeAdultes', competReminders('Adultes').length);
+    // Stages : réservés aux jeunes.
+    document.getElementById('homeStagesChoice').classList.toggle('hidden', !isYouth());
+    setBadge('badgeStages', competReminders('Stages').length);
   }
   function setBadge(id, n) {
     var el = document.getElementById(id);
@@ -2687,7 +2696,8 @@
     var cat = STATE.compet.categorie;
     var intro = '<div class="card"><p style="margin:0;font-size:13px;">' +
       (cat ? 'Votre catégorie : <b>' + escHtml(cat) + '</b>. ' : 'Votre catégorie n\'est pas renseignée (demandez à l\'administrateur) : toutes les compétitions sont proposées. ') +
-      'Demandez votre inscription avant la date limite ; le club la valide, puis vous confirmez votre participation à l\'approche de l\'épreuve.</p></div>';
+      (type === 'Stages' ? 'Stages du comité départemental pendant les vacances scolaires, réservés aux jeunes. Inscrivez-vous à chaque stage avant la date limite ; le club valide, puis vous confirmez votre participation.'
+        : 'Demandez votre inscription avant la date limite ; le club la valide, puis vous confirmez votre participation à l\'approche de l\'épreuve.') + '</p></div>';
     var rem = competReminders(type);
     if (rem.length) {
       intro += '<div class="card reminder-card" style="padding:10px 16px;">🔔 ' + rem.length + ' action' + (rem.length > 1 ? 's' : '') + ' à faire : voir les épreuves signalées ci-dessous.</div>';
@@ -2726,7 +2736,7 @@
           ? '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds[0] + '])">Demander l\'inscription (toute la saison, ' + openIds.length + ' épreuves)</button>'
           : (upcoming.length && !g.items.some(function (c) { return mine[c.id]; }) ? '<div class="compet-meta">Inscriptions closes : le 1er tour est passé.</div>' : '');
       } else if (openIds.length > 1) {
-        html += '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds.join(',') + '])">Demander l\'inscription aux ' + openIds.length + ' épreuves ouvertes</button>';
+        html += '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds.join(',') + '])">Demander l\'inscription aux ' + openIds.length + (type === 'Stages' ? ' stages ouverts' : ' épreuves ouvertes') + '</button>';
       }
       if (!upcoming.length) html += '<div class="compet-meta">Toutes les épreuves sont passées.</div>';
       g.items.forEach(function (c) {
@@ -2874,7 +2884,7 @@
   function eligibleFor(c, categorie) {
     if (!categorie) return false;
     var allowed = c.categories.length ? c.categories
-      : c.type === 'Jeunes' ? YOUTH_CATEGORIES : c.type === 'Adultes' ? ADULT_CATEGORIES : ALL_CATEGORIES;
+      : c.type === 'Jeunes' || c.type === 'Stages' ? YOUTH_CATEGORIES : c.type === 'Adultes' ? ADULT_CATEGORIES : ALL_CATEGORIES;
     return allowed.indexOf(categorie) >= 0;
   }
 
@@ -2932,11 +2942,11 @@
     data.inscriptions.forEach(function (i) { (inscByComp[i.competitionId] = inscByComp[i.competitionId] || []).push(i); });
 
     var html = '';
-    ['Jeunes', 'Adultes', 'Tous'].forEach(function (type) {
+    ['Jeunes', 'Adultes', 'Tous', 'Stages'].forEach(function (type) {
       var list = data.competitions.filter(function (c) { return c.type === type && (showPast || daysUntil(c.date) >= 0); })
         .sort(function (a, b) { return frDateToTime(a.date) - frDateToTime(b.date); });
       if (!list.length) return;
-      html += '<h3>' + (type === 'Tous' ? 'Jeunes et adultes' : type) + '</h3>';
+      html += '<h3>' + (type === 'Tous' ? 'Jeunes et adultes' : type === 'Stages' ? 'Stages jeunes (vacances scolaires)' : type) + '</h3>';
       // Une colonne par compétition (épreuves dans l'ordre des dates).
       var noms = [];
       var byNom = {};
@@ -3024,7 +3034,7 @@
       var catPrices = ((data.settings.prices || {}).categorie || {})[nom] || {};
       var colCats = [];
       byNom[nom].forEach(function (c) {
-        (c.categories.length ? c.categories : (c.type === 'Jeunes' ? YOUTH_CATEGORIES : c.type === 'Adultes' ? ADULT_CATEGORIES : ALL_CATEGORIES))
+        (c.categories.length ? c.categories : (c.type === 'Jeunes' || c.type === 'Stages' ? YOUTH_CATEGORIES : c.type === 'Adultes' ? ADULT_CATEGORIES : ALL_CATEGORIES))
           .forEach(function (k) { if (colCats.indexOf(k) < 0) colCats.push(k); });
       });
       colCats.sort(function (a, b) { return ALL_CATEGORIES.indexOf(a) - ALL_CATEGORIES.indexOf(b); });
