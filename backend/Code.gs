@@ -2012,7 +2012,8 @@ function getCompetitionsAdmin() {
     competitions: readCompetitions_(settings),
     inscriptions: readInscriptions_(),
     players: readTable_('Joueurs')
-      .filter(function (p) { return p.Actif !== false && p.Actif !== 'FAUX' && p.Actif !== 'NON'; })
+      // Lignes vides de la feuille (sans nom ni prénom) ignorées.
+      .filter(function (p) { return p.Actif !== false && p.Actif !== 'FAUX' && p.Actif !== 'NON' && String(p.Nom || p.Prénom || '').trim(); })
       .map(function (p) {
         return {
           id: p.ID, nom: p.Nom, prenom: p.Prénom, categorie: String(p.Catégorie || ''), phone: String(p.Téléphone || ''),
