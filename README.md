@@ -298,6 +298,29 @@ numéro de licence : un lien « Ma fiche FFTT » apparaît alors dans son
 profil. La récupération automatique des points nécessite l'API officielle
 de la FFTT (identifiants à demander par le club).
 
+## Règlement en ligne des inscriptions
+
+Onglet admin **Compétitions individuelles** : sous les dates de chaque
+compétition, champ **« Lien de règlement »** (HelloAsso ou autre ; feuille
+*Config*, clé `LienReglement:<compétition>`). Pour le **Challenge 500** et
+le **Circuit Jeunes**, réglés épreuve par épreuve, chaque épreuve a aussi
+son propre lien (`LienReglement:#<id>`, sinon le lien de la compétition).
+
+Côté joueur :
+- **règlement unique** (toutes les autres compétitions) : sous les dates,
+  bouton **« 💳 Régler mon inscription »** ; le règlement vaut inscription
+  **validée** à toutes les épreuves à venir de la compétition ;
+- **Challenge 500 / Circuit Jeunes** : bouton **« 💳 Régler et m'inscrire »**
+  sur chaque épreuve (inscription validée à cette épreuve).
+
+La page de règlement s'ouvre et l'inscription est enregistrée aussitôt
+(colonne H *Reglement* de la feuille *Inscriptions*, « 💳 Réglé le … » côté
+joueur et admin). L'appli ne vérifie pas le paiement lui-même.
+
+**Date limite** : une fois passée, l'inscription n'est plus proposée
+(bouton remplacé par « Inscriptions closes »), sauf pour le **Critérium
+fédéral**, ouvert jusqu'au jour de l'épreuve.
+
 ## Inscriptions par mail aux organisateurs
 
 Onglet admin **Compétitions individuelles** : les épreuves sont présentées
