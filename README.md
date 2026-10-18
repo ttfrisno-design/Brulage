@@ -369,6 +369,14 @@ bouton « Demander l'inscription (toute la saison) », qui inscrit à toutes les
 épreuves à venir) ; impossible après la date limite de la compétition si elle
 est renseignée, sinon **dès que la date du 1er tour est passée**.
 
+## Rassemblements féminins
+
+Réservés aux joueuses : colonne **L « Sexe »** (F / M) de la feuille Joueurs
+(en-tête ajouté automatiquement, lignes existantes non modifiées), à
+renseigner dans l'onglet admin **Effectif** (colonne *Sexe*) ou à l'ajout
+d'un joueur. Seuls les joueurs marqués **F** voient et peuvent demander
+l'inscription aux compétitions dont le nom contient « féminin ».
+
 ## Stages de tennis de table (jeunes)
 
 Rubrique **« 🎒 Stages de tennis de table »** sur l'accueil, affichée

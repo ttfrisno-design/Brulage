@@ -270,7 +270,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V16';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V17';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -402,6 +402,11 @@ function ensureSheetsNow_() {
     players.getRange(1, 11).setValue('Points');
   }
   players.getRange(2, 10, 998, 1).setNumberFormat('@');
+  // Colonne L "Sexe" (F / M), pour les rassemblements féminins : en-tête
+  // seulement, renseignée par l'admin dans l'effectif.
+  if (players.getLastColumn() < 12) {
+    players.getRange(1, 12).setValue('Sexe');
+  }
 
   // Réglages des compétitions individuelles, ajoutés à la feuille Config
   // s'ils n'existent pas encore (sans toucher aux autres réglages).
@@ -1901,7 +1906,9 @@ function readInscriptions_() {
   });
 }
 
-function isEligible_(compet, categorie) {
+function isEligible_(compet, categorie, sexe) {
+  // Rassemblements féminins : réservés aux joueuses (Sexe = F).
+  if (/f[ée]minin/i.test(String(compet.nom || '')) && String(sexe || '').toUpperCase() !== 'F') return false;
   if (!categorie) return true; // catégorie non renseignée : on ne bloque pas
   const allowed = compet.categories.length ? compet.categories
     : compet.type === 'Jeunes' || compet.type === 'Stages' ? YOUTH_CATEGORIES_
@@ -1922,6 +1929,7 @@ function getCompetitions(playerId) {
   const settings = competitionSettings_();
   const player = readTable_('Joueurs').find(function (p) { return String(p.ID) === String(playerId); }) || {};
   const categorie = String(player.Catégorie || '');
+  const sexe = String(player.Sexe || '').toUpperCase();
   const mine = {};
   readInscriptions_().forEach(function (i) {
     if (String(i.playerId) === String(playerId)) mine[i.competitionId] = i;
@@ -1930,7 +1938,7 @@ function getCompetitions(playerId) {
     settings: settings,
     categorie: categorie,
     competitions: readCompetitions_(settings).map(function (c) {
-      c.eligible = isEligible_(c, categorie);
+      c.eligible = isEligible_(c, categorie, sexe);
       return c;
     }),
     inscriptions: mine,
@@ -2046,7 +2054,7 @@ function getCompetitionsAdmin() {
       .filter(function (p) { return p.Actif !== false && p.Actif !== 'FAUX' && p.Actif !== 'NON' && String(p.Nom || p.Prénom || '').trim(); })
       .map(function (p) {
         return {
-          id: p.ID, nom: p.Nom, prenom: p.Prénom, categorie: String(p.Catégorie || ''), phone: String(p.Téléphone || ''),
+          id: p.ID, nom: p.Nom, prenom: p.Prénom, categorie: String(p.Catégorie || ''), sexe: String(p.Sexe || '').toUpperCase(), phone: String(p.Téléphone || ''),
           licence: String(p.Licence || ''), points: p.Points === '' || p.Points === undefined ? '' : Number(p.Points) || '',
         };
       }),
@@ -2247,7 +2255,7 @@ function assertPinAvailable_(pin, excludeId) {
   }
 }
 
-function addPlayer(nom, prenom, teamId, pin, capitaine, telephone, categorie) {
+function addPlayer(nom, prenom, teamId, pin, capitaine, telephone, categorie, sexe) {
   ensureSheets_();
   assertPinAvailable_(pin);
   const sheet = ss_().getSheetByName('Joueurs');
@@ -2255,11 +2263,16 @@ function addPlayer(nom, prenom, teamId, pin, capitaine, telephone, categorie) {
   const maxId = players.reduce(function (m, p) { return Math.max(m, Number(p.ID) || 0); }, 0);
   const newId = maxId + 1;
   // teamId 0 / vide = « Sans équipe » (hors championnat par équipes).
-  sheet.appendRow([newId, nom, prenom, Number(teamId) || '', pin, true, !!capitaine, String(telephone || ''), String(categorie || '')]);
+  sheet.appendRow([newId, nom, prenom, Number(teamId) || '', pin, true, !!capitaine, String(telephone || ''), String(categorie || ''), '', '', normSexe_(sexe)]);
   return { ok: true, id: newId };
 }
 
-function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone, categorie, licence, points) {
+function normSexe_(v) {
+  const s = String(v || '').trim().toUpperCase();
+  return s === 'F' || s === 'M' ? s : '';
+}
+
+function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone, categorie, licence, points, sexe) {
   ensureSheets_();
   assertPinAvailable_(pin, id);
   const sheet = ss_().getSheetByName('Joueurs');
@@ -2285,6 +2298,9 @@ function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone,
       }
       if (points !== undefined) {
         sheet.getRange(i + 1, 11).setValue(points === '' || points === null ? '' : Number(points) || '');
+      }
+      if (sexe !== undefined) {
+        sheet.getRange(i + 1, 12).setValue(normSexe_(sexe));
       }
       return { ok: true };
     }
