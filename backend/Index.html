@@ -510,6 +510,7 @@
             <div><label>PIN</label><input type="text" id="newPin" placeholder="1234"></div>
             <div><label>Téléphone</label><input type="tel" id="newPhone" placeholder="06 12 34 56 78"></div>
             <div><label>Catégorie</label><select id="newCategorie"><option value="">—</option><option>Poussin</option><option>Benjamin</option><option>Minime</option><option>Cadet</option><option>Junior</option><option>Senior</option><option>V40</option><option>V50</option><option>V60</option><option>V70</option><option>V80</option></select></div>
+            <div><label>Sexe</label><select id="newSexe"><option value="">—</option><option value="F">F</option><option value="M">M</option></select></div>
             <div class="checkbox-field"><input type="checkbox" id="newCapitaine"><label for="newCapitaine" style="display:inline;">Capitaine</label></div>
             <div><button class="primary" style="margin-top:0;" onclick="addPlayer()">Ajouter</button></div>
           </div>
@@ -2038,6 +2039,9 @@
         '<td><select onchange="editPlayer(' + p.ID + ',this)" data-field="Catégorie" style="width:95px;"><option value="">—</option>' +
           ALL_CATEGORIES.map(function (c) { return '<option' + (p['Catégorie'] === c ? ' selected' : '') + '>' + c + '</option>'; }).join('') +
         '</select></td>' +
+        '<td><select onchange="editPlayer(' + p.ID + ',this)" data-field="Sexe" style="width:60px;" title="F : voit les rassemblements féminins">' +
+          ['', 'F', 'M'].map(function (x) { return '<option value="' + x + '"' + (String(p.Sexe || '').toUpperCase() === x ? ' selected' : '') + '>' + (x || '—') + '</option>'; }).join('') +
+        '</select></td>' +
         '<td><input type="checkbox" ' + (p.Actif === false || p.Actif === 'FAUX' ? '' : 'checked') + ' onchange="editPlayer(' + p.ID + ',this)" data-field="Actif"></td>' +
         '<td><input type="checkbox" ' + (p.Capitaine === true || p.Capitaine === 'VRAI' ? 'checked' : '') + ' onchange="editPlayer(' + p.ID + ',this)" data-field="Capitaine" title="Peut saisir le tableau de brûlage de son équipe"></td>' +
         '<td><button class="small" onclick="removePlayer(' + p.ID + ')">Supprimer</button></td>' +
@@ -2053,7 +2057,7 @@
       html += '<div class="team-frame" style="--team-border:' + c.border + ';--team-bg:' + c.bg + ';">' +
         '<h3 class="team-frame-title">' + t.name + ' — ' + t.division + ' <span style="font-weight:400;color:var(--muted);">(' + teamPlayers.length + ' joueur' + (teamPlayers.length > 1 ? 's' : '') + ')</span></h3>';
       if (teamPlayers.length) {
-        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Sexe</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
         teamPlayers.forEach(function (p) { html += rowHtml(p); });
         html += '</tbody></table>';
       } else {
@@ -2070,7 +2074,7 @@
     html += '<div class="team-frame" style="--team-border:#999;--team-bg:#f5f5f5;">' +
       '<h3 class="team-frame-title">Sans équipe <span style="font-weight:400;color:var(--muted);">(' + noTeam.length + ' joueur' + (noTeam.length > 1 ? 's' : '') + ' — hors championnat par équipes, absents du tableau de brûlage)</span></h3>';
     if (noTeam.length) {
-      html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+      html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Sexe</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
       noTeam.forEach(function (p) { html += rowHtml(p); });
       html += '</tbody></table>';
     } else {
@@ -2105,7 +2109,7 @@
     container.dataset.players = JSON.stringify(players);
     saveCache('roster', players);
     STATE.lastRaw.roster = container.dataset.players;
-    var args = [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '', p['Catégorie'] || '', p.Licence || '', p.Points === undefined ? '' : p.Points];
+    var args = [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '', p['Catégorie'] || '', p.Licence || '', p.Points === undefined ? '' : p.Points, p.Sexe || ''];
     el.classList.remove('save-ok', 'save-err');
     el.classList.add('save-pending');
     playerSaveChain = playerSaveChain.then(function () {
@@ -2129,13 +2133,15 @@
     var capitaine = document.getElementById('newCapitaine').checked;
     var phone = document.getElementById('newPhone').value.trim();
     var categorie = document.getElementById('newCategorie').value;
+    var sexe = document.getElementById('newSexe').value;
     if (!nom || !prenom || !pin) { alert('Merci de renseigner le nom, le prénom et le PIN.'); return; }
-    callServer('addPlayer', [nom, prenom, team, pin, capitaine, phone, categorie]).then(function () {
+    callServer('addPlayer', [nom, prenom, team, pin, capitaine, phone, categorie, sexe]).then(function () {
       document.getElementById('newNom').value = '';
       document.getElementById('newPrenom').value = '';
       document.getElementById('newPin').value = '';
       document.getElementById('newPhone').value = '';
       document.getElementById('newCategorie').value = '';
+      document.getElementById('newSexe').value = '';
       document.getElementById('newCapitaine').checked = false;
       loadRoster();
     }).catch(onGsError);
@@ -2852,7 +2858,9 @@
     }).catch(onGsError);
   }
 
-  function eligibleFor(c, categorie) {
+  function eligibleFor(c, categorie, sexe) {
+    // Rassemblements féminins : joueuses seulement.
+    if (/f[ée]minin/i.test(c.nom || '') && sexe !== 'F') return false;
     if (!categorie) return false;
     var allowed = c.categories.length ? c.categories
       : c.type === 'Jeunes' || c.type === 'Stages' ? YOUTH_CATEGORIES : c.type === 'Adultes' ? ADULT_CATEGORIES : ALL_CATEGORIES;
@@ -2979,7 +2987,7 @@
           '</select><button class="btn-sm" onclick="adminAddInsc(' + c.id + ')">Inscrire (validé)</button></div>';
         // Relances SMS : joueurs concernés non inscrits (avant la date
         // limite) et inscrits validés n'ayant pas confirmé.
-        var toRegister = canRequest({ eligible: true, nom: c.nom, type: c.type, date: c.date, dateLimite: c.dateLimite, dateLimiteSerie: c.dateLimiteSerie }) ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie); }) : [];
+        var toRegister = canRequest({ eligible: true, nom: c.nom, type: c.type, date: c.date, dateLimite: c.dateLimite, dateLimiteSerie: c.dateLimiteSerie }) ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie, p.sexe); }) : [];
         var toConfirm = ins.filter(function (i) { return i.statut === 'Validée' && !i.participation; }).map(function (i) { return playersById[String(i.playerId)]; }).filter(Boolean);
         html += '<div class="compet-actions" style="margin-top:8px;">' +
           (toRegister.length ? '<button class="btn-sm" onclick="competSms(' + c.id + ',\'inscription\')">📱 Relancer les non-inscrits (' + toRegister.length + ')</button>' : '') +
@@ -3028,7 +3036,7 @@
     var registered = {};
     ins.forEach(function (i) { registered[String(i.playerId)] = true; });
     var players = kind === 'inscription'
-      ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie); })
+      ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie, p.sexe); })
       : ins.filter(function (i) { return i.statut === 'Validée' && !i.participation; }).map(function (i) {
           return data.players.find(function (p) { return String(p.id) === String(i.playerId); });
         }).filter(Boolean);
