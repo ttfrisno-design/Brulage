@@ -115,6 +115,9 @@ const API_FUNCTIONS_ = {
   setFfttLink: setFfttLink,
   setSetting: setSetting,
   setPlayerLink: setPlayerLink,
+  getClubInfo: getClubInfo,
+  uploadClubPhoto: uploadClubPhoto,
+  setClubInfo: setClubInfo,
   saveRencontre: saveRencontre,
   registerPushToken: registerPushToken,
   createCheckout: createCheckout,
@@ -130,7 +133,7 @@ const API_FUNCTIONS_ = {
 const READ_ONLY_FUNCTIONS_ = {
   login: true, getStaticConfig: true, getPlayerData: true, getAdminData: true, listPlayers: true,
   getCompetitions: true, getCompetitionsAdmin: true, getDataVersion: true, getProfile: true,
-  getPushStatus: true, getHelloAssoStatus: true,
+  getPushStatus: true, getHelloAssoStatus: true, getClubInfo: true,
 };
 
 /** Numéro de version des données, changé à chaque modification faite via
@@ -272,7 +275,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V18';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V19';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -420,6 +423,10 @@ function ensureSheetsNow_() {
   const cfgKeys = cfg.getRange(1, 1, Math.max(cfg.getLastRow(), 1), 1).getValues().map(function (r) { return r[0]; });
   [['DelaiInscriptionJours', '15'], ['RappelJours', '10'], ['LienFicheFFTT', ''],
     ['SiteClub', 'https://ttfrisno.wixsite.com/ttfri'],
+    // Présentation publique du club (page affichée avant la connexion).
+    ['ClubNom', 'FR Isneauville Tennis de Table'], ['ClubVille', 'Isneauville'],
+    ['ClubAdresse', ''], ['ClubPhoto', ''], ['ClubEntrainements', ''], ['ClubTarifs', ''],
+    ['ClubInscription', ''],
     // Adresse de l'organisateur à qui envoyer les inscriptions, par
     // compétition (clé "MailInscription:<nom de la compétition>").
     ['MailInscription:Challenge SERANO', 'girard76@wanadoo.fr'],
@@ -850,6 +857,56 @@ function login(pin) {
 // ----------------------------------------------------------------------------------
 // DONNÉES DE RÉFÉRENCE (équipes / dates)
 // ----------------------------------------------------------------------------------
+
+// ----------------------------------------------------------------------------------
+// PRÉSENTATION DU CLUB (publique, avant connexion)
+// ----------------------------------------------------------------------------------
+const CLUB_INFO_KEYS_ = ['ClubNom', 'ClubVille', 'ClubAdresse', 'ClubPhoto', 'ClubEntrainements', 'ClubTarifs', 'ClubInscription'];
+
+/** Présentation du club : nom, ville, adresse et photo de la salle,
+ * créneaux d'entraînement, tarifs, lien d'inscription et équipes engagées.
+ * Accessible sans code (aucune donnée personnelle). */
+function getClubInfo() {
+  ensureSheets_();
+  const v = function (k) { return String(readConfigValue_(k, '') || ''); };
+  return {
+    nom: v('ClubNom'), ville: v('ClubVille'), adresse: v('ClubAdresse'), photo: v('ClubPhoto'),
+    entrainements: v('ClubEntrainements'), tarifs: v('ClubTarifs'), inscription: v('ClubInscription'),
+    site: v('SiteClub'),
+    teams: TEAMS.filter(function (t) { return t.kind === 'FRI'; })
+      .map(function (t) { return { name: t.name, division: t.division, day: t.day, time: t.time }; }),
+  };
+}
+
+/** Admin : enregistre la présentation du club (clés Club* de Config). */
+function setClubInfo(info) {
+  ensureSheets_();
+  info = info || {};
+  const map = { nom: 'ClubNom', ville: 'ClubVille', adresse: 'ClubAdresse', photo: 'ClubPhoto',
+    entrainements: 'ClubEntrainements', tarifs: 'ClubTarifs', inscription: 'ClubInscription' };
+  Object.keys(map).forEach(function (k) {
+    if (info[k] === undefined) return;
+    const v = String(info[k] || '').trim();
+    if ((k === 'photo' || k === 'inscription') && v && !/^https?:\/\/\S+$/i.test(v)) throw new Error('Lien invalide (https://…) : ' + v);
+    setSetting(map[k], v);
+  });
+  return getClubInfo();
+}
+
+/** Admin : photo de la salle (JPEG en base64, déjà réduite par l'appli),
+ * enregistrée dans le Drive du club et partagée en lecture par lien. */
+function uploadClubPhoto(base64) {
+  ensureSheets_();
+  const data = String(base64 || '').replace(/^data:image\/\w+;base64,/, '');
+  if (!data) throw new Error('Photo vide.');
+  if (data.length > 4 * 1024 * 1024) throw new Error('Photo trop volumineuse.');
+  const blob = Utilities.newBlob(Utilities.base64Decode(data), 'image/jpeg', 'salle-club.jpg');
+  const file = DriveApp.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  const url = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w1600';
+  setSetting('ClubPhoto', url);
+  return { ok: true, photo: url };
+}
 
 function getStaticConfig() {
   ensureSheets_();
@@ -2277,7 +2334,7 @@ function setFfttLink(template) {
 function setSetting(key, value) {
   ensureSheets_();
   key = String(key || '');
-  if (['LienFicheFFTT', 'SiteClub'].indexOf(key) < 0 && key.indexOf('MailInscription:') !== 0 && key.indexOf('PrixHelloAsso:') !== 0 && key.indexOf('DateLimite:') !== 0 && !/^LienPoule:\d+:\d+$/.test(key)) {
+  if (['LienFicheFFTT', 'SiteClub'].concat(CLUB_INFO_KEYS_).indexOf(key) < 0 && key.indexOf('MailInscription:') !== 0 && key.indexOf('PrixHelloAsso:') !== 0 && key.indexOf('DateLimite:') !== 0 && !/^LienPoule:\d+:\d+$/.test(key)) {
     throw new Error('Réglage non modifiable : ' + key);
   }
   const v = String(value || '').trim();
