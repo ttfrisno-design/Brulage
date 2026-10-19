@@ -1548,19 +1548,23 @@
       html += '<td class="group-' + d.group.toLowerCase() + ' ' + availClass + (burnedNow ? ' burned-cell' : '') + (journeeLocked ? ' journee-lock' : '') + '" style="border:2px solid ' + gc + ';' + journeeFrameCss(dates, i) +
         (isLastRow && inJourneeFrame(dates, i) ? 'border-bottom:3px solid #111;' : '') + '">';
 
+      // Brûlé pour toutes les équipes qui jouent à cette date (ex. joueur
+      // monté qui ne peut plus redescendre) : 🔥 affiché directement.
+      var groupTeams = friTeams().filter(function (t) { return t.group === d.group; });
+      var allBurned = !assigned && groupTeams.length > 0 && groupTeams.every(function (t) { return p.burned[t.id]; });
       if (viewOnly || journeeLocked || (restrictToTeamId && assigned && assigned !== restrictToTeamId)) {
         // Lecture seule : soit une équipe qu'un capitaine ne fait que
         // consulter, soit une date verrouillée (déjà joué cette journée),
         // soit (vue capitaine sur sa propre équipe) une case déjà affectée
         // à une AUTRE équipe qu'il ne doit pas écraser.
         var otherTeam = assigned ? STATE.config.teams.find(function (t) { return t.id === assigned; }) : null;
-        var lockLabel = journeeLocked ? ('Déjà ' + journee + ' (' + usedJournees[journee] + ')') : (otherTeam ? otherTeam.name : '—');
+        var lockLabel = journeeLocked ? ('Déjà ' + journee + ' (' + usedJournees[journee] + ')') : (otherTeam ? otherTeam.name : allBurned ? '🔥' : '—');
         html += '<span style="font-size:11px;color:var(--muted);" title="' + (journeeLocked ? 'Ce joueur est déjà affecté le ' + usedJournees[journee] + ' pour la même journée (' + journee + ')' : '') + '">' + lockLabel + '</span>';
         if (status === 'Indisponible') html += '<span class="indispo-tag">✕ indispo</span>';
       } else {
         var isPending = !!STATE.pendingAssignments[pendingKey(p.id, d.date)];
-        html += '<select data-key="' + p.id + '|' + d.date + '" class="assign-select' + (isPending ? ' pending' : '') + '" title="' + (isPending ? 'Modification non enregistrée' : (status === 'Indisponible' ? 'Joueur indisponible' : '')) + '" onchange="onAssignChange(\'' + p.id + '\',\'' + d.date + '\',this.value)">' +
-          '<option value="">—</option>';
+        html += '<select data-key="' + p.id + '|' + d.date + '" class="assign-select' + (isPending ? ' pending' : '') + '" title="' + (isPending ? 'Modification non enregistrée' : (status === 'Indisponible' ? 'Joueur indisponible' : allBurned ? 'Brûlé pour toutes les équipes de cette date' : '')) + '" onchange="onAssignChange(\'' + p.id + '\',\'' + d.date + '\',this.value)">' +
+          '<option value="">' + (allBurned ? '🔥' : '—') + '</option>';
         // Seules les équipes qui jouent à cette date sont proposées : date
         // Régional 3 -> FRI1, date D1/D2 -> FRI2 à FRI4, date D3/D4 -> FRI5 à
         // FRI8 (même groupe de dates). Une affectation existante hors groupe
