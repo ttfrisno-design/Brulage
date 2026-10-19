@@ -203,6 +203,19 @@
     .club-teams div { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--border); }
     .club-teams span { color: var(--muted); font-size: 14px; }
     .pre { white-space: pre-line; }
+    .club-slots { display: flex; flex-direction: column; }
+    .club-slots div { display: grid; grid-template-columns: 90px 120px minmax(0, 1fr); gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); align-items: baseline; }
+    .club-slots .slot-time { font-variant-numeric: tabular-nums; }
+    .club-slots .slot-lvl { color: var(--muted); }
+    .slot-editor { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+    .slot-row { display: grid; grid-template-columns: 120px 110px 110px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+    .slot-row select, .slot-row input { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: 14px; }
+    @media (max-width: 640px) {
+      .slot-row { grid-template-columns: 1.3fr 1fr 1fr; padding: 6px; border: 1px solid var(--border); border-radius: 8px; }
+      .slot-row input[type=text] { grid-column: 1 / 3; }
+      .club-slots div { grid-template-columns: 80px minmax(0, 1fr); }
+      .club-slots .slot-lvl { grid-column: 2; }
+    }
     .club-actions { display: flex; flex-direction: column; gap: 10px; }
     .club-actions .primary, .club-actions .secondary { margin-top: 0; width: 100%; }
     .btn-link.primary { background: var(--primary); color: #fff; font-weight: 600; }
@@ -665,11 +678,17 @@
             <div><label for="ciNom">Nom du club</label><input type="text" id="ciNom"></div>
             <div><label for="ciVille">Ville</label><input type="text" id="ciVille"></div>
             <div class="full"><label for="ciAdresse">Adresse de la salle</label><input type="text" id="ciAdresse" placeholder="Rue, code postal, ville"></div>
-            <div class="full"><label for="ciEntr">Créneaux d'entraînement (une ligne par créneau)</label><textarea id="ciEntr" rows="4" placeholder="Mardi 18h-20h : jeunes&#10;Jeudi 20h-22h : adultes"></textarea></div>
+            <div class="full"><label>Créneaux d'entraînement</label>
+              <div id="ciSlots" class="slot-editor"></div>
+              <button type="button" class="small" onclick="addSlot()">+ Ajouter un créneau</button></div>
+            <div class="full"><label for="ciEntrPhoto">Photo du planning des entraînements (facultatif)</label>
+              <div class="club-photo-row"><input type="text" id="ciEntrPhoto" placeholder="lien https://… ou envoyez une photo"><input type="file" id="ciEntrPhotoFile" accept="image/*" onchange="uploadClubPhoto(this, 'entrainements')"></div>
+              <img id="ciEntrPhotoPreview" class="club-photo hidden" alt="Aperçu du planning"></div>
+            <div class="full"><label for="ciEntr">Remarques sur les entraînements (facultatif)</label><textarea id="ciEntr" rows="2" placeholder="Ex. reprise le 2 septembre, entraîneur diplômé…"></textarea></div>
             <div class="full"><label for="ciTarifs">Tarifs (une ligne par tarif)</label><textarea id="ciTarifs" rows="4" placeholder="Jeunes : 120 €&#10;Adultes : 160 €"></textarea></div>
             <div class="full"><label for="ciInscr">Lien vers le site d'inscription (facultatif)</label><input type="text" id="ciInscr" placeholder="https://…"></div>
             <div class="full"><label for="ciPhoto">Photo de la salle</label>
-              <div class="club-photo-row"><input type="text" id="ciPhoto" placeholder="lien https://… ou envoyez une photo"><input type="file" id="ciPhotoFile" accept="image/*" onchange="uploadClubPhoto(this)"></div>
+              <div class="club-photo-row"><input type="text" id="ciPhoto" placeholder="lien https://… ou envoyez une photo"><input type="file" id="ciPhotoFile" accept="image/*" onchange="uploadClubPhoto(this, 'salle')"></div>
               <img id="ciPhotoPreview" class="club-photo hidden" alt="Aperçu de la photo"></div>
           </div>
           <button class="secondary" style="margin-top:10px;" onclick="saveClubInfo()">Enregistrer la présentation</button>
@@ -1008,6 +1027,7 @@
       if (!cached) renderClubInfo(null);
     });
   }
+  var JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   function textBlock(v, empty) {
     return v ? '<div class="pre">' + escHtml(v) + '</div>' : '<p style="color:var(--muted);margin:0;">' + empty + '</p>';
   }
@@ -1030,7 +1050,20 @@
         (teams.length ? '<div class="club-teams">' + teams.map(function (t) {
           return '<div><b>' + escHtml(t.name) + '</b><span>' + escHtml(t.division) + (t.day ? ' · ' + escHtml(t.day.toLowerCase()) + (t.time ? ' ' + escHtml(t.time) : '') : '') + '</span></div>';
         }).join('') + '</div>' : '') + '</div>';
-      html += '<div class="card"><h3 class="club-h">🕒 Entraînements</h3>' + textBlock(info.entrainements, 'Créneaux communiqués prochainement.') + '</div>';
+      // Entraînements : créneaux (jour, horaire, niveau), photo du planning
+      // et/ou remarques.
+      var cr = (info.creneaux || []).slice().sort(function (a, b) {
+        return (JOURS.indexOf(a.jour) - JOURS.indexOf(b.jour)) || String(a.debut).localeCompare(String(b.debut));
+      });
+      html += '<div class="card"><h3 class="club-h">🕒 Entraînements</h3>' +
+        (cr.length ? '<div class="club-slots">' + cr.map(function (c) {
+          return '<div><b>' + escHtml(c.jour) + '</b><span class="slot-time">' + escHtml(c.debut + (c.fin ? ' – ' + c.fin : '')) + '</span>' +
+            '<span class="slot-lvl">' + escHtml(c.niveau) + '</span></div>';
+        }).join('') + '</div>' : '') +
+        (info.entrainementsPhoto ? '<img class="club-photo" src="' + escAttr(info.entrainementsPhoto) + '" alt="Planning des entraînements">' : '') +
+        (info.entrainements ? '<div class="pre" style="margin-top:8px;">' + escHtml(info.entrainements) + '</div>' : '') +
+        (!cr.length && !info.entrainementsPhoto && !info.entrainements ? '<p style="color:var(--muted);margin:0;">Créneaux communiqués prochainement.</p>' : '') +
+        '</div>';
       html += '<div class="card"><h3 class="club-h">💶 Tarifs</h3>' + textBlock(info.tarifs, 'Tarifs communiqués prochainement.') + '</div>';
     }
     html += '<div class="card club-actions">' +
@@ -3662,14 +3695,41 @@
   }
 
   // Admin : présentation du club.
-  var CLUB_FIELDS = { nom: 'ciNom', ville: 'ciVille', adresse: 'ciAdresse', entrainements: 'ciEntr', tarifs: 'ciTarifs', inscription: 'ciInscr', photo: 'ciPhoto' };
+  var CLUB_FIELDS = { nom: 'ciNom', ville: 'ciVille', adresse: 'ciAdresse', entrainements: 'ciEntr', tarifs: 'ciTarifs', inscription: 'ciInscr', photo: 'ciPhoto', entrainementsPhoto: 'ciEntrPhoto' };
   function fillClubInfoAdmin(info) {
     Object.keys(CLUB_FIELDS).forEach(function (k) {
       var el = document.getElementById(CLUB_FIELDS[k]);
       if (el && document.activeElement !== el) el.value = (info && info[k]) || '';
     });
-    var prev = document.getElementById('ciPhotoPreview');
-    if (prev) { if (info && info.photo) { prev.src = info.photo; prev.classList.remove('hidden'); } else prev.classList.add('hidden'); }
+    [['ciPhotoPreview', 'photo'], ['ciEntrPhotoPreview', 'entrainementsPhoto']].forEach(function (x) {
+      var prev = document.getElementById(x[0]);
+      if (prev) { if (info && info[x[1]]) { prev.src = info[x[1]]; prev.classList.remove('hidden'); } else prev.classList.add('hidden'); }
+    });
+    var ed = document.getElementById('ciSlots');
+    if (ed && !ed.contains(document.activeElement)) renderSlotEditor((info && info.creneaux) || []);
+  }
+  // Éditeur des créneaux : une ligne = jour, début, fin, niveau.
+  function slotRowHtml(c) {
+    return '<div class="slot-row">' +
+      '<select aria-label="Jour">' + JOURS.map(function (j) { return '<option' + (c.jour === j ? ' selected' : '') + '>' + j + '</option>'; }).join('') + '</select>' +
+      '<input type="time" aria-label="Début" value="' + escAttr(c.debut || '') + '">' +
+      '<input type="time" aria-label="Fin" value="' + escAttr(c.fin || '') + '">' +
+      '<input type="text" aria-label="Niveau" placeholder="Niveau (ex. jeunes débutants)" value="' + escAttr(c.niveau || '') + '">' +
+      '<button type="button" class="small" title="Supprimer ce créneau" onclick="this.parentNode.remove()">✕</button></div>';
+  }
+  function renderSlotEditor(list) {
+    document.getElementById('ciSlots').innerHTML = list.map(slotRowHtml).join('');
+  }
+  function addSlot() {
+    var ed = document.getElementById('ciSlots');
+    ed.insertAdjacentHTML('beforeend', slotRowHtml({ jour: 'Mardi', debut: '', fin: '', niveau: '' }));
+    ed.lastElementChild.querySelector('input').focus();
+  }
+  function readSlots() {
+    return Array.prototype.map.call(document.querySelectorAll('#ciSlots .slot-row'), function (row) {
+      var f = row.querySelectorAll('select, input');
+      return { jour: f[0].value, debut: f[1].value, fin: f[2].value, niveau: f[3].value.trim() };
+    }).filter(function (c) { return c.debut || c.niveau; });
   }
   function loadClubInfoAdmin() {
     callServer('getClubInfo', [], 3).then(fillClubInfoAdmin).catch(function () { /* script pas encore mis à jour */ });
@@ -3677,6 +3737,7 @@
   function saveClubInfo() {
     var info = {};
     Object.keys(CLUB_FIELDS).forEach(function (k) { info[k] = document.getElementById(CLUB_FIELDS[k]).value.trim(); });
+    info.creneaux = readSlots();
     var st = document.getElementById('ciStatus');
     st.textContent = 'Enregistrement…';
     callServer('setClubInfo', [info]).then(function (res) {
@@ -3687,7 +3748,7 @@
   }
   // Photo de la salle : réduite dans l'appli (1600 px, JPEG) puis envoyée
   // au Drive du club par le script.
-  function uploadClubPhoto(input) {
+  function uploadClubPhoto(input, kind) {
     var file = input.files && input.files[0];
     if (!file) return;
     var st = document.getElementById('ciStatus');
@@ -3700,9 +3761,10 @@
         var canvas = document.createElement('canvas');
         canvas.width = Math.round(w * r); canvas.height = Math.round(h * r);
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        callServer('uploadClubPhoto', [canvas.toDataURL('image/jpeg', 0.82)]).then(function (res) {
-          document.getElementById('ciPhoto').value = res.photo;
-          var prev = document.getElementById('ciPhotoPreview');
+        callServer('uploadClubPhoto', [canvas.toDataURL('image/jpeg', 0.82), kind]).then(function (res) {
+          var planning = kind === 'entrainements';
+          document.getElementById(planning ? 'ciEntrPhoto' : 'ciPhoto').value = res.photo;
+          var prev = document.getElementById(planning ? 'ciEntrPhotoPreview' : 'ciPhotoPreview');
           prev.src = res.photo; prev.classList.remove('hidden');
           st.textContent = '✓ Photo enregistrée';
           input.value = '';
