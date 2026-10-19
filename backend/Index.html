@@ -3079,7 +3079,7 @@
             return '<tr><td>' + escHtml(p.prenom + ' ' + p.nom) + (p.categorie ? ' <span style="color:var(--muted);">(' + escHtml(p.categorie) + ')</span>' : '') + '</td>' +
               '<td>' + (i.statut === 'Validée' ? '<span class="pill ok">Validée</span>' : i.statut === 'Refusée' ? '<span class="pill ko">Refusée</span>' : '<span class="pill wait">Demandée</span>') +
                 (i.reglement ? ' <span class="pill ok" title="Réglé en ligne">💳 ' + escHtml(i.reglement) + '</span>' : '') + '</td>' +
-              (hasTeams ? '<td><select style="width:auto;padding:4px;font-size:13px;" onchange="setInscEquipe(' + c.id + ',' + JSON.stringify(String(i.playerId)).replace(/"/g, '&quot;') + ', this.value)"><option value="">—</option>' +
+              (hasTeams ? '<td><select style="width:auto;padding:4px;font-size:13px;"' + (daysUntil(c.date) < 0 ? ' disabled title="Match passé : équipe non modifiable"' : '') + ' onchange="setInscEquipe(' + c.id + ',' + JSON.stringify(String(i.playerId)).replace(/"/g, '&quot;') + ', this.value)"><option value="">—</option>' +
                 c.teams.map(function (t) { return '<option' + (i.equipe === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></td>' : '') +
               '<td>' + (i.participation === 'Confirmée' ? '<span class="pill ok">Confirmée</span>' : i.participation === 'Annulée' ? '<span class="pill ko">Désisté</span>' : '—') + '</td><td class="compet-actions">' +
               (i.statut !== 'Validée' ? '<button class="btn-sm green" onclick="setInscStatus(' + c.id + ',' + JSON.stringify(String(i.playerId)).replace(/"/g, '&quot;') + ',\'Validée\')">Valider</button>' : '') +
@@ -3196,7 +3196,7 @@
           '<div style="font-size:11px;color:var(--muted);">' + e.n + ' tour' + (e.n > 1 ? 's' : '') + '</div></td>' +
         '<td>' + (i.statut === 'Validée' ? '<span class="pill ok">Validée</span>' : i.statut === 'Refusée' ? '<span class="pill ko">Refusée</span>' : '<span class="pill wait">Demandée</span>') +
           (i.reglement ? ' <span class="pill ok" title="Réglé en ligne">💳 ' + escHtml(i.reglement) + '</span>' : '') + '</td>' +
-        (teams.length ? '<td><select style="width:auto;padding:4px;font-size:13px;" onchange="setInscEquipe(' + i.competitionId + ',' + pid + ', this.value)"><option value="">—</option>' +
+        (teams.length ? '<td><select style="width:auto;padding:4px;font-size:13px;"' + (e.future ? '' : ' disabled title="Saison terminée : équipe non modifiable"') + ' onchange="setInscEquipe(' + i.competitionId + ',' + pid + ', this.value)"><option value="">—</option>' +
           teams.map(function (t) { return '<option' + (i.equipe === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></td>' : '') +
         '<td class="compet-actions">' +
           (i.statut !== 'Validée' ? '<button class="btn-sm green" onclick="setSeasonInsc(' + ref.id + ',' + pid + ',\'Validée\')">Valider</button>' : '') +

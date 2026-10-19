@@ -151,7 +151,8 @@ de brûlage) :
   « Inscription validée — CJ3 » puis confirme sa participation.
 - L'équipe vaut pour **toutes les journées** : choisie sur une journée,
   elle est reportée sur toutes les inscriptions du joueur à la compétition
-  (et reprise pour une journée ajoutée ensuite). Dans l'admin, les inscrits
+  (et reprise pour une journée ajoutée ensuite). Une journée **passée** n'est
+  plus modifiable : son équipe reste celle du match joué. Dans l'admin, les inscrits
   d'une épreuve sont groupés par équipe (CDR1, CDR2…), un cadre gris par
   équipe.
 

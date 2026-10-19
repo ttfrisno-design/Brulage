@@ -1888,8 +1888,15 @@ function setInscriptionEquipe(competitionId, playerId, equipe) {
   ensureSheets_();
   // L'équipe (CDR / CJ) vaut pour toutes les journées de la compétition :
   // elle est reportée sur toutes les inscriptions du joueur à cette
-  // compétition.
-  const series = seriesIds_(competitionId);
+  // compétition, sauf les journées déjà passées (on ne modifie plus
+  // l'équipe d'un match joué).
+  const all = readCompetitions_(competitionSettings_());
+  const c = all.find(function (x) { return Number(x.id) === Number(competitionId); });
+  const today = todayStart_();
+  const isPast = function (x) { const d = parseFrDate_(x.date); return d && d < today; };
+  if (c && isPast(c)) throw new Error('Match passé : l\'équipe ne peut plus être modifiée.');
+  const series = c ? all.filter(function (x) { return x.nom === c.nom && x.type === c.type && !isPast(x); }).map(function (x) { return Number(x.id); })
+    : [Number(competitionId)];
   withInscriptionsSheet_(function (rows) {
     const row = rows.find(function (r) { return Number(r[0]) === Number(competitionId) && String(r[1]) === String(playerId); });
     if (!row) throw new Error('Inscription introuvable.');
