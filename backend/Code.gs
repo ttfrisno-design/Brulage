@@ -105,6 +105,7 @@ const API_FUNCTIONS_ = {
   getCompetitionsAdmin: getCompetitionsAdmin,
   setInscriptionStatus: setInscriptionStatus,
   setInscriptionEquipe: setInscriptionEquipe,
+  setSeasonInscription: setSeasonInscription,
   saveCompetition: saveCompetition,
   setSeriesDeadline: setSeriesDeadline,
   deleteCompetition: deleteCompetition,
@@ -1661,10 +1662,10 @@ function perEpreuvePayment_(nom) {
   return /challenge\s*500|circuit\s*jeune|stage/i.test(String(nom || ''));
 }
 
-/** Inscription unique pour toute la saison (Coupe de Rouen) : impossible
+/** Inscription unique pour toute la saison (Coupe de Rouen, Challenge SERANO) : impossible
  * dès que la date du 1er tour est passée. */
 function singleInscription_(nom) {
-  return /coupe\s*de\s*rouen/i.test(String(nom || ''));
+  return /coupe\s*de\s*rouen|serano/i.test(String(nom || ''));
 }
 /** Date du 1er tour de la compétition (même nom, même type). */
 function seriesFirstDate_(competitions, c) {
@@ -1901,6 +1902,35 @@ function setInscriptionEquipe(competitionId, playerId, equipe) {
   return getCompetitionsAdmin();
 }
 
+/** Admin, compétitions à inscription pour la saison (Coupe de Rouen,
+ * Challenge SERANO) : valide / refuse / retire un joueur pour tous les
+ * tours à venir (les tours passés ne sont pas modifiés). */
+function setSeasonInscription(competitionId, playerId, statut) {
+  ensureSheets_();
+  if (['Demandée', 'Validée', 'Refusée', ''].indexOf(statut) < 0) throw new Error('Statut invalide.');
+  const all = readCompetitions_(competitionSettings_());
+  const c = all.find(function (x) { return Number(x.id) === Number(competitionId); });
+  if (!c) throw new Error('Compétition introuvable.');
+  const today = todayStart_();
+  const series = all.filter(function (x) { return x.nom === c.nom && x.type === c.type; });
+  const seriesIds = series.map(function (x) { return Number(x.id); });
+  const future = series.filter(function (x) { const d = parseFrDate_(x.date); return d && d >= today; });
+  withInscriptionsSheet_(function (rows) {
+    const team = seriesTeam_(rows, seriesIds, playerId);
+    future.forEach(function (x) {
+      const idx = rows.findIndex(function (r) { return Number(r[0]) === Number(x.id) && String(r[1]) === String(playerId); });
+      if (!statut) { if (idx >= 0) rows.splice(idx, 1); return; }
+      if (idx >= 0) rows[idx][2] = statut;
+      else rows.push([Number(x.id), playerId, statut, new Date(), '', '', team]);
+    });
+  });
+  if (statut === 'Validée' || statut === 'Refusée') {
+    sendPush_([playerId], (statut === 'Validée' ? '✅ Inscription validée' : '❌ Inscription refusée'),
+      c.nom + ' : saison (' + future.length + ' tour' + (future.length > 1 ? 's' : '') + ')' + (statut === 'Validée' ? '.' : ''));
+  }
+  return getCompetitionsAdmin();
+}
+
 /** Identifiants des épreuves de la même compétition (même nom, même type). */
 function seriesIds_(competitionId) {
   const all = readCompetitions_(competitionSettings_());
@@ -2006,7 +2036,7 @@ function requestInscriptions(playerId, competitionIds) {
   data.competitions.forEach(function (c) { byId[c.id] = c; });
   const today = todayStart_();
   const refused = [];
-  // Inscription unique (Coupe de Rouen) : la demande vaut pour toutes les
+  // Inscription unique (Coupe de Rouen, SERANO) : la demande vaut pour toutes les
   // épreuves à venir de la compétition.
   const ids = [];
   (competitionIds || []).forEach(function (cid) {

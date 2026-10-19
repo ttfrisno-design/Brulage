@@ -369,10 +369,14 @@ inscrire : une compétition fermée où il n'est pas inscrit disparaît. Les
 (« 🏆 Mes compétitions individuelles ») et l'application lui rappelle chaque
 date (notification la veille, et 3 jours avant s'il n'a pas confirmé).
 
-**Coupe de Rouen** : inscription **unique pour toute la saison** (un seul
-bouton « Demander l'inscription (toute la saison) », qui inscrit à toutes les
-épreuves à venir) ; impossible après la date limite de la compétition si elle
-est renseignée, sinon **dès que la date du 1er tour est passée**.
+**Coupe de Rouen** et **Challenge SERANO** : inscription **unique pour
+toute la saison** (un seul bouton « Demander l'inscription (toute la
+saison) », qui inscrit à tous les tours à venir) ; impossible après la date
+limite de début de saison si elle est renseignée, sinon **dès que la date du
+1er tour est passée**. Côté admin, leur colonne ne montre que : la date
+limite de début de saison, les dates des tours (modifiables) et **une seule
+liste d'inscrits pour la saison** (valider / refuser / retirer pour tous les
+tours à venir ; pour la Coupe de Rouen, groupés par équipe CDR1, CDR2…).
 
 ## Rassemblements féminins
 
