@@ -603,8 +603,8 @@
           <button class="secondary" style="margin-top:10px;" onclick="saveAdminPin()">Enregistrer</button>
         </div>
         <div class="card">
-          <h2>Fiche joueur FFTT</h2>
-          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Adresse de la fiche d'un joueur, où <b>{licence}</b> sera remplacé par son numéro de licence (onglet Effectif). Laisser vide pour ne pas afficher de lien.</p>
+          <h2>Espace joueur FFTT / PingPocket</h2>
+          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Adresse de l'espace d'un joueur sur l'application FFTT ou sur PingPocket, où <b>{licence}</b> sera remplacé par son numéro de licence (onglet Effectif). Affiché sur la page du joueur sous « Mon espace FFTT / PingPocket ». Laisser vide pour ne pas afficher de lien.</p>
           <input type="text" id="ffttLinkInput" placeholder="https://…{licence}…">
           <button class="secondary" style="margin-top:10px;" onclick="saveFfttLink()">Enregistrer</button>
         </div>
@@ -3394,11 +3394,12 @@
     }
     var site = (STATE.config && STATE.config.siteClub) || 'https://ttfrisno.wixsite.com/ttfri';
     html += '<div class="profile-fftt">🌐 <a href="' + escAttr(site) + '" target="_blank" rel="noopener">Site du club TTFRI ↗</a></div>';
-    // Sous le site du club : fiche FFTT du joueur et son espace licencié
-    // (connexion sur le site de la FFTT : identifiant = n° de licence, mot
-    // de passe mémorisé par le navigateur / le téléphone, jamais par l'appli).
-    if (pr.ffttUrl) html += '<div class="profile-fftt">🏓 <a href="' + escAttr(pr.ffttUrl) + '" target="_blank" rel="noopener">Ma fiche FFTT ↗</a></div>';
-    html += '<div class="profile-fftt">🔑 <a href="https://malicence.fftt.com/login" target="_blank" rel="noopener">Mon espace licencié FFTT ↗</a>' +
+    // Sous le site du club : l'espace du joueur sur l'application FFTT /
+    // PingPocket (lien réglé par l'admin), puis sa fiche FFTT sur
+    // malicence.fftt.com (PPS et demande de licence ; identifiant = n° de
+    // licence, mot de passe mémorisé par le navigateur / le téléphone).
+    if (pr.ffttUrl) html += '<div class="profile-fftt">📱 <a href="' + escAttr(pr.ffttUrl) + '" target="_blank" rel="noopener">Mon espace FFTT / PingPocket ↗</a></div>';
+    html += '<div class="profile-fftt">🔑 <a href="https://malicence.fftt.com/login" target="_blank" rel="noopener">Ma fiche FFTT ↗</a> <span style="color:var(--muted);">(PPS et demande de licence)</span>' +
       (pr.licence ? ' <span style="color:var(--muted);">· identifiant : n° de licence <b>' + escHtml(pr.licence) + '</b></span>' +
         ' <button class="btn-sm" onclick="copyText(' + escAttr(JSON.stringify(String(pr.licence))) + ', this)">Copier</button>' : '') + '</div>';
     html += '<div class="stat-row">' +
