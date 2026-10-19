@@ -300,10 +300,11 @@ les indisponibilités, orange pour les brûlages.
 
 **FFTT** : l'onglet Effectif comporte les colonnes **Licence** et **Points**
 (feuille *Joueurs*, colonnes J et K) ; le classement est calculé (points /
-100). Dans *Dates & Réglages*, « Fiche joueur FFTT » permet de saisir
-l'adresse de la fiche d'un joueur, où `{licence}` est remplacé par son
-numéro de licence : un lien « Ma fiche FFTT » apparaît alors dans son
-profil. La récupération automatique des points nécessite l'API officielle
+100). Sous le lien du site du club, le profil du joueur affiche :
+« Mon espace FFTT / PingPocket » (adresse saisie dans *Dates & Réglages ›
+Espace joueur FFTT / PingPocket*, où `{licence}` est remplacé par son numéro
+de licence), puis « Ma fiche FFTT (PPS et demande de licence) » vers
+https://malicence.fftt.com/login, avec son n° de licence à copier. La récupération automatique des points nécessite l'API officielle
 de la FFTT (identifiants à demander par le club).
 
 ## Paiement des inscriptions par HelloAsso
