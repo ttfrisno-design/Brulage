@@ -1482,8 +1482,7 @@
   // l'écran, collée à droite, pour que la page (poule FFTT / PingPocket)
   // s'affiche sur une seule colonne à côté du tableau de brûlage. La même
   // fenêtre est réutilisée d'un lien à l'autre. Sur téléphone / tablette :
-  // ouverture normale. side = 'left' : fenêtre collée à gauche (espace
-  // joueur FFTT / PingPocket du profil).
+  // ouverture normale. side = 'left' : fenêtre collée à gauche.
   function openSideWindow(url, side) {
     if (isMobileDevice() || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return true;
     var sw = window.screen.availWidth || window.innerWidth;
@@ -1494,6 +1493,21 @@
     var win = window.open(url, side === 'left' ? 'friEspace' : 'friPoule', 'popup=yes,width=' + w + ',height=' + sh + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes');
     if (!win) return true; // fenêtre bloquée : ouverture classique
     try { win.focus(); } catch (e) { /* pas bloquant */ }
+    return false;
+  }
+
+  // Autres sites (club, FFTT, paiement…) : sur PC, nouvelle fenêtre en
+  // pleine page ; sur téléphone / tablette, ouverture normale.
+  function fullWindowFeatures() {
+    var sw = window.screen.availWidth || window.innerWidth;
+    var sh = window.screen.availHeight || window.innerHeight;
+    return 'popup=yes,width=' + sw + ',height=' + sh + ',left=' + (window.screen.availLeft || 0) + ',top=' + (window.screen.availTop || 0) + ',resizable=yes,scrollbars=yes';
+  }
+  function openFullWindow(url) {
+    if (isMobileDevice() || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return true;
+    var win = window.open(url, '_blank', fullWindowFeatures());
+    if (!win) return true; // fenêtre bloquée : ouverture classique
+    try { win.opener = null; win.focus(); } catch (e) { /* pas bloquant */ }
     return false;
   }
 
@@ -2911,7 +2925,7 @@
     var native = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
     // Sur navigateur : on ouvre l'onglet tout de suite (sinon il serait
     // bloqué), puis on y charge la page HelloAsso dès qu'elle est prête.
-    var win = native ? null : window.open('', '_blank');
+    var win = native ? null : window.open('', '_blank', isMobileDevice() ? undefined : fullWindowFeatures());
     if (win) { try { win.document.title = 'HelloAsso'; win.document.body.innerHTML = '<p style="font-family:sans-serif;padding:20px;">Ouverture du paiement HelloAsso…</p>'; } catch (e) { /* pas bloquant */ } }
     callServer('createCheckout', [STATE.session.playerId, id]).then(function (res) {
       STATE.paymentStarted = Date.now();
@@ -3360,17 +3374,17 @@
         '</div>';
     }
     var site = (STATE.config && STATE.config.siteClub) || 'https://ttfrisno.wixsite.com/ttfri';
-    html += '<div class="profile-fftt">🌐 <a href="' + escAttr(site) + '" target="_blank" rel="noopener">Site du club TTFRI ↗</a></div>';
+    html += '<div class="profile-fftt">🌐 <a href="' + escAttr(site) + '" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)">Site du club TTFRI ↗</a></div>';
     // Sous le site du club : l'espace du joueur sur l'application FFTT /
     // PingPocket (lien réglé par l'admin), puis sa fiche FFTT sur
     // malicence.fftt.com (PPS et demande de licence ; identifiant = n° de
     // licence, mot de passe mémorisé par le navigateur / le téléphone).
     // Lien personnel (colonne M de la feuille Joueurs, saisi par le joueur
     // ou par l'admin), sinon modèle commun réglé par l'admin.
-    html += '<div class="profile-fftt">📱 ' + (pr.ffttUrl ? '<a href="' + escAttr(pr.ffttUrl) + '" target="_blank" rel="noopener" onclick="return openSideWindow(this.href, \'left\')">Mon espace FFTT / PingPocket ↗</a> ' +
+    html += '<div class="profile-fftt">📱 ' + (pr.ffttUrl ? '<a href="' + escAttr(pr.ffttUrl) + '" target="_blank" rel="noopener" onclick="return openSideWindow(this.href)">Mon espace FFTT / PingPocket ↗</a> ' +
         '<button class="btn-sm" onclick="editMyLink()" title="Modifier mon lien">✏️</button>'
       : '<button class="btn-sm" onclick="editMyLink()">➕ Ajouter mon lien FFTT / PingPocket</button>') + '</div>';
-    html += '<div class="profile-fftt">🔑 <a href="https://malicence.fftt.com/login" target="_blank" rel="noopener">Ma fiche FFTT ↗</a> <span style="color:var(--muted);">(PPS et demande de licence)</span>' +
+    html += '<div class="profile-fftt">🔑 <a href="https://malicence.fftt.com/login" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)">Ma fiche FFTT ↗</a> <span style="color:var(--muted);">(PPS et demande de licence)</span>' +
       (pr.licence ? ' <span style="color:var(--muted);">· identifiant : n° de licence <b>' + escHtml(pr.licence) + '</b></span>' +
         ' <button class="btn-sm" onclick="copyText(' + escAttr(JSON.stringify(String(pr.licence))) + ', this)">Copier</button>' : '') + '</div>';
     html += '<div class="stat-row">' +
