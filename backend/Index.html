@@ -273,6 +273,10 @@
     details.adm-ep summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     details.adm-ep .ep-body { padding: 8px 0 4px 12px; overflow-x: auto; } /* reste dans sa colonne */
     .adm-ep-limit { width: 110px !important; padding: 4px 6px !important; font-size: 12px !important; }
+    .season-box { margin: 6px 0; }
+    .season-h { font-weight: 700; font-size: 13px; margin: 4px 0; }
+    .season-tour { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 0; border-bottom: 1px solid var(--border); }
+    .season-tour span { flex: 1; }
     .insc-team { border: 3px solid #8a8a8a; border-radius: 8px; padding: 0 6px 2px; margin: 8px 0 10px; overflow-x: auto; }
     .insc-team-title { background: #8a8a8a; color: #fff; font-weight: 700; font-size: 13px; margin: 0 -6px 4px; padding: 3px 8px; border-radius: 4px 4px 0 0; }
     .insc-team-title span { font-weight: 400; }
@@ -2652,7 +2656,7 @@
     var d = new Date(t), p = function (n) { return (n < 10 ? '0' : '') + n; };
     return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear();
   }
-  function singleInscription(nom) { return /coupe\s*de\s*rouen/i.test(nom || ''); }
+  function singleInscription(nom) { return /coupe\s*de\s*rouen|serano/i.test(nom || ''); }
   function seriesFirstDate(c) {
     var first = 0;
     ((STATE.compet && STATE.compet.competitions) || (STATE.adminCompet && STATE.adminCompet.competitions) || []).forEach(function (x) {
@@ -3045,12 +3049,15 @@
       html += '<div class="compet-col"><div class="compet-col-head">' + escHtml(nom) +
         (mail ? '<span class="mail">✉️ ' + escHtml(mail) + '</span>' : '') + '</div>';
       var serie = (data.settings.deadlines || {})[nom] || '';
-      html += '<div class="pay-link-box">📅 Date limite d\'inscription (toutes les épreuves)' +
+      html += '<div class="pay-link-box">📅 Date limite d\'inscription ' + (singleInscription(nom) ? '(début de saison)' : '(toutes les épreuves)') +
         '<input class="adm-serie-limit" data-nom="' + escAttr(nom) + '" value="' + escAttr(serie) + '" placeholder="' +
         escAttr(singleInscription(nom) ? 'date du 1er tour' : 'jj/mm/aaaa (sinon par épreuve)') + '" onchange="saveSeriesLimit(this.dataset.nom, this.value)">' +
         (lateAllowed({ nom: nom }) ? '<div style="color:var(--muted);margin-top:2px;">Inscription encore possible après cette date (jusqu\'au jour de l\'épreuve).</div>'
           : '<div style="color:var(--muted);margin-top:2px;">Après cette date, plus d\'inscription possible.</div>') + '</div>';
-      byNom[nom].forEach(function (c) {
+      // Coupe de Rouen / SERANO : inscription pour la saison, gérée en une
+      // seule liste (pas de gestion tour par tour).
+      if (singleInscription(nom)) html += seasonAdminHtml(nom, byNom[nom], data, inscByComp, playersById);
+      else byNom[nom].forEach(function (c) {
         var ins = inscByComp[c.id] || [];
         var nDem = ins.filter(function (i) { return i.statut === 'Demandée'; }).length;
         var nVal = ins.filter(function (i) { return i.statut === 'Validée'; }).length;
@@ -3149,6 +3156,98 @@
       html += '</div>';
     });
     document.getElementById('adminCompetList').innerHTML = html || '<p style="color:var(--muted);">Aucune épreuve à venir.</p>';
+  }
+
+  // Colonne admin d'une compétition à inscription pour la saison : dates
+  // des tours, puis les inscrits de la saison (par équipe s'il y en a).
+  function seasonAdminHtml(nom, shown, data, inscByComp, playersById) {
+    var byDate = function (a, b) { return frDateToTime(a.date) - frDateToTime(b.date); };
+    var series = data.competitions.filter(function (x) { return x.nom === nom && x.type === shown[0].type; }).sort(byDate);
+    var today = todayStart();
+    var upcoming = series.filter(function (x) { return parseFrDate(x.date) >= today; });
+    var ref = upcoming[0] || series[series.length - 1];
+    var teams = ref.teams || [];
+    var q = function (v) { return JSON.stringify(String(v)).replace(/"/g, '&quot;'); };
+    var html = '<div class="season-box"><div class="season-h">📅 Dates des tours</div>' + shown.map(function (c) {
+      return '<div class="season-tour"><input class="adm-ep-limit" value="' + escAttr(c.date) + '" onchange="saveCompetDate(' + c.id + ', this.value)">' +
+        '<span>' + escHtml(c.epreuve || '') + '</span><button class="btn-sm red" title="Supprimer ce tour" onclick="removeCompetition(' + c.id + ')">✕</button></div>';
+    }).join('') + '</div>';
+    // Un joueur = une ligne : son inscription au prochain tour (sinon au
+    // dernier tour passé).
+    var byPlayer = {}, order = [];
+    series.forEach(function (x) {
+      (inscByComp[x.id] || []).forEach(function (i) {
+        var k = String(i.playerId);
+        var e = byPlayer[k];
+        if (!e) { e = byPlayer[k] = { row: null, future: false, n: 0 }; order.push(k); }
+        e.n++;
+        if (!e.future) { e.row = i; e.future = parseFrDate(x.date) >= today; }
+      });
+    });
+    var entries = order.map(function (k) { return byPlayer[k]; }).sort(function (a, b) {
+      var pa = playersById[String(a.row.playerId)] || {}, pb = playersById[String(b.row.playerId)] || {};
+      return String(pa.nom || '').localeCompare(String(pb.nom || ''));
+    });
+    var head = '<table class="insc-table"><thead><tr><th>Joueur</th><th>Statut</th>' + (teams.length ? '<th>Équipe</th>' : '') + '<th></th></tr></thead><tbody>';
+    var rowHtml = function (e) {
+      var i = e.row, pid = q(i.playerId);
+      var p = playersById[String(i.playerId)] || { prenom: '?', nom: 'joueur ' + i.playerId };
+      return '<tr><td>' + escHtml(p.prenom + ' ' + p.nom) + (p.categorie ? ' <span style="color:var(--muted);">(' + escHtml(p.categorie) + ')</span>' : '') +
+          '<div style="font-size:11px;color:var(--muted);">' + e.n + ' tour' + (e.n > 1 ? 's' : '') + '</div></td>' +
+        '<td>' + (i.statut === 'Validée' ? '<span class="pill ok">Validée</span>' : i.statut === 'Refusée' ? '<span class="pill ko">Refusée</span>' : '<span class="pill wait">Demandée</span>') +
+          (i.reglement ? ' <span class="pill ok" title="Réglé en ligne">💳 ' + escHtml(i.reglement) + '</span>' : '') + '</td>' +
+        (teams.length ? '<td><select style="width:auto;padding:4px;font-size:13px;" onchange="setInscEquipe(' + i.competitionId + ',' + pid + ', this.value)"><option value="">—</option>' +
+          teams.map(function (t) { return '<option' + (i.equipe === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></td>' : '') +
+        '<td class="compet-actions">' +
+          (i.statut !== 'Validée' ? '<button class="btn-sm green" onclick="setSeasonInsc(' + ref.id + ',' + pid + ',\'Validée\')">Valider</button>' : '') +
+          (i.statut !== 'Refusée' ? '<button class="btn-sm red" onclick="setSeasonInsc(' + ref.id + ',' + pid + ',\'Refusée\')">Refuser</button>' : '') +
+          '<button class="btn-sm" onclick="setSeasonInsc(' + ref.id + ',' + pid + ',\'\')">Retirer</button></td></tr>';
+    };
+    html += '<div class="season-h" style="margin-top:8px;">👥 Inscrits pour la saison (' + entries.length + ')</div>';
+    if (!entries.length) {
+      html += '<div style="font-size:13px;color:var(--muted);margin:6px 0;">Aucune inscription.</div>';
+    } else if (teams.length) {
+      teams.map(function (t) { return { name: t, rows: entries.filter(function (e) { return e.row.equipe === t; }) }; })
+        .concat([{ name: 'Sans équipe', rows: entries.filter(function (e) { return teams.indexOf(e.row.equipe) < 0; }) }])
+        .forEach(function (g) {
+          if (!g.rows.length) return;
+          html += '<div class="insc-team"><div class="insc-team-title">' + escHtml(g.name) + ' <span>(' + g.rows.length + ')</span></div>' +
+            head + g.rows.map(rowHtml).join('') + '</tbody></table></div>';
+        });
+    } else {
+      html += head + entries.map(rowHtml).join('') + '</tbody></table>';
+    }
+    var others = data.players.filter(function (p) { return !byPlayer[String(p.id)] && String(p.nom || p.prenom || '').trim(); })
+      .sort(function (a, b) { return String(a.nom).localeCompare(String(b.nom)); });
+    if (upcoming.length) {
+      html += '<div class="compet-actions" style="margin-top:6px;"><select id="addInsc-' + ref.id + '" style="width:auto;max-width:220px;padding:5px;font-size:13px;"><option value="">— Choisir un joueur —</option>' +
+        others.map(function (p) { return '<option value="' + escAttr(p.id) + '">' + escHtml(p.nom + ' ' + p.prenom) + (p.categorie ? ' (' + escHtml(p.categorie) + ')' : '') + '</option>'; }).join('') +
+        '</select><button class="btn-sm" onclick="adminAddSeason(' + ref.id + ')">Inscrire pour la saison (validé)</button></div>';
+      var nVal = (inscByComp[ref.id] || []).filter(function (i) { return i.statut === 'Validée'; }).length;
+      var toRegister = canRequest({ eligible: true, nom: ref.nom, type: ref.type, date: ref.date, dateLimite: ref.dateLimite, dateLimiteSerie: ref.dateLimiteSerie })
+        ? data.players.filter(function (p) { return !byPlayer[String(p.id)] && eligibleFor(ref, p.categorie, p.sexe); }) : [];
+      html += '<div class="compet-actions" style="margin-top:8px;">' +
+        (toRegister.length ? '<button class="btn-sm" onclick="competSms(' + ref.id + ',\'inscription\')">📱 Relancer les non-inscrits (' + toRegister.length + ')</button>' : '') +
+        (nVal ? '<button class="btn-sm fill" onclick="competMail(' + ref.id + ')">✉️ Mail d\'inscription à l\'organisateur (' + nVal + ')</button>' : '') +
+        '<span id="competSmsResult-' + ref.id + '" style="font-size:12px;"></span></div>' +
+        '<div id="competMailResult-' + ref.id + '" style="font-size:12px;"></div>';
+    }
+    return html;
+  }
+  function setSeasonInsc(id, playerId, statut) {
+    if (!statut && !confirm('Retirer ce joueur de tous les tours à venir ?')) return;
+    callServer('setSeasonInscription', [id, playerId, statut]).then(function (res) { STATE.adminCompet = res; renderAdminCompet(); }).catch(onGsError);
+  }
+  function adminAddSeason(id) {
+    var sel = document.getElementById('addInsc-' + id);
+    if (!sel || !sel.value) return;
+    setSeasonInsc(id, sel.value, 'Validée');
+  }
+  function saveCompetDate(id, value) {
+    var c = STATE.adminCompet.competitions.find(function (x) { return x.id === id; });
+    callServer('saveCompetition', [{ id: c.id, type: c.type, nom: c.nom, epreuve: c.epreuve, date: value.trim(), dateLimite: c.dateLimiteEpreuve || '',
+      lieu: c.lieu, categories: c.categories, tarif: c.tarif, infos: c.infos }])
+      .then(function (res) { STATE.adminCompet = res; renderAdminCompet(); }).catch(onGsError);
   }
 
   function competSms(id, kind) {
@@ -3314,7 +3413,9 @@
   function inscriptionMail(c) {
     var data = STATE.adminCompet;
     var to = (data.settings.mails || {})[c.nom] || '';
-    var validated = data.inscriptions.filter(function (i) { return i.competitionId === c.id && i.statut === 'Validée' && i.participation !== 'Annulée'; })
+    // Coupe de Rouen / SERANO : inscriptions pour la saison.
+    var season = singleInscription(c.nom);
+    var validated = data.inscriptions.filter(function (i) { return i.competitionId === c.id && i.statut === 'Validée' && (season || i.participation !== 'Annulée'); })
       .map(function (i) {
         var p = data.players.find(function (x) { return String(x.id) === String(i.playerId); }) || { nom: '?', prenom: '' };
         return { p: p, equipe: i.equipe || '' };
@@ -3334,10 +3435,11 @@
       if (t) lines.push('', 'Équipe ' + t + ' :');
       teams[t].forEach(function (x) { lines.push(line(x)); });
     });
-    var epreuve = c.nom + (c.epreuve ? ' – ' + c.epreuve : '');
-    var subject = 'Inscriptions FR Isneauville TT – ' + epreuve + ' (' + c.date + ')';
+    var epreuve = season ? c.nom + ' – saison' : c.nom + (c.epreuve ? ' – ' + c.epreuve : '');
+    var subject = 'Inscriptions FR Isneauville TT – ' + epreuve + (season ? '' : ' (' + c.date + ')');
     var body = 'Bonjour,\n\n' +
-      'Voici les inscriptions du club FR Isneauville Tennis de Table (Foyer Rural d\'Isneauville) pour : ' + epreuve + ', ' + dayLabel(c.date) + (c.lieu ? ' (' + c.lieu + ')' : '') + '.\n' +
+      'Voici les inscriptions du club FR Isneauville Tennis de Table (Foyer Rural d\'Isneauville) pour : ' + epreuve +
+      (season ? ' (à partir du ' + dayLabel(c.date) + ')' : ', ' + dayLabel(c.date)) + (c.lieu ? ' (' + c.lieu + ')' : '') + '.\n' +
       lines.join('\n') + '\n\n' +
       'Nombre d\'inscrits : ' + validated.length + '.\n\n' +
       'Merci de bien vouloir nous confirmer leur prise en compte.\n\n' +
