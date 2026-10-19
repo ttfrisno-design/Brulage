@@ -287,6 +287,9 @@
     details.adm-ep summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     details.adm-ep .ep-body { padding: 8px 0 4px 12px; overflow-x: auto; } /* reste dans sa colonne */
     .adm-ep-limit { width: 110px !important; padding: 4px 6px !important; font-size: 12px !important; }
+    .insc-team { border: 3px solid #8a8a8a; border-radius: 8px; padding: 0 6px 2px; margin: 8px 0 10px; overflow-x: auto; }
+    .insc-team-title { background: #8a8a8a; color: #fff; font-weight: 700; font-size: 13px; margin: 0 -6px 4px; padding: 3px 8px; border-radius: 4px 4px 0 0; }
+    .insc-team-title span { font-weight: 400; }
     table.insc-table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 6px 0; }
     table.insc-table td, table.insc-table th { border-bottom: 1px solid var(--border); padding: 6px 4px; text-align: left; }
     /* Effectif : état d'enregistrement de chaque champ modifié */
@@ -3098,10 +3101,10 @@
           ' <button class="btn-sm red" onclick="removeCompetition(' + c.id + ')">Supprimer l\'épreuve</button></div>';
         if (ins.length) {
           var hasTeams = c.teams && c.teams.length;
-          html += '<table class="insc-table"><thead><tr><th>Joueur</th><th>Statut</th>' + (hasTeams ? '<th>Équipe</th>' : '') + '<th>Participation</th><th></th></tr></thead><tbody>';
-          ins.forEach(function (i) {
+          var inscHead = '<table class="insc-table"><thead><tr><th>Joueur</th><th>Statut</th>' + (hasTeams ? '<th>Équipe</th>' : '') + '<th>Participation</th><th></th></tr></thead><tbody>';
+          var inscRow = function (i) {
             var p = playersById[String(i.playerId)] || { prenom: '?', nom: 'joueur ' + i.playerId };
-            html += '<tr><td>' + escHtml(p.prenom + ' ' + p.nom) + (p.categorie ? ' <span style="color:var(--muted);">(' + escHtml(p.categorie) + ')</span>' : '') + '</td>' +
+            return '<tr><td>' + escHtml(p.prenom + ' ' + p.nom) + (p.categorie ? ' <span style="color:var(--muted);">(' + escHtml(p.categorie) + ')</span>' : '') + '</td>' +
               '<td>' + (i.statut === 'Validée' ? '<span class="pill ok">Validée</span>' : i.statut === 'Refusée' ? '<span class="pill ko">Refusée</span>' : '<span class="pill wait">Demandée</span>') +
                 (i.reglement ? ' <span class="pill ok" title="Réglé en ligne">💳 ' + escHtml(i.reglement) + '</span>' : '') + '</td>' +
               (hasTeams ? '<td><select style="width:auto;padding:4px;font-size:13px;" onchange="setInscEquipe(' + c.id + ',' + JSON.stringify(String(i.playerId)).replace(/"/g, '&quot;') + ', this.value)"><option value="">—</option>' +
@@ -3111,8 +3114,24 @@
               (i.statut !== 'Refusée' ? '<button class="btn-sm red" onclick="setInscStatus(' + c.id + ',' + JSON.stringify(String(i.playerId)).replace(/"/g, '&quot;') + ',\'Refusée\')">Refuser</button>' : '') +
               '<button class="btn-sm" onclick="setInscStatus(' + c.id + ',' + JSON.stringify(String(i.playerId)).replace(/"/g, '&quot;') + ',\'\')">Retirer</button>' +
               '</td></tr>';
-          });
-          html += '</tbody></table>';
+          };
+          if (hasTeams) {
+            // Équipes (CDR1, CDR2… / CJ1, CJ2…) dans l'ordre, une par cadre
+            // gris, puis les inscrits sans équipe.
+            var byName = function (a, b) {
+              var pa = playersById[String(a.playerId)] || {}, pb = playersById[String(b.playerId)] || {};
+              return String(pa.nom || '').localeCompare(String(pb.nom || ''));
+            };
+            c.teams.map(function (t) { return { name: t, rows: ins.filter(function (i) { return i.equipe === t; }) }; })
+              .concat([{ name: 'Sans équipe', rows: ins.filter(function (i) { return c.teams.indexOf(i.equipe) < 0; }) }])
+              .forEach(function (g) {
+                if (!g.rows.length) return;
+                html += '<div class="insc-team"><div class="insc-team-title">' + escHtml(g.name) + ' <span>(' + g.rows.length + ')</span></div>' +
+                  inscHead + g.rows.sort(byName).map(inscRow).join('') + '</tbody></table></div>';
+              });
+          } else {
+            html += inscHead + ins.map(inscRow).join('') + '</tbody></table>';
+          }
         } else {
           html += '<div style="font-size:13px;color:var(--muted);margin:6px 0;">Aucune inscription.</div>';
         }
