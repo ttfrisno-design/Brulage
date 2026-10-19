@@ -108,7 +108,9 @@
     table.burn-table td.player-col .pc-pts { font-weight: 700; color: var(--primary); white-space: nowrap; }
     table.burn-table td.player-col .pc-home { display: block; font-size: 10px; color: var(--muted); }
     table.burn-table thead th { background: #f0f3f7; position: sticky; top: 0; z-index: 1; }
-    table.burn-table .jr-head { font-size: 10px; font-weight: 800; color: #111; letter-spacing: .03em; }
+    table.burn-table th.jr-gap, table.burn-table td.jr-gap { width: 5px; min-width: 5px; max-width: 5px; padding: 0; border: none !important; background: #fff !important; }
+    table.burn-table th.jr-title { border: 3px solid #8a8a8a !important; border-bottom-width: 1px !important; background: #8a8a8a !important; color: #fff; font-size: 12px; font-weight: 700; padding: 3px 4px; }
+    table.burn-table th.jr-title-empty { border: none !important; background: #fff !important; }
     table.burn-table thead th.player-col { z-index: 3; }
     table.burn-table td.group-a { background: #f5fbff; }
     table.burn-table td.group-b { background: #fff8f2; }
@@ -1482,7 +1484,17 @@
     var prev = i > 0 && jb[dates[i - 1].date] === j;
     var next = i < dates.length - 1 && jb[dates[i + 1].date] === j;
     if (!prev && !next) return '';
-    return (prev ? '' : 'border-left:3px solid #111;') + (next ? '' : 'border-right:3px solid #111;');
+    return (prev ? '' : 'border-left:3px solid #8a8a8a;') + (next ? '' : 'border-right:3px solid #8a8a8a;');
+  }
+  // Petit espace (colonne vide) entre deux journées encadrées.
+  function journeeGapBefore(dates, i) {
+    var jb = STATE.config.journeeByDate || {};
+    return i > 0 && jb[dates[i].date] !== jb[dates[i - 1].date] && (inJourneeFrame(dates, i) || inJourneeFrame(dates, i - 1));
+  }
+  function journeeGapCount(dates) {
+    var n = 0;
+    dates.forEach(function (d, i) { if (journeeGapBefore(dates, i)) n++; });
+    return n;
   }
   function inJourneeFrame(dates, i) {
     var jb = STATE.config.journeeByDate || {};
@@ -1491,21 +1503,41 @@
   }
 
   function burnTableHeaderHtml(dates, lastTeamId, teamId) {
-    var html = '<tr><th class="player-col">Joueur</th>';
+    // 1re ligne (si des journées regroupent plusieurs dates) : « Journée x »
+    // sur toute la largeur du cadre de la journée.
+    var jb = STATE.config.journeeByDate || {};
+    var hasFrames = dates.some(function (d, i) { return inJourneeFrame(dates, i); });
+    var rs = hasFrames ? ' rowspan="2"' : '';
+    var html = '<tr><th class="player-col"' + rs + '>Joueur</th>';
+    if (hasFrames) {
+      for (var i = 0; i < dates.length; i++) {
+        if (journeeGapBefore(dates, i)) html += '<th class="jr-gap"></th>';
+        if (!inJourneeFrame(dates, i)) { html += '<th class="jr-title-empty"></th>'; continue; }
+        var n = 1;
+        while (i + n < dates.length && jb[dates[i + n].date] === jb[dates[i].date]) n++;
+        html += '<th class="jr-title" colspan="' + n + '">Journée ' + escHtml(String(jb[dates[i].date]).replace(/^\s*J\s*/i, '')) + '</th>';
+        i += n - 1;
+      }
+      html += teamHeaderCells(lastTeamId, rs) + '</tr><tr>';
+    }
     dates.forEach(function (d, i) {
       var gc = GROUP_COLORS[d.group] || '#999';
-      var framed = inJourneeFrame(dates, i);
-      html += '<th data-date="' + d.date + '" class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';' + (framed ? 'border-top:3px solid #111;' : '') + journeeFrameCss(dates, i) + '">' +
-        (framed ? '<div class="jr-head">' + escHtml((STATE.config.journeeByDate || {})[d.date]) + '</div>' : '') +
+      if (journeeGapBefore(dates, i)) html += '<th class="jr-gap"></th>';
+      html += '<th data-date="' + d.date + '" class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';' + journeeFrameCss(dates, i) + '">' +
         '<div class="date-head">' + d.date + '</div><div class="grp-head">' + GROUP_LABEL[d.group] + '</div>' +
         (teamId ? opponentHeadHtml(teamId, d.date, d.group) : '') + '</th>';
     });
+    if (!hasFrames) html += teamHeaderCells(lastTeamId, '');
+    html += '</tr>';
+    return html;
+  }
+  function teamHeaderCells(lastTeamId, rowspan) {
+    var html = '';
     TEAMS_forHeader().forEach(function (t) {
       var c = TEAM_COLORS[t.id] || { border: '#999', bg: '#f5f5f5' };
       var right = t.id === lastTeamId ? ('border-right:3px solid ' + c.border + ';') : '';
-      html += '<th style="border-left:3px solid ' + c.border + ';border-top:3px solid ' + c.border + ';' + right + 'background:' + c.bg + ';">' + t.name + '</th>';
+      html += '<th' + rowspan + ' style="border-left:3px solid ' + c.border + ';border-top:3px solid ' + c.border + ';' + right + 'background:' + c.bg + ';">' + t.name + '</th>';
     });
-    html += '</tr>';
     return html;
   }
 
@@ -1545,8 +1577,9 @@
       // même journée (peu importe l'équipe) : impossible de le jouer deux
       // fois la même journée.
       var journeeLocked = journee && usedJournees[journee] && usedJournees[journee] !== d.date;
+      if (journeeGapBefore(dates, i)) html += '<td class="jr-gap"></td>';
       html += '<td class="group-' + d.group.toLowerCase() + ' ' + availClass + (burnedNow ? ' burned-cell' : '') + (journeeLocked ? ' journee-lock' : '') + '" style="border:2px solid ' + gc + ';' + journeeFrameCss(dates, i) +
-        (isLastRow && inJourneeFrame(dates, i) ? 'border-bottom:3px solid #111;' : '') + '">';
+        (isLastRow && inJourneeFrame(dates, i) ? 'border-bottom:3px solid #8a8a8a;' : '') + '">';
 
       // Brûlé pour toutes les équipes qui jouent à cette date (ex. joueur
       // monté qui ne peut plus redescendre) : 🔥 affiché directement.
@@ -1665,7 +1698,7 @@
     // Un cadre par équipe (même principe que l'onglet Effectif), avec un
     // espace entre chaque cadre, pour bien distinguer les joueurs d'une
     // équipe de ceux de l'équipe suivante.
-    var colspan = dates.length + 1 + TEAMS_forHeader().length;
+    var colspan = dates.length + journeeGapCount(dates) + 1 + TEAMS_forHeader().length;
     var html = '';
     friTeams().forEach(function (t) {
       var teamPlayers = STATE.adminData
@@ -1872,7 +1905,7 @@
         '<h3 class="team-frame-title">' + t.name + ' — ' + t.division + badge +
         ' <span style="font-weight:400;color:var(--muted);">(' + (isFriTeam(t) ? teamPlayers.length : guestPlayers.length) + ' joueur' + ((isFriTeam(t) ? teamPlayers.length : guestPlayers.length) > 1 ? 's' : '') + ')</span></h3>';
       if (teamPlayers.length || guestPlayers.length) {
-        var colspan = dates.length + 1 + TEAMS_forHeader().length;
+        var colspan = dates.length + journeeGapCount(dates) + 1 + TEAMS_forHeader().length;
         html += '<div class="table-scroll"><table class="burn-table"><thead>' + burnTableHeaderHtml(dates, lastTeamId, t.id) + '</thead><tbody>';
         teamPlayers.forEach(function (p, pIdx) {
           html += burnTableRowHtml(p, dates, lastTeamId, pIdx === teamPlayers.length - 1 && !guestPlayers.length, teamId, !isOwnTeam);
