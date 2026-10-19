@@ -54,7 +54,7 @@
     h2 { font-size: 16px; margin: 0 0 12px; }
     h3 { font-size: 14px; margin: 16px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
     label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
-    input[type=text], input[type=password], input[type=number], select {
+    input[type=text], input[type=search], input[type=password], input[type=number], select {
       width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 15px;
     }
     button.primary {
@@ -186,6 +186,35 @@
     /* Disponibilités du capitaine réparties en 3 colonnes (R3 / D1-D2 / D3-D4)
        pour une vue plus compacte ; les colonnes s'empilent sur mobile dans
        le même ordre (R3, puis D1-D2, puis D3-D4). */
+    .rt-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 22px; letter-spacing: .01em; }
+    .rt-mark { width: 38px; height: 38px; color: #fff; }
+    .club-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .club-item { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; cursor: pointer; font: inherit; }
+    .club-item:hover, .club-item:focus-visible { border-color: var(--primary); }
+    .club-item img { width: 40px; height: 40px; object-fit: contain; }
+    .club-item .club-dot { width: 40px; height: 40px; border-radius: 50%; background: var(--gray-bg); flex-shrink: 0; }
+    .club-item > span:not(.club-dot) { flex: 1; min-width: 0; }
+    .club-item small { display: block; color: var(--muted); }
+    .club-item em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--primary); }
+    .club-photo { display: block; width: 100%; max-height: 340px; object-fit: cover; border-radius: 10px; margin-top: 6px; }
+    .club-addr { font-size: 15px; margin-top: 6px; }
+    .club-h { margin: 0 0 8px; font-size: 17px; }
+    .club-teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 6px 14px; }
+    .club-teams div { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--border); }
+    .club-teams span { color: var(--muted); font-size: 14px; }
+    .pre { white-space: pre-line; }
+    .club-actions { display: flex; flex-direction: column; gap: 10px; }
+    .club-actions .primary, .club-actions .secondary { margin-top: 0; width: 100%; }
+    .btn-link.primary { background: var(--primary); color: #fff; font-weight: 600; }
+    .btn-link { display: block; text-align: center; text-decoration: none; padding: 10px 16px; border-radius: 6px; }
+    button.linkish { background: none; border: none; color: var(--primary); cursor: pointer; font: inherit; padding: 4px 0; text-align: left; }
+    .login-club { margin-bottom: 6px; }
+    .club-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+    .club-form .full { grid-column: 1 / -1; }
+    .club-form textarea { width: 100%; font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; }
+    .club-photo-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .club-photo-row input[type=text] { flex: 1; min-width: 200px; }
+    @media (max-width: 640px) { .club-form { grid-template-columns: 1fr; } }
     .avail-grid { display: grid; column-gap: 10px; align-items: stretch; }
     .avail-grid .ag-head { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: var(--muted); padding: 0 0 6px; border-bottom: 2px solid var(--border); }
     .avail-grid .ag-j { font-size: 11px; font-weight: 700; color: #8a8a8a; display: flex; align-items: center; border-bottom: 1px solid var(--border); padding-right: 2px; }
@@ -365,14 +394,41 @@
 </head>
 <body>
 
+  <!-- ============ CHOIX DU CLUB (page d'accueil) ============ -->
+  <div id="clubPickView" class="hidden">
+    <header class="app">
+      <span class="rt-brand"><svg class="rt-mark" viewBox="0 0 64 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-linecap="round"><path d="M8 12 Q20 48 25 48 Q31 48 43 21" stroke-width="3" stroke-dasharray="2 5" opacity=".75"/><line x1="7" y1="50" x2="57" y2="50" stroke-width="4"/><line x1="40" y1="43" x2="40" y2="50" stroke-width="3"/></g><circle cx="45" cy="16" r="7.5" fill="#f2731d"/></svg>RebonTT</span>
+    </header>
+    <main style="max-width:520px;">
+      <div class="card">
+        <h2>Choisissez votre club</h2>
+        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Tapez le nom du club ou sa ville.</p>
+        <input type="search" id="clubSearch" placeholder="Ex. Isneauville, FRI…" autocomplete="off" oninput="renderClubList()">
+        <div id="clubList" class="club-list"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ============ PRÉSENTATION DU CLUB ============ -->
+  <div id="clubInfoView" class="hidden">
+    <header class="app">
+      <img class="logo-fri" data-logo="fri" alt="" style="height:42px;">
+      <h1 id="clubInfoName">Mon club</h1>
+    </header>
+    <main style="max-width:720px;">
+      <div id="clubInfo"></div>
+    </main>
+  </div>
+
   <!-- ============ LOGIN ============ -->
-  <div id="loginView">
+  <div id="loginView" class="hidden">
     <header class="app">
       <img class="logo-fri" data-logo="fri" alt="FRI" style="height:42px;">
       <h1>RebonTT</h1>
     </header>
     <main style="max-width:420px;">
       <div class="card">
+        <div id="loginClub" class="login-club"></div>
         <h2 id="loginTitle">Connexion</h2>
         <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Saisissez votre code personnel à 6 chiffres.</p>
         <label>Code</label>
@@ -603,6 +659,23 @@
           <button class="secondary" style="margin-top:10px;" onclick="saveAdminPin()">Enregistrer</button>
         </div>
         <div class="card">
+          <h2>Présentation du club</h2>
+          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Affichée avant la connexion, après le choix du club : salle, équipes (automatique), entraînements, tarifs et lien d'inscription.</p>
+          <div class="club-form">
+            <div><label for="ciNom">Nom du club</label><input type="text" id="ciNom"></div>
+            <div><label for="ciVille">Ville</label><input type="text" id="ciVille"></div>
+            <div class="full"><label for="ciAdresse">Adresse de la salle</label><input type="text" id="ciAdresse" placeholder="Rue, code postal, ville"></div>
+            <div class="full"><label for="ciEntr">Créneaux d'entraînement (une ligne par créneau)</label><textarea id="ciEntr" rows="4" placeholder="Mardi 18h-20h : jeunes&#10;Jeudi 20h-22h : adultes"></textarea></div>
+            <div class="full"><label for="ciTarifs">Tarifs (une ligne par tarif)</label><textarea id="ciTarifs" rows="4" placeholder="Jeunes : 120 €&#10;Adultes : 160 €"></textarea></div>
+            <div class="full"><label for="ciInscr">Lien vers le site d'inscription (facultatif)</label><input type="text" id="ciInscr" placeholder="https://…"></div>
+            <div class="full"><label for="ciPhoto">Photo de la salle</label>
+              <div class="club-photo-row"><input type="text" id="ciPhoto" placeholder="lien https://… ou envoyez une photo"><input type="file" id="ciPhotoFile" accept="image/*" onchange="uploadClubPhoto(this)"></div>
+              <img id="ciPhotoPreview" class="club-photo hidden" alt="Aperçu de la photo"></div>
+          </div>
+          <button class="secondary" style="margin-top:10px;" onclick="saveClubInfo()">Enregistrer la présentation</button>
+          <span id="ciStatus" style="font-size:13px;margin-left:8px;"></span>
+        </div>
+        <div class="card">
           <h2>Espace joueur FFTT / PingPocket</h2>
           <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Adresse de l'espace d'un joueur sur l'application FFTT ou sur PingPocket, où <b>{licence}</b> sera remplacé par son numéro de licence (onglet Effectif). Affiché sur la page du joueur sous « Mon espace FFTT / PingPocket ». Laisser vide pour ne pas afficher de lien.</p>
           <input type="text" id="ffttLinkInput" placeholder="https://…{licence}…">
@@ -636,12 +709,12 @@
     </main>
   </div>
 
-  <div class="sponsors-banner">
+  <div class="sponsors-banner" id="clubSponsors">
     <p class="sponsors-title">Merci à nos sponsors</p>
     <img data-logo="sponsors" alt="Sponsors du FRI Tennis de Table" style="width:100%;max-width:900px;display:block;margin:0 auto;border-radius:8px;">
   </div>
 
-  <footer class="hint">FRI — Foyer Rural d'Isneauville · Gestion des brûlages</footer>
+  <footer class="hint" id="clubFooter">FRI — Foyer Rural d'Isneauville · Gestion des brûlages</footer>
 
 <script src="config.js"></script>
 <script>
@@ -867,6 +940,118 @@
   // ---------------------------------------------------------------------------
   // LOGIN
   // ---------------------------------------------------------------------------
+  // CLUB : page d'accueil = choix du club (annuaire de config.js), puis
+  // présentation du club (getClubInfo, sans code), lien d'inscription et
+  // connexion par code. Version servie par le script d'un club (sans
+  // annuaire) : directement la présentation de ce club.
+  var DEFAULT_SERVER_URL = SERVER_URL;
+  var CLUBS = (window.APP_CONFIG && window.APP_CONFIG.CLUBS) || null;
+  var CLUB_KEY = 'rebontt_club';
+  function storeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function storeSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* pas bloquant */ } }
+  function findClub(id) { return (CLUBS || []).filter(function (c) { return c.id === id; })[0] || null; }
+  function defaultClub() { return CLUBS ? CLUBS[0] : { id: 'club', nom: '' }; }
+  function applyClub(club) {
+    STATE.club = club;
+    SERVER_URL = club.serverUrl || DEFAULT_SERVER_URL;
+    document.querySelectorAll('img[data-logo="fri"]').forEach(function (img) {
+      if (club.logo) { img.src = club.logo; img.classList.remove('hidden'); } else img.classList.add('hidden');
+    });
+  }
+  function showStart() {
+    if (!CLUBS) { applyClub(defaultClub()); openClubInfo(); return; }
+    var last = findClub(storeGet(CLUB_KEY));
+    if (last) applyClub(last);
+    showClubPick();
+  }
+  function showClubPick() {
+    showView('clubPickView');
+    document.getElementById('clubSearch').value = '';
+    renderClubList();
+  }
+  function normTxt(v) { return String(v || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+  function renderClubList() {
+    var q = normTxt(document.getElementById('clubSearch').value).trim();
+    var lastId = storeGet(CLUB_KEY);
+    var list = (CLUBS || []).filter(function (c) { return !q || normTxt(c.nom + ' ' + c.ville + ' ' + (c.cp || '') + ' ' + c.id).indexOf(q) >= 0; })
+      .sort(function (a, b) { return (b.id === lastId) - (a.id === lastId) || normTxt(a.nom).localeCompare(normTxt(b.nom)); });
+    document.getElementById('clubList').innerHTML = list.length ? list.map(function (c) {
+      return '<button type="button" class="club-item" onclick="pickClub(' + escAttr(JSON.stringify(c.id)) + ')">' +
+        (c.logo ? '<img src="' + escAttr(c.logo) + '" alt="">' : '<span class="club-dot"></span>') +
+        '<span><b>' + escHtml(c.nom) + '</b><small>' + escHtml((c.cp ? c.cp + ' ' : '') + c.ville) + '</small></span>' +
+        (c.id === lastId ? '<em>Votre club</em>' : '') + '</button>';
+    }).join('') : '<p style="color:var(--muted);">Aucun club trouvé. Votre club n\'utilise pas encore RebonTT ?</p>';
+  }
+  function pickClub(id) {
+    var club = findClub(id);
+    if (!club) return;
+    if (storeGet(CLUB_KEY) && storeGet(CLUB_KEY) !== id) {
+      // Autre club : on oublie les données gardées pour le précédent.
+      try { Object.keys(localStorage).forEach(function (k) { if (/^fri_cache_|^fri_avail_outbox$/.test(k)) localStorage.removeItem(k); }); } catch (e) { /* pas bloquant */ }
+    }
+    storeSet(CLUB_KEY, id);
+    applyClub(club);
+    openClubInfo();
+  }
+  function openClubInfo() {
+    showView('clubInfoView');
+    var club = STATE.club || defaultClub();
+    document.getElementById('clubInfoName').textContent = club.nom || 'Mon club';
+    var cached = null;
+    try { cached = JSON.parse(storeGet('rebontt_clubinfo_' + club.id) || 'null'); } catch (e) { cached = null; }
+    if (cached) renderClubInfo(cached);
+    else document.getElementById('clubInfo').innerHTML = '<div class="card">Chargement de la présentation du club…</div>';
+    callServer('getClubInfo', [], 3).then(function (info) {
+      storeSet('rebontt_clubinfo_' + club.id, JSON.stringify(info));
+      if (STATE.club === club && !document.getElementById('clubInfoView').classList.contains('hidden')) renderClubInfo(info);
+    }).catch(function () {
+      if (!cached) renderClubInfo(null);
+    });
+  }
+  function textBlock(v, empty) {
+    return v ? '<div class="pre">' + escHtml(v) + '</div>' : '<p style="color:var(--muted);margin:0;">' + empty + '</p>';
+  }
+  function renderClubInfo(info) {
+    var club = STATE.club || defaultClub();
+    var html = '';
+    if (!info) {
+      html += '<div class="card">La présentation du club n\'a pas pu être chargée (connexion ?). Vous pouvez tout de même vous connecter.</div>';
+    } else {
+      if (info.nom) document.getElementById('clubInfoName').textContent = info.nom;
+      var mapUrl = info.adresse ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(info.adresse) : '';
+      html += '<div class="card club-card">' +
+        (info.photo ? '<img class="club-photo" src="' + escAttr(info.photo) + '" alt="La salle du club">' : '') +
+        '<h2 style="margin-top:' + (info.photo ? '12px' : '0') + ';">' + escHtml(info.nom || club.nom || '') + '</h2>' +
+        (info.adresse ? '<div class="club-addr">📍 ' + escHtml(info.adresse) + ' · <a href="' + escAttr(mapUrl) + '" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)">Itinéraire ↗</a></div>'
+          : (info.ville ? '<div class="club-addr">📍 ' + escHtml(info.ville) + '</div>' : '')) +
+        '</div>';
+      var teams = info.teams || [];
+      html += '<div class="card"><h3 class="club-h">🏓 ' + teams.length + ' équipe' + (teams.length > 1 ? 's' : '') + ' en championnat</h3>' +
+        (teams.length ? '<div class="club-teams">' + teams.map(function (t) {
+          return '<div><b>' + escHtml(t.name) + '</b><span>' + escHtml(t.division) + (t.day ? ' · ' + escHtml(t.day.toLowerCase()) + (t.time ? ' ' + escHtml(t.time) : '') : '') + '</span></div>';
+        }).join('') + '</div>' : '') + '</div>';
+      html += '<div class="card"><h3 class="club-h">🕒 Entraînements</h3>' + textBlock(info.entrainements, 'Créneaux communiqués prochainement.') + '</div>';
+      html += '<div class="card"><h3 class="club-h">💶 Tarifs</h3>' + textBlock(info.tarifs, 'Tarifs communiqués prochainement.') + '</div>';
+    }
+    html += '<div class="card club-actions">' +
+      (info && info.inscription
+        ? '<a class="primary btn-link" href="' + escAttr(info.inscription) + '" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)">S\'inscrire au club ↗</a>'
+        : '<button class="secondary" disabled>Inscription en ligne : bientôt disponible</button>') +
+      '<button class="primary" onclick="showLogin()">Déjà licencié : me connecter avec mon code</button>' +
+      (CLUBS ? '<button class="linkish" onclick="showClubPick()">← Changer de club</button>' : '') +
+      '</div>';
+    document.getElementById('clubInfo').innerHTML = html;
+  }
+  function showLogin() {
+    showView('loginView');
+    var club = STATE.club || defaultClub();
+    var info = null;
+    try { info = JSON.parse(storeGet('rebontt_clubinfo_' + club.id) || 'null'); } catch (e) { info = null; }
+    document.getElementById('loginClub').innerHTML = '<button class="linkish" onclick="openClubInfo()">← ' + escHtml((info && info.nom) || club.nom || 'Présentation du club') + '</button>';
+    var pin = document.getElementById('loginPin');
+    if (pin) { pin.value = ''; setTimeout(function () { try { pin.focus(); } catch (e) { /* pas bloquant */ } }, 50); }
+  }
+
   // Connexion simplifiée : un seul code à 6 chiffres, pour joueur comme pour
   // administrateur (le serveur détermine le rôle selon le code saisi).
   function doLogin() {
@@ -896,6 +1081,7 @@
           errEl.classList.remove('hidden');
           return;
         }
+        res.clubId = STATE.club ? STATE.club.id : '';
         STATE.session = res;
         STATE.config = res.config; // renvoyée par login() elle-même, pas d'appel séparé
         localStorage.setItem('fri_session', JSON.stringify(res));
@@ -1090,6 +1276,7 @@
       loadRoster();
       renderDatesEditor();
       document.getElementById('ffttLinkInput').value = STATE.config.ffttLink || '';
+      loadClubInfoAdmin();
       document.getElementById('clubSiteInput').value = STATE.config.siteClub || '';
       renderPoolLinks();
       loadHelloAssoStatus();
@@ -1186,8 +1373,11 @@
   // Try restoring session
   (function tryRestore() {
     var saved = localStorage.getItem('fri_session');
+    if (!saved) { setTimeout(showStart, 0); return; }
     if (saved) {
       STATE.session = JSON.parse(saved);
+      // Club de la session (anciennes sessions : club mémorisé ou 1er club).
+      applyClub(findClub(STATE.session.clubId || storeGet(CLUB_KEY)) || defaultClub());
       if (STATE.session.config) {
         // La session sauvegardée contient déjà la config (renvoyée par
         // login()) : aucun appel serveur supplémentaire nécessaire.
@@ -2602,9 +2792,11 @@
   var ALL_CATEGORIES = YOUTH_CATEGORIES.concat(ADULT_CATEGORIES);
   var FR_DAYS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
 
-  var VIEWS = ['loginView', 'homeView', 'playerView', 'captainView', 'competView', 'adminView'];
+  var VIEWS = ['clubPickView', 'clubInfoView', 'loginView', 'homeView', 'playerView', 'captainView', 'competView', 'adminView'];
   function showView(id) {
     VIEWS.forEach(function (v) { document.getElementById(v).classList.toggle('hidden', v !== id); });
+    // Choix du club : page RebonTT neutre, sans les sponsors du club.
+    ['clubSponsors', 'clubFooter'].forEach(function (x) { var el = document.getElementById(x); if (el) el.classList.toggle('hidden', id === 'clubPickView'); });
     window.scrollTo(0, 0);
   }
 
@@ -3467,6 +3659,59 @@
     var done = function () { if (btn) { btn.textContent = 'Copié ✓'; setTimeout(function () { btn.textContent = 'Copier'; }, 1500); } };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(function () { prompt('Copiez :', text); });
     else prompt('Copiez :', text);
+  }
+
+  // Admin : présentation du club.
+  var CLUB_FIELDS = { nom: 'ciNom', ville: 'ciVille', adresse: 'ciAdresse', entrainements: 'ciEntr', tarifs: 'ciTarifs', inscription: 'ciInscr', photo: 'ciPhoto' };
+  function fillClubInfoAdmin(info) {
+    Object.keys(CLUB_FIELDS).forEach(function (k) {
+      var el = document.getElementById(CLUB_FIELDS[k]);
+      if (el && document.activeElement !== el) el.value = (info && info[k]) || '';
+    });
+    var prev = document.getElementById('ciPhotoPreview');
+    if (prev) { if (info && info.photo) { prev.src = info.photo; prev.classList.remove('hidden'); } else prev.classList.add('hidden'); }
+  }
+  function loadClubInfoAdmin() {
+    callServer('getClubInfo', [], 3).then(fillClubInfoAdmin).catch(function () { /* script pas encore mis à jour */ });
+  }
+  function saveClubInfo() {
+    var info = {};
+    Object.keys(CLUB_FIELDS).forEach(function (k) { info[k] = document.getElementById(CLUB_FIELDS[k]).value.trim(); });
+    var st = document.getElementById('ciStatus');
+    st.textContent = 'Enregistrement…';
+    callServer('setClubInfo', [info]).then(function (res) {
+      fillClubInfoAdmin(res);
+      if (STATE.club) storeSet('rebontt_clubinfo_' + STATE.club.id, JSON.stringify(res));
+      st.textContent = '✓ Enregistré';
+    }).catch(function (err) { st.textContent = ''; onGsError(err); });
+  }
+  // Photo de la salle : réduite dans l'appli (1600 px, JPEG) puis envoyée
+  // au Drive du club par le script.
+  function uploadClubPhoto(input) {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    var st = document.getElementById('ciStatus');
+    st.textContent = 'Envoi de la photo…';
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var max = 1600, w = img.width, h = img.height, r = Math.min(1, max / Math.max(w, h));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.round(w * r); canvas.height = Math.round(h * r);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        callServer('uploadClubPhoto', [canvas.toDataURL('image/jpeg', 0.82)]).then(function (res) {
+          document.getElementById('ciPhoto').value = res.photo;
+          var prev = document.getElementById('ciPhotoPreview');
+          prev.src = res.photo; prev.classList.remove('hidden');
+          st.textContent = '✓ Photo enregistrée';
+          input.value = '';
+        }).catch(function (err) { st.textContent = ''; onGsError(err); });
+      };
+      img.onerror = function () { st.textContent = ''; alert('Image illisible.'); };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   }
 
   // Admin : modèle de lien vers la fiche FFTT des joueurs.

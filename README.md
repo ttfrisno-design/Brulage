@@ -385,6 +385,28 @@ limite de début de saison, les dates des tours (modifiables) et **une seule
 liste d'inscrits pour la saison** (valider / refuser / retirer pour tous les
 tours à venir ; pour la Coupe de Rouen, groupés par équipe CDR1, CDR2…).
 
+## Page d'accueil : choix du club, présentation, connexion
+
+1. **Choix du club** : la première page de l'appli liste les clubs de
+   l'annuaire (`CLUBS` dans `www/config.js` : nom, ville, code postal,
+   logo, et `serverUrl` = l'adresse du script Apps Script du club ; sans
+   `serverUrl`, c'est `SERVER_URL`). Recherche par nom ou par ville ; le
+   dernier club choisi est proposé en premier.
+2. **Présentation du club** (sans code) : photo et adresse de la salle (avec
+   lien Itinéraire), équipes engagées et leur niveau (automatique),
+   créneaux d'entraînement, tarifs.
+3. **Lien vers le site d'inscription** (« Inscription en ligne : bientôt
+   disponible » tant qu'il n'est pas renseigné).
+4. **Connexion** du joueur avec son code.
+
+Le contenu se règle dans l'onglet admin *Dates & Réglages › Présentation du
+club* (clés `Club*` de la feuille Config). La photo envoyée est réduite par
+l'appli puis enregistrée dans le Drive du compte du script (partagée en
+lecture par lien) : au redéploiement, Google demande d'autoriser l'accès au
+Drive. Un joueur déjà connecté arrive directement sur son accueil ; la
+version servie par le script lui-même (sans annuaire) commence à la
+présentation du club.
+
 ## Rassemblements féminins
 
 Réservés aux joueuses : colonne **L « Sexe »** (F / M) de la feuille Joueurs
