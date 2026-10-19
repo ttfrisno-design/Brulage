@@ -1885,13 +1885,34 @@ function competitionTeams_(nom) {
 /** Admin : équipe (ex. CDR2) d'un inscrit, pour une épreuve. */
 function setInscriptionEquipe(competitionId, playerId, equipe) {
   ensureSheets_();
+  // L'équipe (CDR / CJ) vaut pour toutes les journées de la compétition :
+  // elle est reportée sur toutes les inscriptions du joueur à cette
+  // compétition.
+  const series = seriesIds_(competitionId);
   withInscriptionsSheet_(function (rows) {
     const row = rows.find(function (r) { return Number(r[0]) === Number(competitionId) && String(r[1]) === String(playerId); });
     if (!row) throw new Error('Inscription introuvable.');
-    while (row.length < 7) row.push('');
-    row[6] = String(equipe || '');
+    rows.forEach(function (r) {
+      if (String(r[1]) !== String(playerId) || series.indexOf(Number(r[0])) < 0) return;
+      while (r.length < 7) r.push('');
+      r[6] = String(equipe || '');
+    });
   });
   return getCompetitionsAdmin();
+}
+
+/** Identifiants des épreuves de la même compétition (même nom, même type). */
+function seriesIds_(competitionId) {
+  const all = readCompetitions_(competitionSettings_());
+  const c = all.find(function (x) { return Number(x.id) === Number(competitionId); });
+  if (!c) return [Number(competitionId)];
+  return all.filter(function (x) { return x.nom === c.nom && x.type === c.type; }).map(function (x) { return Number(x.id); });
+}
+
+/** Équipe déjà attribuée au joueur sur une autre journée de la compétition. */
+function seriesTeam_(rows, series, playerId) {
+  const r = rows.find(function (x) { return String(x[1]) === String(playerId) && series.indexOf(Number(x[0])) >= 0 && x[6]; });
+  return r ? String(r[6]) : '';
 }
 
 function readInscriptions_() {
@@ -2007,7 +2028,8 @@ function requestInscriptions(playerId, competitionIds) {
       if (row) {
         if (row[2] === 'Refusée' || row[2] === 'Annulée') { row[2] = 'Demandée'; row[3] = new Date(); row[4] = ''; row[5] = ''; }
       } else {
-        rows.push([c.id, playerId, 'Demandée', new Date(), '', '']);
+        const series = data.competitions.filter(function (x) { return x.nom === c.nom && x.type === c.type; }).map(function (x) { return Number(x.id); });
+        rows.push([c.id, playerId, 'Demandée', new Date(), '', '', seriesTeam_(rows, series, playerId)]);
       }
     });
   });
@@ -2066,11 +2088,12 @@ function getCompetitionsAdmin() {
 function setInscriptionStatus(competitionId, playerId, statut) {
   ensureSheets_();
   if (['Demandée', 'Validée', 'Refusée', ''].indexOf(statut) < 0) throw new Error('Statut invalide.');
+  const series = seriesIds_(competitionId);
   withInscriptionsSheet_(function (rows) {
     const idx = rows.findIndex(function (r) { return Number(r[0]) === Number(competitionId) && String(r[1]) === String(playerId); });
     if (!statut) { if (idx >= 0) rows.splice(idx, 1); return; }
     if (idx >= 0) { rows[idx][2] = statut; }
-    else { rows.push([Number(competitionId), playerId, statut, new Date(), '', '']); }
+    else { rows.push([Number(competitionId), playerId, statut, new Date(), '', '', seriesTeam_(rows, series, playerId)]); }
   });
   if (statut === 'Validée' || statut === 'Refusée') {
     const c = readCompetitions_(competitionSettings_()).find(function (x) { return Number(x.id) === Number(competitionId); });
