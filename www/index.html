@@ -3390,10 +3390,17 @@
       html += '<div class="profile-fftt">🏓 FFTT' +
         (pr.licence ? ' · licence <b>' + escHtml(pr.licence) + '</b>' : '') +
         (pr.points ? ' · <b>' + pr.points + '</b> points (classement ' + pr.classement + ')' : '') +
-        (pr.ffttUrl ? ' · <a href="' + escAttr(pr.ffttUrl) + '" target="_blank" rel="noopener">Ma fiche FFTT ↗</a>' : '') + '</div>';
+        '</div>';
     }
     var site = (STATE.config && STATE.config.siteClub) || 'https://ttfrisno.wixsite.com/ttfri';
     html += '<div class="profile-fftt">🌐 <a href="' + escAttr(site) + '" target="_blank" rel="noopener">Site du club TTFRI ↗</a></div>';
+    // Sous le site du club : fiche FFTT du joueur et son espace licencié
+    // (connexion sur le site de la FFTT : identifiant = n° de licence, mot
+    // de passe mémorisé par le navigateur / le téléphone, jamais par l'appli).
+    if (pr.ffttUrl) html += '<div class="profile-fftt">🏓 <a href="' + escAttr(pr.ffttUrl) + '" target="_blank" rel="noopener">Ma fiche FFTT ↗</a></div>';
+    html += '<div class="profile-fftt">🔑 <a href="https://malicence.fftt.com/login" target="_blank" rel="noopener">Mon espace licencié FFTT ↗</a>' +
+      (pr.licence ? ' <span style="color:var(--muted);">· identifiant : n° de licence <b>' + escHtml(pr.licence) + '</b></span>' +
+        ' <button class="btn-sm" onclick="copyText(' + escAttr(JSON.stringify(String(pr.licence))) + ', this)">Copier</button>' : '') + '</div>';
     html += '<div class="stat-row">' +
       '<div class="stat"><div class="v">' + played.length + '</div><div class="l">match' + (played.length > 1 ? 's' : '') + ' joué' + (played.length > 1 ? 's' : '') + ' (saison)</div></div>' +
       '<div class="stat"><div class="v">' + upcoming.length + '</div><div class="l">sélection' + (upcoming.length > 1 ? 's' : '') + ' à venir</div></div>' +
@@ -3420,6 +3427,12 @@
       html += '<div class="profile-section box box-burn"><h4>🔥 Brûlé (phase ' + STATE.phase + ')</h4>' + burnedNow.map(function (n) { return '<span class="chip">' + escHtml(n) + ' 🔥</span>'; }).join('') + '</div>';
     }
     el.innerHTML = html + '</div>';
+  }
+
+  function copyText(text, btn) {
+    var done = function () { if (btn) { btn.textContent = 'Copié ✓'; setTimeout(function () { btn.textContent = 'Copier'; }, 1500); } };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(function () { prompt('Copiez :', text); });
+    else prompt('Copiez :', text);
   }
 
   // Admin : modèle de lien vers la fiche FFTT des joueurs.
