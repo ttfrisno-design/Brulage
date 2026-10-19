@@ -186,6 +186,12 @@
     /* Disponibilités du capitaine réparties en 3 colonnes (R3 / D1-D2 / D3-D4)
        pour une vue plus compacte ; les colonnes s'empilent sur mobile dans
        le même ordre (R3, puis D1-D2, puis D3-D4). */
+    .avail-grid { display: grid; column-gap: 10px; align-items: stretch; }
+    .avail-grid .ag-head { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: var(--muted); padding: 0 0 6px; border-bottom: 2px solid var(--border); }
+    .avail-grid .ag-j { font-size: 11px; font-weight: 700; color: #8a8a8a; display: flex; align-items: center; border-bottom: 1px solid var(--border); padding-right: 2px; }
+    .avail-grid .ag-cell { min-width: 0; border-bottom: 1px solid var(--border); }
+    .avail-grid .ag-cell .date-row { border-bottom: none; padding: 8px 0; flex-wrap: nowrap; height: 100%; }
+    .avail-grid .ag-cell .date-row .info { min-width: 0; }
     .avail-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; align-items: start; }
     .avail-group-col { min-width: 0; }
     .avail-group-col h4 {
@@ -344,6 +350,12 @@
       main { padding: 10px; }
       .add-player-row { grid-template-columns: 1fr; }
       .avail-groups { grid-template-columns: 1fr; }
+      /* Mobile : date au-dessus, ✓ ✕ dessous, pour garder les 3 colonnes. */
+      .avail-grid { column-gap: 6px; }
+      .avail-grid .ag-cell .date-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+      .avail-grid .ag-cell .date-row .date { font-size: 14px; }
+      .avail-grid .ag-cell .avail-btn { width: 34px; height: 34px; font-size: 16px; }
+      .avail-grid .ag-head { font-size: 10px; }
       /* Tableau de brûlage sur mobile : colonne des noms la plus étroite
          possible, pour voir davantage de dates. */
       table.burn-table th.player-col, table.burn-table td.player-col { width: 78px; min-width: 78px; max-width: 78px; padding: 3px 4px; font-size: 10px; }
@@ -1349,30 +1361,43 @@
     renderMyConvocations('convocPlayer', data);
 
     var listEl = document.getElementById('playerDatesList');
-    listEl.innerHTML = '';
-    availabilityDates(data).forEach(function (row) {
-      // Par défaut (aucune réponse encore enregistrée), un joueur est
-      // considéré disponible ; il peut se rendre indisponible en un clic.
-      var status = data.availability[row.date] || 'Disponible';
-      var assignedTeamId = data.assignments[row.date];
-      var assignedTeam = assignedTeamId ? STATE.config.teams.find(function (t) { return t.id === assignedTeamId; }) : null;
+    listEl.innerHTML = availGridHtml(data, STATE.session.playerId, 'setAvail');
+  }
 
-      var pending = isAvailabilityPending(STATE.session.playerId, STATE.phase, row.date);
-      var div = document.createElement('div');
-      div.className = 'date-row';
-      var teamNames = row.teams.map(function (t) { return t.name; }).join(', ');
-      div.innerHTML =
-        '<div class="info">' +
-          '<div class="date">' + row.date + (pending ? ' <span class="sync-pending" title="Envoi en cours…">⏳</span>' : '') + '</div>' +
-          '<div class="teams">' + teamNames + '</div>' +
-          (assignedTeam ? '<div class="assigned">Affecté(e) : ' + assignedTeam.name + '</div>' : '') +
-        '</div>' +
-        '<div class="avail-toggle">' +
-          '<button class="avail-btn green ' + (status === 'Disponible' ? 'active' : '') + '" title="Disponible" onclick="setAvail(\'' + row.date + '\',\'Disponible\', this)">✓</button>' +
-          '<button class="avail-btn red ' + (status === 'Indisponible' ? 'active' : '') + '" title="Indisponible" onclick="setAvail(\'' + row.date + '\',\'Indisponible\', this)">✕</button>' +
-        '</div>';
-      listEl.appendChild(div);
+  // Disponibilités (joueur et capitaine) : une ligne par journée, une
+  // colonne par championnat (R3 / D1-D2 / D3-D4), pour que les dates d'une
+  // même journée tombent en face les unes des autres.
+  function availGridHtml(data, playerId, clickFn) {
+    var rows = availabilityDates(data);
+    if (!rows.length) return '';
+    var jb = STATE.config.journeeByDate || {};
+    var groups = GROUPS.filter(function (g) { return rows.some(function (r) { return r.group === g; }); });
+    var journees = [], byJ = {};
+    datesByJournee(rows).forEach(function (r) {
+      var j = jb[r.date] || r.date;
+      if (!byJ[j]) { byJ[j] = {}; journees.push(j); }
+      byJ[j][r.group] = r;
     });
+    var html = '<div class="avail-grid" style="grid-template-columns:auto repeat(' + groups.length + ', minmax(0, 1fr));">' +
+      '<div class="ag-head"></div>' + groups.map(function (g) { return '<div class="ag-head">' + GROUP_LABEL[g] + '</div>'; }).join('');
+    journees.forEach(function (j) {
+      html += '<div class="ag-j">' + (jb[(byJ[j][groups[0]] || byJ[j][Object.keys(byJ[j])[0]]).date] ? escHtml(j) : '') + '</div>';
+      groups.forEach(function (g) {
+        var r = byJ[j][g];
+        if (!r) { html += '<div class="ag-cell"></div>'; return; }
+        var status = data.availability[r.date] || 'Disponible';
+        var assignedTeam = data.assignments[r.date] ? STATE.config.teams.find(function (t) { return t.id === data.assignments[r.date]; }) : null;
+        var pending = isAvailabilityPending(playerId, STATE.phase, r.date);
+        html += '<div class="ag-cell"><div class="date-row"><div class="info">' +
+            '<div class="date">' + r.date + (pending ? ' <span class="sync-pending" title="Envoi en cours…">⏳</span>' : '') + '</div>' +
+            (assignedTeam ? '<div class="assigned">Affecté(e) : ' + assignedTeam.name + '</div>' : '') +
+          '</div><div class="avail-toggle">' +
+            '<button class="avail-btn green ' + (status === 'Disponible' ? 'active' : '') + '" title="Disponible" onclick="' + clickFn + '(\'' + r.date + '\',\'Disponible\', this)">✓</button>' +
+            '<button class="avail-btn red ' + (status === 'Indisponible' ? 'active' : '') + '" title="Indisponible" onclick="' + clickFn + '(\'' + r.date + '\',\'Indisponible\', this)">✕</button>' +
+          '</div></div></div>';
+      });
+    });
+    return html + '</div>';
   }
 
   function setAvail(date, status, btnEl) {
@@ -1882,42 +1907,7 @@
     renderMyConvocations('convocCaptain', data);
 
     var listEl = document.getElementById('captainOwnDatesList');
-    listEl.innerHTML = '';
-    listEl.classList.add('avail-groups');
-
-    // Regroupées par journée (R3 / D1-D2 / D3-D4) en 3 colonnes, plus
-    // compact et plus lisible, notamment sur mobile où les colonnes
-    // s'empilent dans cet ordre.
-    GROUPS.forEach(function (grp) {
-      var rows = availabilityDates(data).filter(function (row) { return row.group === grp; });
-      if (!rows.length) return;
-
-      var col = document.createElement('div');
-      col.className = 'avail-group-col';
-      col.innerHTML = '<h4>' + GROUP_LABEL[grp] + '</h4>';
-
-      rows.forEach(function (row) {
-        var status = data.availability[row.date] || 'Disponible';
-        var assignedTeamId = data.assignments[row.date];
-        var assignedTeam = assignedTeamId ? STATE.config.teams.find(function (t) { return t.id === assignedTeamId; }) : null;
-        var pending = isAvailabilityPending(STATE.session.playerId, STATE.phase, row.date);
-
-        var div = document.createElement('div');
-        div.className = 'date-row';
-        div.innerHTML =
-          '<div class="info">' +
-            '<div class="date">' + row.date + (pending ? ' <span class="sync-pending" title="Envoi en cours…">⏳</span>' : '') + '</div>' +
-            (assignedTeam ? '<div class="assigned">Affecté(e) : ' + assignedTeam.name + '</div>' : '') +
-          '</div>' +
-          '<div class="avail-toggle">' +
-            '<button class="avail-btn green ' + (status === 'Disponible' ? 'active' : '') + '" title="Disponible" onclick="setCaptainOwnAvail(\'' + row.date + '\',\'Disponible\')">✓</button>' +
-            '<button class="avail-btn red ' + (status === 'Indisponible' ? 'active' : '') + '" title="Indisponible" onclick="setCaptainOwnAvail(\'' + row.date + '\',\'Indisponible\')">✕</button>' +
-          '</div>';
-        col.appendChild(div);
-      });
-
-      listEl.appendChild(col);
-    });
+    listEl.innerHTML = availGridHtml(data, STATE.session.playerId, 'setCaptainOwnAvail');
   }
 
   function setCaptainOwnAvail(date, status) {
