@@ -149,6 +149,11 @@ de brûlage) :
   à CJ4**) dans la colonne « Équipe » de l'onglet Compétitions
   individuelles (feuille *Inscriptions*, colonne G) ; le joueur voit
   « Inscription validée — CJ3 » puis confirme sa participation.
+- L'équipe vaut pour **toutes les journées** : choisie sur une journée,
+  elle est reportée sur toutes les inscriptions du joueur à la compétition
+  (et reprise pour une journée ajoutée ensuite). Dans l'admin, les inscrits
+  d'une épreuve sont groupés par équipe (CDR1, CDR2…), un cadre gris par
+  équipe.
 
 ## Compétitions individuelles (jeunes / adultes)
 
