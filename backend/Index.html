@@ -3,7 +3,7 @@
 <head>
   <base target="_top">
   <meta charset="utf-8">
-  <title>Brûlages FRI</title>
+  <title>RebonTT</title>
   <style>
     :root {
       --green: #2e7d32; --green-bg: #d7f4d9;
@@ -355,7 +355,7 @@
   <div id="loginView">
     <header class="app">
       <img class="logo-fri" data-logo="fri" alt="FRI" style="height:42px;">
-      <h1>Brûlages FRI - Tennis de Table</h1>
+      <h1>RebonTT</h1>
     </header>
     <main style="max-width:420px;">
       <div class="card">
@@ -373,7 +373,7 @@
   <div id="homeView" class="hidden">
     <header class="app">
       <img class="logo-fri" data-logo="fri" alt="FRI" style="height:36px;">
-      <h1>Brûlages FRI</h1>
+      <h1>RebonTT</h1>
       <div class="who">
         <span id="homeWho"></span>
         <button class="logout" onclick="logout()">Déconnexion</button>
@@ -429,7 +429,7 @@
   <div id="playerView" class="hidden">
     <header class="app">
       <img class="logo-fri" data-logo="fri" alt="FRI" style="height:36px;">
-      <h1>Brûlages FRI</h1>
+      <h1>RebonTT</h1>
       <div class="who">
         <span id="playerWho"></span>
         <button class="logout" onclick="showHome()">← Accueil</button>
@@ -454,7 +454,7 @@
   <div id="captainView" class="hidden">
     <header class="app">
       <img class="logo-fri" data-logo="fri" alt="FRI" style="height:36px;">
-      <h1>Brûlages FRI — Capitaine</h1>
+      <h1>RebonTT — Capitaine</h1>
       <div class="who">
         <span id="captainWho"></span>
         <button class="logout" onclick="showHome()">← Accueil</button>
@@ -489,7 +489,7 @@
   <div id="adminView" class="hidden">
     <header class="app">
       <img class="logo-fri" data-logo="fri" alt="FRI" style="height:36px;">
-      <h1>Brûlages FRI — Administration</h1>
+      <h1>RebonTT — Administration</h1>
       <div class="who">
         <button class="logout" onclick="logout()">Déconnexion</button>
       </div>
@@ -2379,7 +2379,7 @@
       (adv ? ' contre ' + adv : '') + '.\n' +
       (where ? where + '\n' : '') +
       'Équipe : ' + players.map(function (p) { return p.prenom + ' ' + p.nom; }).join(', ') + '.\n' +
-      'Merci de confirmer ta présence dans l\'appli Brûlages FRI.';
+      'Merci de confirmer ta présence dans l\'appli RebonTT.';
   }
 
   // Brouillon par zone d'envoi (équipe, date, message modifié à la main),
@@ -3269,8 +3269,8 @@
         }).filter(Boolean);
     var label = c.nom + (c.epreuve ? ' – ' + c.epreuve : '') + ' (' + dayLabel(c.date) + (c.lieu ? ', ' + c.lieu : '') + ')';
     var body = kind === 'inscription'
-      ? 'Tennis de table FRI : ' + label + '. Inscriptions ouvertes jusqu\'au ' + c.dateLimite + ' : demande ton inscription dans l\'appli Brûlages FRI.'
-      : 'Tennis de table FRI : ' + label + '. Ton inscription est validée, merci de confirmer ta participation dans l\'appli Brûlages FRI.';
+      ? 'Tennis de table FRI : ' + label + '. Inscriptions ouvertes jusqu\'au ' + c.dateLimite + ' : demande ton inscription dans l\'appli RebonTT.'
+      : 'Tennis de table FRI : ' + label + '. Ton inscription est validée, merci de confirmer ta participation dans l\'appli RebonTT.';
     var phones = players.map(function (p) { return p.phone; }).filter(function (p) { return normalizePhone(p); });
     var missing = players.filter(function (p) { return !normalizePhone(p.phone); }).map(function (p) { return p.prenom + ' ' + p.nom; });
     var el = document.getElementById('competSmsResult-' + id);

@@ -1,4 +1,6 @@
-# Brûlages FRI – Application mobile (Android & iOS)
+# RebonTT – Application mobile (Android & iOS)
+
+(anciennement « Brûlages FRI »)
 
 Application de gestion des brûlages du FRI Tennis de Table (disponibilités des
 joueurs, feuilles de match des capitaines, tableau de brûlage de

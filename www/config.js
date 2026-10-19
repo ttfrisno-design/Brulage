@@ -1,4 +1,4 @@
-// Configuration de l'application mobile Brûlages FRI.
+// Configuration de l'application mobile RebonTT.
 // SERVER_URL : URL du déploiement "Application Web" du script Google Apps
 // Script (backend/Code.gs), se terminant par /exec. Voir README.md.
 window.APP_CONFIG = {

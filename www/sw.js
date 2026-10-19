@@ -1,7 +1,7 @@
 // Service worker de la version web installable (PC, navigateur) : garde
 // l'interface en cache pour qu'elle s'ouvre même sans réseau. Les appels au
 // serveur Apps Script (autre domaine, POST) ne passent jamais par ce cache.
-var CACHE = 'brulages-fri-v1';
+var CACHE = 'rebontt-v2';
 var SHELL = [
   './',
   'index.html',

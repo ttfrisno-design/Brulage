@@ -63,7 +63,7 @@ function doGet(e) {
   // doPost (voir plus bas) — bien plus fiable que le pont google.script.run.
   tpl.scriptUrl = ScriptApp.getService().getUrl();
   return tpl.evaluate()
-    .setTitle('Brûlages FRI - Tennis de Table')
+    .setTitle('RebonTT - Tennis de Table')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
@@ -2697,7 +2697,7 @@ function getPushStatus() {
 function sendTestPush() {
   ensureSheets_();
   if (!fcmServiceAccount_()) throw new Error("Notifications push non configurées : ajoutez la propriété du script FCM_SERVICE_ACCOUNT (voir README).");
-  const sent = sendPush_(null, '🔔 Brûlages FRI', 'Notification de test : les notifications fonctionnent.');
+  const sent = sendPush_(null, '🔔 RebonTT', 'Notification de test : les notifications fonctionnent.');
   return { sent: sent, devices: getPushStatus().devices };
 }
 
