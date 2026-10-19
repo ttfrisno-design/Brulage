@@ -1482,15 +1482,16 @@
   // l'écran, collée à droite, pour que la page (poule FFTT / PingPocket)
   // s'affiche sur une seule colonne à côté du tableau de brûlage. La même
   // fenêtre est réutilisée d'un lien à l'autre. Sur téléphone / tablette :
-  // ouverture normale.
-  function openSideWindow(url) {
+  // ouverture normale. side = 'left' : fenêtre collée à gauche (espace
+  // joueur FFTT / PingPocket du profil).
+  function openSideWindow(url, side) {
     if (isMobileDevice() || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return true;
     var sw = window.screen.availWidth || window.innerWidth;
     var sh = window.screen.availHeight || window.innerHeight;
     var w = Math.max(360, Math.round(sw / 3));
-    var left = (window.screen.availLeft || 0) + sw - w;
+    var left = (window.screen.availLeft || 0) + (side === 'left' ? 0 : sw - w);
     var top = window.screen.availTop || 0;
-    var win = window.open(url, 'friPoule', 'popup=yes,width=' + w + ',height=' + sh + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes');
+    var win = window.open(url, side === 'left' ? 'friEspace' : 'friPoule', 'popup=yes,width=' + w + ',height=' + sh + ',left=' + left + ',top=' + top + ',resizable=yes,scrollbars=yes');
     if (!win) return true; // fenêtre bloquée : ouverture classique
     try { win.focus(); } catch (e) { /* pas bloquant */ }
     return false;
@@ -3366,7 +3367,7 @@
     // licence, mot de passe mémorisé par le navigateur / le téléphone).
     // Lien personnel (colonne M de la feuille Joueurs, saisi par le joueur
     // ou par l'admin), sinon modèle commun réglé par l'admin.
-    html += '<div class="profile-fftt">📱 ' + (pr.ffttUrl ? '<a href="' + escAttr(pr.ffttUrl) + '" target="_blank" rel="noopener">Mon espace FFTT / PingPocket ↗</a> ' +
+    html += '<div class="profile-fftt">📱 ' + (pr.ffttUrl ? '<a href="' + escAttr(pr.ffttUrl) + '" target="_blank" rel="noopener" onclick="return openSideWindow(this.href, \'left\')">Mon espace FFTT / PingPocket ↗</a> ' +
         '<button class="btn-sm" onclick="editMyLink()" title="Modifier mon lien">✏️</button>'
       : '<button class="btn-sm" onclick="editMyLink()">➕ Ajouter mon lien FFTT / PingPocket</button>') + '</div>';
     html += '<div class="profile-fftt">🔑 <a href="https://malicence.fftt.com/login" target="_blank" rel="noopener">Ma fiche FFTT ↗</a> <span style="color:var(--muted);">(PPS et demande de licence)</span>' +
