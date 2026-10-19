@@ -1482,7 +1482,7 @@
     var prev = i > 0 && jb[dates[i - 1].date] === j;
     var next = i < dates.length - 1 && jb[dates[i + 1].date] === j;
     if (!prev && !next) return '';
-    return (prev ? '' : 'border-left:3px solid #111;') + (next ? '' : 'border-right:3px solid #111;');
+    return (prev ? '' : 'border-left:5px solid #000;') + (next ? '' : 'border-right:5px solid #000;');
   }
   function inJourneeFrame(dates, i) {
     var jb = STATE.config.journeeByDate || {};
@@ -1495,7 +1495,7 @@
     dates.forEach(function (d, i) {
       var gc = GROUP_COLORS[d.group] || '#999';
       var framed = inJourneeFrame(dates, i);
-      html += '<th data-date="' + d.date + '" class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';' + (framed ? 'border-top:3px solid #111;' : '') + journeeFrameCss(dates, i) + '">' +
+      html += '<th data-date="' + d.date + '" class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';' + (framed ? 'border-top:5px solid #000;' : '') + journeeFrameCss(dates, i) + '">' +
         (framed ? '<div class="jr-head">' + escHtml((STATE.config.journeeByDate || {})[d.date]) + '</div>' : '') +
         '<div class="date-head">' + d.date + '</div><div class="grp-head">' + GROUP_LABEL[d.group] + '</div>' +
         (teamId ? opponentHeadHtml(teamId, d.date, d.group) : '') + '</th>';
@@ -1546,7 +1546,7 @@
       // fois la même journée.
       var journeeLocked = journee && usedJournees[journee] && usedJournees[journee] !== d.date;
       html += '<td class="group-' + d.group.toLowerCase() + ' ' + availClass + (burnedNow ? ' burned-cell' : '') + (journeeLocked ? ' journee-lock' : '') + '" style="border:2px solid ' + gc + ';' + journeeFrameCss(dates, i) +
-        (isLastRow && inJourneeFrame(dates, i) ? 'border-bottom:3px solid #111;' : '') + '">';
+        (isLastRow && inJourneeFrame(dates, i) ? 'border-bottom:5px solid #000;' : '') + '">';
 
       // Brûlé pour toutes les équipes qui jouent à cette date (ex. joueur
       // monté qui ne peut plus redescendre) : 🔥 affiché directement.
