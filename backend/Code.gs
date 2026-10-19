@@ -275,7 +275,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V19';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V20';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -426,7 +426,7 @@ function ensureSheetsNow_() {
     // Présentation publique du club (page affichée avant la connexion).
     ['ClubNom', 'FR Isneauville Tennis de Table'], ['ClubVille', 'Isneauville'],
     ['ClubAdresse', ''], ['ClubPhoto', ''], ['ClubEntrainements', ''], ['ClubTarifs', ''],
-    ['ClubInscription', ''],
+    ['ClubInscription', ''], ['ClubCreneaux', ''], ['ClubEntrainementsPhoto', ''],
     // Adresse de l'organisateur à qui envoyer les inscriptions, par
     // compétition (clé "MailInscription:<nom de la compétition>").
     ['MailInscription:Challenge SERANO', 'girard76@wanadoo.fr'],
@@ -861,7 +861,18 @@ function login(pin) {
 // ----------------------------------------------------------------------------------
 // PRÉSENTATION DU CLUB (publique, avant connexion)
 // ----------------------------------------------------------------------------------
-const CLUB_INFO_KEYS_ = ['ClubNom', 'ClubVille', 'ClubAdresse', 'ClubPhoto', 'ClubEntrainements', 'ClubTarifs', 'ClubInscription'];
+const CLUB_INFO_KEYS_ = ['ClubNom', 'ClubVille', 'ClubAdresse', 'ClubPhoto', 'ClubEntrainements', 'ClubTarifs', 'ClubInscription',
+  'ClubCreneaux', 'ClubEntrainementsPhoto'];
+const JOURS_ = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
+/** Créneaux d'entraînement : [{jour, debut, fin, niveau}] (JSON dans Config). */
+function parseCreneaux_(raw) {
+  let list = [];
+  try { list = JSON.parse(String(raw || '[]')); } catch (e) { list = []; }
+  return (Array.isArray(list) ? list : []).map(function (c) {
+    return { jour: String(c.jour || ''), debut: String(c.debut || ''), fin: String(c.fin || ''), niveau: String(c.niveau || '') };
+  }).filter(function (c) { return c.jour || c.debut || c.niveau; });
+}
 
 /** Présentation du club : nom, ville, adresse et photo de la salle,
  * créneaux d'entraînement, tarifs, lien d'inscription et équipes engagées.
@@ -872,6 +883,7 @@ function getClubInfo() {
   return {
     nom: v('ClubNom'), ville: v('ClubVille'), adresse: v('ClubAdresse'), photo: v('ClubPhoto'),
     entrainements: v('ClubEntrainements'), tarifs: v('ClubTarifs'), inscription: v('ClubInscription'),
+    creneaux: parseCreneaux_(v('ClubCreneaux')), entrainementsPhoto: v('ClubEntrainementsPhoto'),
     site: v('SiteClub'),
     teams: TEAMS.filter(function (t) { return t.kind === 'FRI'; })
       .map(function (t) { return { name: t.name, division: t.division, day: t.day, time: t.time }; }),
@@ -883,11 +895,17 @@ function setClubInfo(info) {
   ensureSheets_();
   info = info || {};
   const map = { nom: 'ClubNom', ville: 'ClubVille', adresse: 'ClubAdresse', photo: 'ClubPhoto',
-    entrainements: 'ClubEntrainements', tarifs: 'ClubTarifs', inscription: 'ClubInscription' };
+    entrainements: 'ClubEntrainements', tarifs: 'ClubTarifs', inscription: 'ClubInscription',
+    entrainementsPhoto: 'ClubEntrainementsPhoto' };
+  if (info.creneaux !== undefined) {
+    const list = parseCreneaux_(JSON.stringify(info.creneaux || []));
+    list.forEach(function (c) { if (c.jour && JOURS_.indexOf(c.jour) < 0) throw new Error('Jour invalide : ' + c.jour); });
+    setSetting('ClubCreneaux', list.length ? JSON.stringify(list) : '');
+  }
   Object.keys(map).forEach(function (k) {
     if (info[k] === undefined) return;
     const v = String(info[k] || '').trim();
-    if ((k === 'photo' || k === 'inscription') && v && !/^https?:\/\/\S+$/i.test(v)) throw new Error('Lien invalide (https://…) : ' + v);
+    if ((k === 'photo' || k === 'inscription' || k === 'entrainementsPhoto') && v && !/^https?:\/\/\S+$/i.test(v)) throw new Error('Lien invalide (https://…) : ' + v);
     setSetting(map[k], v);
   });
   return getClubInfo();
@@ -895,16 +913,17 @@ function setClubInfo(info) {
 
 /** Admin : photo de la salle (JPEG en base64, déjà réduite par l'appli),
  * enregistrée dans le Drive du club et partagée en lecture par lien. */
-function uploadClubPhoto(base64) {
+function uploadClubPhoto(base64, kind) {
   ensureSheets_();
   const data = String(base64 || '').replace(/^data:image\/\w+;base64,/, '');
   if (!data) throw new Error('Photo vide.');
   if (data.length > 4 * 1024 * 1024) throw new Error('Photo trop volumineuse.');
-  const blob = Utilities.newBlob(Utilities.base64Decode(data), 'image/jpeg', 'salle-club.jpg');
+  const planning = kind === 'entrainements';
+  const blob = Utilities.newBlob(Utilities.base64Decode(data), 'image/jpeg', planning ? 'planning-entrainements.jpg' : 'salle-club.jpg');
   const file = DriveApp.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   const url = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w1600';
-  setSetting('ClubPhoto', url);
+  setSetting(planning ? 'ClubEntrainementsPhoto' : 'ClubPhoto', url);
   return { ok: true, photo: url };
 }
 

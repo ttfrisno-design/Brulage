@@ -394,7 +394,8 @@ tours à venir ; pour la Coupe de Rouen, groupés par équipe CDR1, CDR2…).
    dernier club choisi est proposé en premier.
 2. **Présentation du club** (sans code) : photo et adresse de la salle (avec
    lien Itinéraire), équipes engagées et leur niveau (automatique),
-   créneaux d'entraînement, tarifs.
+   entraînements (créneaux jour / horaire / niveau, et/ou photo du
+   planning, et remarques), tarifs.
 3. **Lien vers le site d'inscription** (« Inscription en ligne : bientôt
    disponible » tant qu'il n'est pas renseigné).
 4. **Connexion** du joueur avec son code.
