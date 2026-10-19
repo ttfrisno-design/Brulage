@@ -1,12 +1,12 @@
 {
   "appId": "fr.fri.brulages",
-  "appName": "Brûlages FRI",
+  "appName": "RebonTT",
   "webDir": "www",
   "backgroundColor": "#f4f6f8",
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 800,
-      "backgroundColor": "#1565c0",
+      "backgroundColor": "#17457d",
       "showSpinner": false
     },
     "StatusBar": {
