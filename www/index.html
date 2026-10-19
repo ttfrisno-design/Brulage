@@ -122,6 +122,7 @@
     table.burn-table td.player-col .pc-pts { font-weight: 700; color: var(--primary); white-space: nowrap; }
     table.burn-table td.player-col .pc-home { display: block; font-size: 10px; color: var(--muted); }
     table.burn-table thead th { background: #f0f3f7; position: sticky; top: 0; z-index: 1; }
+    table.burn-table .jr-head { font-size: 10px; font-weight: 800; color: #111; letter-spacing: .03em; }
     table.burn-table thead th.player-col { z-index: 3; }
     table.burn-table td.group-a { background: #f5fbff; }
     table.burn-table td.group-b { background: #fff8f2; }
@@ -1493,11 +1494,45 @@
     return false;
   }
 
+  // Tableau de brûlage admin : dates regroupées par journée (colonne
+  // « Journée » de la feuille Dates), journées dans l'ordre de leur 1re
+  // date, dates d'une journée dans l'ordre chronologique.
+  function datesByJournee(dates) {
+    var jb = STATE.config.journeeByDate || {};
+    var first = {};
+    dates.forEach(function (d) {
+      var j = jb[d.date] || d.date, t = parseFrDate(d.date);
+      if (!(j in first) || t < first[j]) first[j] = t;
+    });
+    return dates.slice().sort(function (a, b) {
+      return (first[jb[a.date] || a.date] - first[jb[b.date] || b.date]) || (parseFrDate(a.date) - parseFrDate(b.date));
+    });
+  }
+  // Cadre noir épais autour des dates consécutives d'une même journée :
+  // bordures gauche / droite à appliquer à la colonne i ('' si aucune).
+  function journeeFrameCss(dates, i) {
+    var jb = STATE.config.journeeByDate || {};
+    var j = jb[dates[i].date];
+    if (!j) return '';
+    var prev = i > 0 && jb[dates[i - 1].date] === j;
+    var next = i < dates.length - 1 && jb[dates[i + 1].date] === j;
+    if (!prev && !next) return '';
+    return (prev ? '' : 'border-left:3px solid #111;') + (next ? '' : 'border-right:3px solid #111;');
+  }
+  function inJourneeFrame(dates, i) {
+    var jb = STATE.config.journeeByDate || {};
+    var j = jb[dates[i].date];
+    return !!j && ((i > 0 && jb[dates[i - 1].date] === j) || (i < dates.length - 1 && jb[dates[i + 1].date] === j));
+  }
+
   function burnTableHeaderHtml(dates, lastTeamId, teamId) {
     var html = '<tr><th class="player-col">Joueur</th>';
-    dates.forEach(function (d) {
+    dates.forEach(function (d, i) {
       var gc = GROUP_COLORS[d.group] || '#999';
-      html += '<th data-date="' + d.date + '" class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';"><div class="date-head">' + d.date + '</div><div class="grp-head">' + GROUP_LABEL[d.group] + '</div>' +
+      var framed = inJourneeFrame(dates, i);
+      html += '<th data-date="' + d.date + '" class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';' + (framed ? 'border-top:3px solid #111;' : '') + journeeFrameCss(dates, i) + '">' +
+        (framed ? '<div class="jr-head">' + escHtml((STATE.config.journeeByDate || {})[d.date]) + '</div>' : '') +
+        '<div class="date-head">' + d.date + '</div><div class="grp-head">' + GROUP_LABEL[d.group] + '</div>' +
         (teamId ? opponentHeadHtml(teamId, d.date, d.group) : '') + '</th>';
     });
     TEAMS_forHeader().forEach(function (t) {
@@ -1532,7 +1567,7 @@
       if (j) { usedJournees[j] = dt; }
     });
 
-    dates.forEach(function (d) {
+    dates.forEach(function (d, i) {
       // Même défaut que côté joueur : sans réponse enregistrée, on
       // considère le joueur disponible.
       var status = p.availability[d.date] || 'Disponible';
@@ -1545,21 +1580,26 @@
       // même journée (peu importe l'équipe) : impossible de le jouer deux
       // fois la même journée.
       var journeeLocked = journee && usedJournees[journee] && usedJournees[journee] !== d.date;
-      html += '<td class="group-' + d.group.toLowerCase() + ' ' + availClass + (burnedNow ? ' burned-cell' : '') + (journeeLocked ? ' journee-lock' : '') + '" style="border:2px solid ' + gc + ';">';
+      html += '<td class="group-' + d.group.toLowerCase() + ' ' + availClass + (burnedNow ? ' burned-cell' : '') + (journeeLocked ? ' journee-lock' : '') + '" style="border:2px solid ' + gc + ';' + journeeFrameCss(dates, i) +
+        (isLastRow && inJourneeFrame(dates, i) ? 'border-bottom:3px solid #111;' : '') + '">';
 
+      // Brûlé pour toutes les équipes qui jouent à cette date (ex. joueur
+      // monté qui ne peut plus redescendre) : 🔥 affiché directement.
+      var groupTeams = friTeams().filter(function (t) { return t.group === d.group; });
+      var allBurned = !assigned && groupTeams.length > 0 && groupTeams.every(function (t) { return p.burned[t.id]; });
       if (viewOnly || journeeLocked || (restrictToTeamId && assigned && assigned !== restrictToTeamId)) {
         // Lecture seule : soit une équipe qu'un capitaine ne fait que
         // consulter, soit une date verrouillée (déjà joué cette journée),
         // soit (vue capitaine sur sa propre équipe) une case déjà affectée
         // à une AUTRE équipe qu'il ne doit pas écraser.
         var otherTeam = assigned ? STATE.config.teams.find(function (t) { return t.id === assigned; }) : null;
-        var lockLabel = journeeLocked ? ('Déjà ' + journee + ' (' + usedJournees[journee] + ')') : (otherTeam ? otherTeam.name : '—');
+        var lockLabel = journeeLocked ? ('Déjà ' + journee + ' (' + usedJournees[journee] + ')') : (otherTeam ? otherTeam.name : allBurned ? '🔥' : '—');
         html += '<span style="font-size:11px;color:var(--muted);" title="' + (journeeLocked ? 'Ce joueur est déjà affecté le ' + usedJournees[journee] + ' pour la même journée (' + journee + ')' : '') + '">' + lockLabel + '</span>';
         if (status === 'Indisponible') html += '<span class="indispo-tag">✕ indispo</span>';
       } else {
         var isPending = !!STATE.pendingAssignments[pendingKey(p.id, d.date)];
-        html += '<select data-key="' + p.id + '|' + d.date + '" class="assign-select' + (isPending ? ' pending' : '') + '" title="' + (isPending ? 'Modification non enregistrée' : (status === 'Indisponible' ? 'Joueur indisponible' : '')) + '" onchange="onAssignChange(\'' + p.id + '\',\'' + d.date + '\',this.value)">' +
-          '<option value="">—</option>';
+        html += '<select data-key="' + p.id + '|' + d.date + '" class="assign-select' + (isPending ? ' pending' : '') + '" title="' + (isPending ? 'Modification non enregistrée' : (status === 'Indisponible' ? 'Joueur indisponible' : allBurned ? 'Brûlé pour toutes les équipes de cette date' : '')) + '" onchange="onAssignChange(\'' + p.id + '\',\'' + d.date + '\',this.value)">' +
+          '<option value="">' + (allBurned ? '🔥' : '—') + '</option>';
         // Seules les équipes qui jouent à cette date sont proposées : date
         // Régional 3 -> FRI1, date D1/D2 -> FRI2 à FRI4, date D3/D4 -> FRI5 à
         // FRI8 (même groupe de dates). Une affectation existante hors groupe
@@ -1653,7 +1693,7 @@
     renderGroupColorLegend();
     renderTeamColorLegend();
     renderValidateBar('adminValidateBar');
-    var dates = allDatesFlat();
+    var dates = datesByJournee(allDatesFlat());
     var container = document.getElementById('burnTableContainer');
     var lastTeamId = friTeams()[friTeams().length - 1].id;
 
