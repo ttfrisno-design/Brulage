@@ -2174,6 +2174,7 @@
         '<td><select onchange="editPlayer(' + p.ID + ',this)" data-field="Catégorie" style="width:95px;"><option value="">—</option>' +
           ALL_CATEGORIES.map(function (c) { return '<option' + (p['Catégorie'] === c ? ' selected' : '') + '>' + c + '</option>'; }).join('') +
         '</select></td>' +
+        '<td><input type="url" value="' + escAttr(p.LienEspace) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="LienEspace" style="width:140px;" placeholder="lien FFTT / PingPocket"></td>' +
         '<td><select onchange="editPlayer(' + p.ID + ',this)" data-field="Sexe" style="width:60px;" title="F : voit les rassemblements féminins">' +
           ['', 'F', 'M'].map(function (x) { return '<option value="' + x + '"' + (String(p.Sexe || '').toUpperCase() === x ? ' selected' : '') + '>' + (x || '—') + '</option>'; }).join('') +
         '</select></td>' +
@@ -2192,7 +2193,7 @@
       html += '<div class="team-frame" style="--team-border:' + c.border + ';--team-bg:' + c.bg + ';">' +
         '<h3 class="team-frame-title">' + t.name + ' — ' + t.division + ' <span style="font-weight:400;color:var(--muted);">(' + teamPlayers.length + ' joueur' + (teamPlayers.length > 1 ? 's' : '') + ')</span></h3>';
       if (teamPlayers.length) {
-        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Sexe</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Espace FFTT</th><th>Sexe</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
         teamPlayers.forEach(function (p) { html += rowHtml(p); });
         html += '</tbody></table>';
       } else {
@@ -2209,7 +2210,7 @@
     html += '<div class="team-frame" style="--team-border:#999;--team-bg:#f5f5f5;">' +
       '<h3 class="team-frame-title">Sans équipe <span style="font-weight:400;color:var(--muted);">(' + noTeam.length + ' joueur' + (noTeam.length > 1 ? 's' : '') + ' — hors championnat par équipes, absents du tableau de brûlage)</span></h3>';
     if (noTeam.length) {
-      html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Sexe</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+      html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Espace FFTT</th><th>Sexe</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
       noTeam.forEach(function (p) { html += rowHtml(p); });
       html += '</tbody></table>';
     } else {
@@ -2244,7 +2245,7 @@
     container.dataset.players = JSON.stringify(players);
     saveCache('roster', players);
     STATE.lastRaw.roster = container.dataset.players;
-    var args = [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '', p['Catégorie'] || '', p.Licence || '', p.Points === undefined ? '' : p.Points, p.Sexe || ''];
+    var args = [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '', p['Catégorie'] || '', p.Licence || '', p.Points === undefined ? '' : p.Points, p.Sexe || '', p.LienEspace || ''];
     el.classList.remove('save-ok', 'save-err');
     el.classList.add('save-pending');
     playerSaveChain = playerSaveChain.then(function () {
@@ -3398,7 +3399,11 @@
     // PingPocket (lien réglé par l'admin), puis sa fiche FFTT sur
     // malicence.fftt.com (PPS et demande de licence ; identifiant = n° de
     // licence, mot de passe mémorisé par le navigateur / le téléphone).
-    if (pr.ffttUrl) html += '<div class="profile-fftt">📱 <a href="' + escAttr(pr.ffttUrl) + '" target="_blank" rel="noopener">Mon espace FFTT / PingPocket ↗</a></div>';
+    // Lien personnel (colonne M de la feuille Joueurs, saisi par le joueur
+    // ou par l'admin), sinon modèle commun réglé par l'admin.
+    html += '<div class="profile-fftt">📱 ' + (pr.ffttUrl ? '<a href="' + escAttr(pr.ffttUrl) + '" target="_blank" rel="noopener">Mon espace FFTT / PingPocket ↗</a> ' +
+        '<button class="btn-sm" onclick="editMyLink()" title="Modifier mon lien">✏️</button>'
+      : '<button class="btn-sm" onclick="editMyLink()">➕ Ajouter mon lien FFTT / PingPocket</button>') + '</div>';
     html += '<div class="profile-fftt">🔑 <a href="https://malicence.fftt.com/login" target="_blank" rel="noopener">Ma fiche FFTT ↗</a> <span style="color:var(--muted);">(PPS et demande de licence)</span>' +
       (pr.licence ? ' <span style="color:var(--muted);">· identifiant : n° de licence <b>' + escHtml(pr.licence) + '</b></span>' +
         ' <button class="btn-sm" onclick="copyText(' + escAttr(JSON.stringify(String(pr.licence))) + ', this)">Copier</button>' : '') + '</div>';
@@ -3428,6 +3433,19 @@
       html += '<div class="profile-section box box-burn"><h4>🔥 Brûlé (phase ' + STATE.phase + ')</h4>' + burnedNow.map(function (n) { return '<span class="chip">' + escHtml(n) + ' 🔥</span>'; }).join('') + '</div>';
     }
     el.innerHTML = html + '</div>';
+  }
+
+  function editMyLink() {
+    var pr = STATE.profile || {};
+    var v = prompt('Collez le lien de votre espace sur l\'application FFTT ou sur PingPocket (vide pour le supprimer) :', pr.lienEspace || pr.ffttUrl || '');
+    if (v === null) return;
+    callServer('setPlayerLink', [STATE.session.playerId, v.trim()]).then(function (res) {
+      pr.lienEspace = res.lienEspace;
+      if (res.lienEspace) pr.ffttUrl = res.lienEspace;
+      else { STATE.profile = null; loadHomeData(); return; }
+      saveCache('profile_' + STATE.session.playerId, pr);
+      renderProfile();
+    }).catch(onGsError);
   }
 
   function copyText(text, btn) {

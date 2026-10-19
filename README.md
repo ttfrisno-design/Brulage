@@ -301,9 +301,12 @@ les indisponibilités, orange pour les brûlages.
 **FFTT** : l'onglet Effectif comporte les colonnes **Licence** et **Points**
 (feuille *Joueurs*, colonnes J et K) ; le classement est calculé (points /
 100). Sous le lien du site du club, le profil du joueur affiche :
-« Mon espace FFTT / PingPocket » (adresse saisie dans *Dates & Réglages ›
-Espace joueur FFTT / PingPocket*, où `{licence}` est remplacé par son numéro
-de licence), puis « Ma fiche FFTT (PPS et demande de licence) » vers
+« Mon espace FFTT / PingPocket » : lien **personnel** du joueur, colonne
+**M « LienEspace »** de la feuille *Joueurs* (en-tête ajouté
+automatiquement), saisi par le joueur lui-même (bouton ✏️ / « Ajouter mon
+lien » sur sa page) ou par l'admin (colonne *Espace FFTT* de l'Effectif) ;
+à défaut, adresse commune de *Dates & Réglages › Espace joueur FFTT /
+PingPocket* (avec `{licence}`). Puis « Ma fiche FFTT (PPS et demande de licence) » vers
 https://malicence.fftt.com/login, avec son n° de licence à copier. La récupération automatique des points nécessite l'API officielle
 de la FFTT (identifiants à demander par le club).
 
