@@ -1402,6 +1402,9 @@
     document.querySelectorAll('.admin-tab').forEach(function (el) { el.classList.add('hidden'); });
     document.getElementById(tabId).classList.remove('hidden');
     document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tabId); });
+    // Tableau dessiné pendant qu'il était caché : on le redessine pour
+    // aligner les colonnes des équipes (mesures impossibles hors écran).
+    if (tabId === 'tab-burn' && STATE.adminData) renderBurnTable();
   }
 
   // Indisponibilité saisie par l'administrateur pour un joueur (bascule
@@ -1571,7 +1574,7 @@
     TEAMS_forHeader().forEach(function (t) {
       var c = TEAM_COLORS[t.id] || { border: '#999', bg: '#f5f5f5' };
       var right = t.id === lastTeamId ? ('border-right:3px solid ' + c.border + ';') : '';
-      html += '<th' + rowspan + ' style="border-left:3px solid ' + c.border + ';border-top:3px solid ' + c.border + ';' + right + 'background:' + c.bg + ';">' + t.name + '</th>';
+      html += '<th' + rowspan + ' data-team="' + t.id + '" style="border-left:3px solid ' + c.border + ';border-top:3px solid ' + c.border + ';' + right + 'background:' + c.bg + ';">' + t.name + '</th>';
     });
     return html;
   }
@@ -1681,6 +1684,7 @@
     var active = document.activeElement;
     var activeKey = active && container.contains(active) && active.dataset ? active.dataset.key : null;
     container.innerHTML = html;
+    if (container.id === 'burnTableContainer') alignBurnTables(container);
     // Première vue (ou changement de phase) : chaque tableau s'ouvre sur la
     // date de match la plus proche à venir. Ensuite, on garde la position
     // choisie par l'utilisateur.
@@ -1695,6 +1699,32 @@
       var again = container.querySelector('[data-key="' + activeKey + '"]');
       if (again) again.focus({ preventScroll: true });
     }
+  }
+
+  // Tableau de brûlage admin (un tableau par équipe) : même largeur pour
+  // une même date dans tous les tableaux, pour que les journées soient
+  // alignées d'une équipe à l'autre, et défilement horizontal synchronisé.
+  function alignBurnTables(container) {
+    var ths = container.querySelectorAll('table.burn-table th[data-date], table.burn-table th[data-team]');
+    if (!ths.length || !container.offsetParent) return;
+    var key = function (th) { return th.dataset.date || 'team' + th.dataset.team; };
+    var widths = {};
+    Array.prototype.forEach.call(ths, function (th) {
+      // Largeur réelle de la colonne (box-sizing: border-box).
+      var w = th.getBoundingClientRect().width;
+      widths[key(th)] = Math.max(widths[key(th)] || 0, Math.ceil(w));
+    });
+    Array.prototype.forEach.call(ths, function (th) { th.style.width = th.style.minWidth = widths[key(th)] + 'px'; });
+    var scrollers = container.querySelectorAll('.table-scroll');
+    var syncing = false;
+    Array.prototype.forEach.call(scrollers, function (el) {
+      el.addEventListener('scroll', function () {
+        if (syncing) return;
+        syncing = true;
+        Array.prototype.forEach.call(scrollers, function (o) { if (o !== el) o.scrollLeft = el.scrollLeft; });
+        requestAnimationFrame(function () { syncing = false; });
+      }, { passive: true });
+    });
   }
 
   // Fait défiler un tableau de brûlage jusqu'à la colonne de la prochaine
