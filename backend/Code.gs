@@ -114,6 +114,7 @@ const API_FUNCTIONS_ = {
   getProfile: getProfile,
   setFfttLink: setFfttLink,
   setSetting: setSetting,
+  setPlayerLink: setPlayerLink,
   saveRencontre: saveRencontre,
   registerPushToken: registerPushToken,
   createCheckout: createCheckout,
@@ -271,7 +272,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V17';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V18';
 
 function ensureSheets_() {
   if (sheetsChecked_) return;
@@ -407,6 +408,11 @@ function ensureSheetsNow_() {
   // seulement, renseignée par l'admin dans l'effectif.
   if (players.getLastColumn() < 12) {
     players.getRange(1, 12).setValue('Sexe');
+  }
+  // Colonne M "LienEspace" : lien personnel du joueur vers son espace sur
+  // l'application FFTT ou PingPocket (prioritaire sur le modèle commun).
+  if (players.getLastColumn() < 13) {
+    players.getRange(1, 13).setValue('LienEspace');
   }
 
   // Réglages des compétitions individuelles, ajoutés à la feuille Config
@@ -2251,7 +2257,9 @@ function getProfile(playerId) {
     points: points,
     // Classement FFTT = points / 100 (arrondi inférieur), 5 au minimum.
     classement: points ? Math.max(5, Math.floor(points / 100)) : null,
-    ffttUrl: licence && template ? template.replace(/\{licence\}/g, encodeURIComponent(licence)) : '',
+    ffttUrl: String(p.LienEspace || '').trim() ||
+      (licence && template ? template.replace(/\{licence\}/g, encodeURIComponent(licence)) : ''),
+    lienEspace: String(p.LienEspace || '').trim(),
     assignments: assignments,
     indispos: indispos,
     burned: burned,
@@ -2327,12 +2335,34 @@ function addPlayer(nom, prenom, teamId, pin, capitaine, telephone, categorie, se
   return { ok: true, id: newId };
 }
 
+function normLink_(v) {
+  const s = String(v || '').trim();
+  if (!s) return '';
+  if (!/^https?:\/\/\S+$/i.test(s)) throw new Error('Lien invalide (il doit commencer par https://) : ' + s);
+  return s;
+}
+
+/** Le joueur enregistre lui-même son lien (espace FFTT / PingPocket). */
+function setPlayerLink(playerId, link) {
+  ensureSheets_();
+  const v = normLink_(link);
+  const sheet = ss_().getSheetByName('Joueurs');
+  const values = sheet.getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][0]) === String(playerId)) {
+      sheet.getRange(i + 1, 13).setValue(v);
+      return { ok: true, lienEspace: v };
+    }
+  }
+  throw new Error('Joueur introuvable.');
+}
+
 function normSexe_(v) {
   const s = String(v || '').trim().toUpperCase();
   return s === 'F' || s === 'M' ? s : '';
 }
 
-function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone, categorie, licence, points, sexe) {
+function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone, categorie, licence, points, sexe, lienEspace) {
   ensureSheets_();
   assertPinAvailable_(pin, id);
   const sheet = ss_().getSheetByName('Joueurs');
@@ -2361,6 +2391,9 @@ function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone,
       }
       if (sexe !== undefined) {
         sheet.getRange(i + 1, 12).setValue(normSexe_(sexe));
+      }
+      if (lienEspace !== undefined) {
+        sheet.getRange(i + 1, 13).setValue(normLink_(lienEspace));
       }
       return { ok: true };
     }
