@@ -109,7 +109,7 @@
     table.burn-table td.player-col .pc-home { display: block; font-size: 10px; color: var(--muted); }
     table.burn-table thead th { background: #f0f3f7; position: sticky; top: 0; z-index: 1; }
     table.burn-table th.jr-gap, table.burn-table td.jr-gap { width: 5px; min-width: 5px; max-width: 5px; padding: 0; border: none !important; background: #fff !important; }
-    table.burn-table th.jr-title { border: 3px solid #111 !important; border-bottom-width: 1px !important; background: #111 !important; color: #fff; font-size: 12px; font-weight: 700; padding: 3px 4px; }
+    table.burn-table th.jr-title { border: 3px solid #555 !important; border-bottom-width: 1px !important; background: #555 !important; color: #fff; font-size: 12px; font-weight: 700; padding: 3px 4px; }
     table.burn-table th.jr-title-empty { border: none !important; background: #fff !important; }
     table.burn-table thead th.player-col { z-index: 3; }
     table.burn-table td.group-a { background: #f5fbff; }
@@ -1484,7 +1484,7 @@
     var prev = i > 0 && jb[dates[i - 1].date] === j;
     var next = i < dates.length - 1 && jb[dates[i + 1].date] === j;
     if (!prev && !next) return '';
-    return (prev ? '' : 'border-left:3px solid #111;') + (next ? '' : 'border-right:3px solid #111;');
+    return (prev ? '' : 'border-left:3px solid #555;') + (next ? '' : 'border-right:3px solid #555;');
   }
   // Petit espace (colonne vide) entre deux journées encadrées.
   function journeeGapBefore(dates, i) {
@@ -1579,7 +1579,7 @@
       var journeeLocked = journee && usedJournees[journee] && usedJournees[journee] !== d.date;
       if (journeeGapBefore(dates, i)) html += '<td class="jr-gap"></td>';
       html += '<td class="group-' + d.group.toLowerCase() + ' ' + availClass + (burnedNow ? ' burned-cell' : '') + (journeeLocked ? ' journee-lock' : '') + '" style="border:2px solid ' + gc + ';' + journeeFrameCss(dates, i) +
-        (isLastRow && inJourneeFrame(dates, i) ? 'border-bottom:3px solid #111;' : '') + '">';
+        (isLastRow && inJourneeFrame(dates, i) ? 'border-bottom:3px solid #555;' : '') + '">';
 
       // Brûlé pour toutes les équipes qui jouent à cette date (ex. joueur
       // monté qui ne peut plus redescendre) : 🔥 affiché directement.
