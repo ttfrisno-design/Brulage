@@ -391,14 +391,17 @@ tours à venir ; pour la Coupe de Rouen, groupés par équipe CDR1, CDR2…).
    l'annuaire (`CLUBS` dans `www/config.js` : nom, ville, code postal,
    logo, et `serverUrl` = l'adresse du script Apps Script du club ; sans
    `serverUrl`, c'est `SERVER_URL`). Recherche par nom ou par ville ; le
-   dernier club choisi est proposé en premier.
+   dernier club choisi est proposé en premier. Case « Mémoriser ce club sur
+   cet appareil » (cochée par défaut) : aux ouvertures suivantes, l'appli
+   s'ouvre directement sur la page du club.
 2. **Présentation du club** (sans code) : photo et adresse de la salle (avec
    lien Itinéraire), équipes engagées et leur niveau (automatique),
    entraînements (créneaux jour / horaire / niveau, et/ou photo du
    planning, et remarques), tarifs.
 3. **Lien vers le site d'inscription** (« Inscription en ligne : bientôt
    disponible » tant qu'il n'est pas renseigné).
-4. **Connexion** du joueur avec son code.
+4. **Connexion** du joueur avec son code : le champ du code est **en haut**
+   de la page du club, au-dessus de la présentation.
 
 Le contenu se règle dans l'onglet admin *Dates & Réglages › Présentation du
 club* (clés `Club*` de la feuille Config). La photo envoyée est réduite par
