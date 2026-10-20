@@ -3237,7 +3237,9 @@
     if (!el) return;
     callServer('getHelloAssoStatus', [], 1).then(function (st) {
       el.innerHTML = st.configured
-        ? '✅ Configuré (association <b>' + escHtml(st.org) + '</b>' + (st.sandbox ? ', <b>mode test</b>' : '') + '). Renseignez les montants dans l\'onglet Compétitions individuelles.'
+        ? (st.ok === false
+          ? '❌ Connexion impossible (association <b>' + escHtml(st.org) + '</b>' + (st.sandbox ? ', <b>mode test</b>' : '') + ') : ' + escHtml(st.error || '')
+          : '✅ Configuré et connecté (association <b>' + escHtml(st.org) + '</b>' + (st.sandbox ? ', <b>mode test</b>' : '') + '). Renseignez les montants dans l\'onglet Compétitions individuelles.')
         : '⚪ Pas encore configuré : ajoutez les clés API HelloAsso dans les propriétés du script (voir README).';
     }).catch(function () { el.textContent = 'État indisponible (script pas encore mis à jour ?).'; });
   }
