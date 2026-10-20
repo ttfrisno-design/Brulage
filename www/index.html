@@ -222,6 +222,9 @@
     .btn-link { display: block; text-align: center; text-decoration: none; padding: 10px 16px; border-radius: 6px; }
     button.linkish { background: none; border: none; color: var(--primary); cursor: pointer; font: inherit; padding: 4px 0; text-align: left; }
     .login-club { margin-bottom: 6px; }
+    #clubLoginSlot .login-card { border: 2px solid var(--primary); }
+    .club-remember { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 0; font-size: 13px; color: var(--muted); cursor: pointer; }
+    .club-remember input { margin-top: 2px; }
     .club-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
     .club-form .full { grid-column: 1 / -1; }
     .club-form textarea { width: 100%; font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; }
@@ -417,6 +420,7 @@
         <h2>Choisissez votre club</h2>
         <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Tapez le nom du club ou sa ville.</p>
         <input type="search" id="clubSearch" placeholder="Ex. Isneauville, FRI…" autocomplete="off" oninput="renderClubList()">
+        <label class="club-remember"><input type="checkbox" id="clubRemember" checked> Mémoriser ce club sur cet appareil (ouverture directe sur mon club)</label>
         <div id="clubList" class="club-list"></div>
       </div>
     </main>
@@ -429,6 +433,7 @@
       <h1 id="clubInfoName">Mon club</h1>
     </header>
     <main style="max-width:720px;">
+      <div id="clubLoginSlot"></div>
       <div id="clubInfo"></div>
     </main>
   </div>
@@ -440,10 +445,10 @@
       <h1>RebonTT</h1>
     </header>
     <main style="max-width:420px;">
-      <div class="card">
+      <div class="card login-card" id="loginCard">
         <div id="loginClub" class="login-club"></div>
-        <h2 id="loginTitle">Connexion</h2>
-        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Saisissez votre code personnel à 6 chiffres.</p>
+        <h2 id="loginTitle">Mon compte</h2>
+        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Licencié du club : saisissez votre code personnel à 6 chiffres.</p>
         <label>Code</label>
         <input type="password" id="loginPin" inputmode="numeric" maxlength="6" autocomplete="off" autofocus style="letter-spacing:4px;font-size:20px;text-align:center;" onkeydown="if (event.key === 'Enter') doLogin();">
         <button class="primary" id="loginBtn" onclick="doLogin()">Se connecter</button>
@@ -966,6 +971,7 @@
   var DEFAULT_SERVER_URL = SERVER_URL;
   var CLUBS = (window.APP_CONFIG && window.APP_CONFIG.CLUBS) || null;
   var CLUB_KEY = 'rebontt_club';
+  var CLUB_FIXED_KEY = 'rebontt_club_memorise';
   function storeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function storeSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* pas bloquant */ } }
   function findClub(id) { return (CLUBS || []).filter(function (c) { return c.id === id; })[0] || null; }
@@ -981,6 +987,8 @@
     if (!CLUBS) { applyClub(defaultClub()); openClubInfo(); return; }
     var last = findClub(storeGet(CLUB_KEY));
     if (last) applyClub(last);
+    // Club mémorisé : ouverture directe sur la page du club, connexion en haut.
+    if (last && storeGet(CLUB_FIXED_KEY)) { openClubInfo(); return; }
     showClubPick();
   }
   function showClubPick() {
@@ -1009,11 +1017,18 @@
       try { Object.keys(localStorage).forEach(function (k) { if (/^fri_cache_|^fri_avail_outbox$/.test(k)) localStorage.removeItem(k); }); } catch (e) { /* pas bloquant */ }
     }
     storeSet(CLUB_KEY, id);
+    var rem = document.getElementById('clubRemember');
+    storeSet(CLUB_FIXED_KEY, rem && rem.checked ? '1' : null);
     applyClub(club);
     openClubInfo();
   }
   function openClubInfo() {
     showView('clubInfoView');
+    var card = document.getElementById('loginCard');
+    document.getElementById('clubLoginSlot').appendChild(card);
+    document.getElementById('loginClub').innerHTML = '';
+    var pinEl = document.getElementById('loginPin');
+    if (pinEl && typeof isMobileDevice === 'function' && !isMobileDevice()) setTimeout(function () { try { pinEl.focus(); } catch (e) { /* pas bloquant */ } }, 50);
     var club = STATE.club || defaultClub();
     document.getElementById('clubInfoName').textContent = club.nom || 'Mon club';
     var cached = null;
@@ -1070,20 +1085,15 @@
       (info && info.inscription
         ? '<a class="primary btn-link" href="' + escAttr(info.inscription) + '" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)">S\'inscrire au club ↗</a>'
         : '<button class="secondary" disabled>Inscription en ligne : bientôt disponible</button>') +
-      '<button class="primary" onclick="showLogin()">Déjà licencié : me connecter avec mon code</button>' +
       (CLUBS ? '<button class="linkish" onclick="showClubPick()">← Changer de club</button>' : '') +
       '</div>';
     document.getElementById('clubInfo').innerHTML = html;
   }
+  // La connexion se fait en haut de la page du club.
   function showLogin() {
-    showView('loginView');
-    var club = STATE.club || defaultClub();
-    var info = null;
-    try { info = JSON.parse(storeGet('rebontt_clubinfo_' + club.id) || 'null'); } catch (e) { info = null; }
-    document.getElementById('loginClub').innerHTML = '<button class="linkish" onclick="openClubInfo()">← ' + escHtml((info && info.nom) || club.nom || 'Présentation du club') + '</button>';
-    var pin = document.getElementById('loginPin');
-    if (pin) { pin.value = ''; setTimeout(function () { try { pin.focus(); } catch (e) { /* pas bloquant */ } }, 50); }
+    openClubInfo();
   }
+
 
   // Connexion simplifiée : un seul code à 6 chiffres, pour joueur comme pour
   // administrateur (le serveur détermine le rôle selon le code saisi).
