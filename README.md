@@ -348,6 +348,10 @@ validation » (bouton *Vérifier mon paiement*). Suivi des paiements : feuille
    `HELLOASSO_CLIENT_ID`, `HELLOASSO_CLIENT_SECRET`, `HELLOASSO_ORG` (slug).
    Pour tester sans vrai paiement : `HELLOASSO_SANDBOX` = `oui` (avec des
    clés du site de test helloasso-sandbox.com).
+   L'onglet *Dates & Réglages › Paiement HelloAsso* teste la connexion :
+   « ❌ Connexion impossible … (403) » = clés valides mais sans accès à
+   l'association : vérifier `HELLOASSO_ORG` (slug exact) et que les clés
+   ont été créées sur le compte de cette association (et non du site de test).
 3. **Ne pas toucher à l'URL de notification HelloAsso** (déjà utilisée par
    le script des inscriptions du club). À la place, éditeur Apps Script ›
    ⏰ *Déclencheurs › Ajouter un déclencheur* : fonction

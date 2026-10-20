@@ -1709,9 +1709,18 @@ function helloAssoConfig_() {
   };
 }
 
+// Clé de cache liée aux identifiants : un changement de clés ou d'association
+// (ex. passage sandbox → officiel) n'utilise jamais un ancien jeton.
+function helloAssoTokenKey_(cfg) {
+  return 'HA_TOKEN_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(
+    Utilities.DigestAlgorithm.MD5, cfg.api + '|' + cfg.id + '|' + cfg.org));
+}
+
 function helloAssoToken_(cfg) {
   const cache = CacheService.getScriptCache();
-  const key = 'HA_TOKEN_' + (cfg.sandbox ? 'S' : 'P');
+  // Clé liée aux identifiants : un changement de clés ou d'association
+  // (ex. passage sandbox → officiel) n'utilise jamais un ancien jeton.
+  const key = helloAssoTokenKey_(cfg);
   const cached = cache.get(key);
   if (cached) return cached;
   const res = UrlFetchApp.fetch(cfg.api + '/oauth2/token', {
@@ -1733,6 +1742,11 @@ function helloAssoApi_(cfg, method, path, body) {
   const res = UrlFetchApp.fetch(cfg.api + '/v5/organizations/' + encodeURIComponent(cfg.org) + path, opts);
   const code = res.getResponseCode();
   const text = res.getContentText() || '{}';
+  if (code === 401) CacheService.getScriptCache().remove(helloAssoTokenKey_(cfg));
+  if (code === 401 || code === 403) {
+    throw new Error('HelloAsso (' + code + ') : les clés API sont acceptées mais n\'ont pas accès à l\'association « ' + cfg.org +
+      ' ». Vérifiez HELLOASSO_ORG (le nom après helloasso.com/associations/ dans l\'adresse de la page de l\'association) et que les clés ont été créées sur ce même compte association.');
+  }
   if (code >= 300) throw new Error('HelloAsso (' + code + ') : ' + text.slice(0, 300));
   return JSON.parse(text);
 }
@@ -1918,7 +1932,10 @@ function verifierPaiementsEnAttente() {
 /** Admin : état de la configuration HelloAsso. */
 function getHelloAssoStatus() {
   const cfg = helloAssoConfig_();
-  return cfg ? { configured: true, org: cfg.org, sandbox: cfg.sandbox } : { configured: false };
+  if (!cfg) return { configured: false };
+  const st = { configured: true, org: cfg.org, sandbox: cfg.sandbox, ok: true };
+  try { helloAssoApi_(cfg, 'get', ''); } catch (e) { st.ok = false; st.error = e.message; }
+  return st;
 }
 
 function parseFrDate_(s) {
