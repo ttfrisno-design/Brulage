@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Teinte des notifications (orange de la balle RebonTT). -->
+    <color name="rebontt_notif">#F2731D</color>
+</resources>

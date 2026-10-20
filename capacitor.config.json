@@ -13,6 +13,10 @@
       "style": "DARK",
       "backgroundColor": "#1565c0",
       "overlaysWebView": false
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_rebontt",
+      "iconColor": "#F2731D"
     }
   }
 }
