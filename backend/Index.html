@@ -438,7 +438,7 @@
         <h2 id="loginTitle">Mon compte</h2>
         <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Licencié du club : saisissez votre code personnel à 6 chiffres.</p>
         <label>Code</label>
-        <input type="password" id="loginPin" inputmode="numeric" maxlength="6" autocomplete="off" autofocus style="letter-spacing:4px;font-size:20px;text-align:center;" onkeydown="if (event.key === 'Enter') doLogin();">
+        <input type="password" id="loginPin" inputmode="numeric" maxlength="6" autocomplete="off" autofocus style="letter-spacing:4px;font-size:20px;text-align:center;" onkeydown="if (event.key === 'Enter') doLogin();" oninput="onPinInput()">
         <button class="primary" id="loginBtn" onclick="doLogin()">Se connecter</button>
         <div class="error hidden" id="loginError"></div>
       </div>
@@ -1019,6 +1019,7 @@
     document.getElementById('clubInfoName').textContent = club.nom || 'Mon club';
     var cached = null;
     try { cached = JSON.parse(storeGet('rebontt_clubinfo_' + club.id) || 'null'); } catch (e) { cached = null; }
+    onPinInput();
     if (cached) renderClubInfo(cached);
     else document.getElementById('clubInfo').innerHTML = '<div class="card">Chargement de la présentation du club…</div>';
     callServer('getClubInfo', [], 3).then(function (info) {
@@ -1027,6 +1028,13 @@
     }).catch(function () {
       if (!cached) renderClubInfo(null);
     });
+  }
+  // Dès que l'on tape son code (joueur ou admin), la présentation du club
+  // est masquée ; elle réapparaît si le champ est vidé.
+  function onPinInput() {
+    var pinEl = document.getElementById('loginPin');
+    var info = document.getElementById('clubInfo');
+    if (info) info.classList.toggle('hidden', !!(pinEl && pinEl.value));
   }
   var JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   function textBlock(v, empty) {
@@ -1106,6 +1114,7 @@
           return;
         }
         res.clubId = STATE.club ? STATE.club.id : '';
+        document.getElementById('loginPin').value = ''; // présentation du club réaffichée après déconnexion
         STATE.session = res;
         STATE.config = res.config; // renvoyée par login() elle-même, pas d'appel séparé
         sessionStorage.setItem('fri_session', JSON.stringify(res));
