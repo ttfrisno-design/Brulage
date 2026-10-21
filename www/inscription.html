@@ -507,6 +507,32 @@
   }
   function slotById(id) { return (INFO.creneaux || []).find(function (c) { return c.id === id; }); }
   function slotLabel(c) { return c ? (c.niveau || 'Entraînement') + ' – ' + c.jour + ' ' + hm(c.debut) + (c.fin ? '-' + hm(c.fin) : '') : ''; }
+  // Date de naissance saisie au clavier (JJ/MM/AAAA) : les « / » s'ajoutent
+  // tout seuls (le sélecteur de date du navigateur était pénible à
+  // utiliser pour une date ancienne).
+  function isoToFr(v) { var m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); return m ? m[3] + '/' + m[2] + '/' + m[1] : ''; }
+  function frToIso(v) {
+    var m = String(v || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return '';
+    var d = Number(m[1]), mo = Number(m[2]), y = Number(m[3]), dt = new Date(y, mo - 1, d);
+    if (dt.getFullYear() !== y || dt.getMonth() !== mo - 1 || dt.getDate() !== d || y < 1900 || dt > new Date()) return '';
+    return y + '-' + ('0' + mo).slice(-2) + '-' + ('0' + d).slice(-2);
+  }
+  function maskDate(el, ev, i) {
+    var deleting = ev && ev.inputType && ev.inputType.indexOf('delete') === 0;
+    if (!deleting) {
+      var dg = el.value.replace(/\D/g, '').slice(0, 8);
+      el.value = dg.length > 4 ? dg.slice(0, 2) + '/' + dg.slice(2, 4) + '/' + dg.slice(4) : dg.length > 2 ? dg.slice(0, 2) + '/' + dg.slice(2) + (dg.length === 4 ? '/' : '') : dg + (dg.length === 2 ? '/' : '');
+    }
+    // Date complète : catégorie et créneaux de l'âge mis à jour.
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(el.value)) {
+      readMembers(); renderMembers();
+      var next = document.querySelectorAll('#members .member')[i];
+      if (next) { var f = next.querySelector('[data-k="sexe"]'); if (f) f.focus(); }
+      if (!W.membres[i].naissance) flash('Date de naissance invalide : ' + esc(el.value) + ' (JJ/MM/AAAA).', 'err');
+      else if ($('globalMsg').textContent.indexOf('Date de naissance invalide') >= 0) flash('');
+    }
+  }
   function emptyMember() { return { nom: '', prenom: '', naissance: '', sexe: '', licence: 'Sans licence', numLicence: '', creneau1: '', creneau2: '' }; }
   // Licence FFTT facultative (nécessaire pour la compétition).
   function hasLicence(m) { return m.licence === 'Nouvelle' || m.licence === 'Renouvellement'; }
@@ -585,7 +611,7 @@
       for (var i = 0; i < W.membres.length; i++) {
         var m = W.membres[i], who = m.prenom || ('Membre ' + (i + 1));
         if (!m.nom || !m.prenom) return 'Membre ' + (i + 1) + ' : nom et prénom obligatoires.';
-        if (!categorie(m.naissance)) return who + ' : date de naissance obligatoire.';
+        if (!categorie(m.naissance)) return who + ' : ' + (m.naissanceFr ? 'date de naissance invalide (JJ/MM/AAAA).' : 'date de naissance obligatoire.');
         if (!m.sexe) return who + ' : précisez le sexe (licence FFTT).';
         if (!m.creneau1) return who + ' : choisissez un créneau.';
       }
@@ -601,7 +627,9 @@
   function readMembers() {
     document.querySelectorAll('#members .member').forEach(function (el, i) {
       var m = W.membres[i]; if (!m) return;
-      ['nom', 'prenom', 'naissance', 'sexe', 'licence', 'numLicence'].forEach(function (k) { var f = el.querySelector('[data-k="' + k + '"]'); if (f) m[k] = f.value.trim(); });
+      ['nom', 'prenom', 'sexe', 'licence', 'numLicence'].forEach(function (k) { var f = el.querySelector('[data-k="' + k + '"]'); if (f) m[k] = f.value.trim(); });
+      var dn = el.querySelector('[data-k="naissanceFr"]');
+      if (dn) { m.naissanceFr = dn.value.trim(); m.naissance = frToIso(m.naissanceFr); }
     });
   }
   function addMember() {
@@ -657,7 +685,7 @@
         '<div class="grid2">' +
         '<div><label>Nom <span class="req">*</span></label><input data-k="nom" value="' + esc(m.nom) + '" style="text-transform:uppercase"></div>' +
         '<div><label>Prénom <span class="req">*</span> ' + (i === 0 ? '<a href="#" style="font-weight:400;font-size:12px;" onclick="copyResp(' + i + ');return false;">(c\'est le responsable)</a>' : '') + '</label><input data-k="prenom" value="' + esc(m.prenom) + '"></div>' +
-        '<div><label>Date de naissance <span class="req">*</span></label><input type="date" data-k="naissance" value="' + esc(m.naissance) + '" onchange="readMembers();renderMembers()"></div>' +
+        '<div><label>Date de naissance <span class="req">*</span> <small>(JJ/MM/AAAA)</small></label><input type="text" data-k="naissanceFr" inputmode="numeric" autocomplete="bday" maxlength="10" placeholder="JJ/MM/AAAA" value="' + esc(m.naissanceFr || isoToFr(m.naissance)) + '" oninput="maskDate(this, event, ' + i + ')"></div>' +
         '<div><label>Sexe <span class="req">*</span></label><select data-k="sexe"><option value="">—</option><option value="F"' + (m.sexe === 'F' ? ' selected' : '') + '>Féminin</option><option value="M"' + (m.sexe === 'M' ? ' selected' : '') + '>Masculin</option></select></div>' +
         '<div><label>Licence FFTT <small>(facultative, nécessaire pour la compétition)</small></label><select data-k="licence" onchange="readMembers();renderMembers()">' +
           ['Sans licence', 'Nouvelle', 'Renouvellement'].map(function (o) {
