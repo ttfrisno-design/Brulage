@@ -3144,10 +3144,12 @@ function adhPublicUrl_() {
   return app.replace(/[?#].*$/, '').replace(/[^/]*$/, '') + 'inscription.html';
 }
 
-function adhMail_(to, subject, body) {
+function adhMail_(to, subject, body, replyTo) {
   if (!to) return false;
   try {
-    MailApp.sendEmail({ to: to, subject: subject, body: body, name: readConfigValue_('ClubNom', 'RebonTT') || 'RebonTT' });
+    const o = { to: to, subject: subject, body: body, name: readConfigValue_('ClubNom', 'RebonTT') || 'RebonTT' };
+    if (replyTo) o.replyTo = replyTo; // la famille répond directement au club
+    MailApp.sendEmail(o);
     return true;
   } catch (e) {
     console.warn('E-mail non envoyé (' + to + ') : ' + e.message);
@@ -3168,6 +3170,66 @@ function adhRecap_(a, membres, crs, st) {
   return lines.join('\n') + '\n\nTotal : ' + a.total + ' €' +
     (a.aidesMontant ? '\nAides déclarées (' + a.aides.join(', ') + ') : -' + a.aidesMontant + ' € (justificatif à envoyer)' : '') +
     '\nReste à régler : ' + Math.max(0, a.total - a.aidesMontant) + ' €\n' + pay;
+}
+
+/** E-mail de suivi envoyé à la famille (e-mail principal et e-mail 2) à
+ * chaque avancement de son dossier : ce qui vient de se passer, l'état de
+ * chaque membre et ce qu'il reste à faire. */
+function adhFamilyMail_(dossier, sujet, evenement) {
+  try {
+    const a = adhRows_('Adhesions').find(function (x) { return String(x.Dossier) === String(dossier); });
+    if (!a || !a.Email) return;
+    const st = adhSettings_(), crs = adhCreneaux_();
+    const membres = adhRows_('AdhesionMembres').filter(function (m) { return m.Dossier === a.Dossier && m.Statut !== 'Annulé'; });
+    const docs = adhRows_('AdhesionDocuments').filter(function (x) { return x.Dossier === a.Dossier; });
+    const hasDoc = function (n, type) { return docs.some(function (x) { return adhNum_(x.N) === n && x.Type === type; }); };
+    const todo = [], etat = [];
+    if (a.Statut !== 'Annulé') {
+      membres.forEach(function (m) {
+        const n = adhNum_(m.N), who = m.Prénom, form = adhSanteForm_(m, crs, a.Saison);
+        const certOk = hasDoc(n, 'Certificat médical');
+        if (!m.QS && !certOk) {
+          todo.push(who + ' : ' + ({
+            mineur: 'remplir le questionnaire de santé pour mineur (FFTT n° 26-10-2) et signer l\'attestation (joueur et représentant légal)',
+            decouverte: 'remplir le questionnaire de santé pour majeur – licence Découverte (FFTT n° 26-10-3) et signer l\'attestation',
+            pps: 'faire le PPS dans l\'espace MaLicence (' + st.ppsUrl + ') et envoyer l\'attestation PPS',
+            certificat: 'envoyer un certificat médical (entrée en catégorie vétéran V65, V70, V80, V85 ou V90)',
+          })[form] + '.');
+        } else if (/requis/.test(m.QS || '') && !certOk) {
+          todo.push(who + ' : envoyer le certificat médical (réponse OUI au questionnaire de santé).');
+        }
+        if (!m.Reglement) todo.push(who + ' : accepter le règlement intérieur.');
+        etat.push('- ' + m.Prénom + ' ' + m.Nom + ' : santé ' + (m.QS ? '✓ ' + m.QS : (certOk ? '✓ certificat médical reçu' : '✗ à faire')) +
+          ' · règlement intérieur ' + (m.Reglement ? '✓' : '✗ à accepter') + (m.JoueurID ? ' · inscrit(e) dans l\'effectif du club' : ''));
+      });
+      if (a.Aides && !docs.some(function (x) { return x.Type === 'Justificatif'; })) todo.push('Envoyer le justificatif des aides déclarées (' + a.Aides + ').');
+      const reste = adhReste_(a);
+      if (reste > 0) {
+        todo.push('Régler ' + reste + ' € : ' + (a.Mode === 'Chèque' ? 'chèque(s) à l\'ordre de « ' + st.ordreCheque + ' » (' + a.Echeances + ' fois), à remettre au club'
+          : a.Mode === 'HelloAsso' ? 'paiement en ligne depuis votre compte (bouton « Payer en ligne »)'
+          : a.Mode === 'Virement' ? 'virement' + (st.iban ? ' (IBAN ' + st.iban + ')' : '') : 'en espèces, au club') + '.');
+      }
+    }
+    const lic = membres.some(function (m) { return m.Licence === 'Nouvelle' || m.Licence === 'Renouvellement'; });
+    const body = 'Bonjour ' + a.Prénom + ',\n\n' + evenement + '\n\n' +
+      'État de votre dossier ' + a.Dossier + ' (saison ' + a.Saison + ') :\n' + etat.join('\n') +
+      '\n- Règlement : ' + a.Statut + ' — total ' + adhNum_(a.Total) + ' €' + (adhAidesMontant_(a) ? ', aides ' + adhAidesMontant_(a) + ' €' : '') +
+      ', déjà réglé ' + adhNum_(a.Réglé) + ' €, reste ' + adhReste_(a) + ' €\n\n' +
+      (a.Statut === 'Annulé' ? 'Ce dossier est annulé.\n'
+        : todo.length ? 'Ce qu\'il vous reste à faire :\n' + todo.map(function (t, i) { return (i + 1) + '. ' + t; }).join('\n') + '\n'
+        : '✅ Votre dossier est complet. Merci et bonne saison !\n') +
+      (lic && a.Statut !== 'Annulé' ? '\nÀ ne pas oublier — licence FFTT : faites la demande en ligne dès que vous êtes sur votre compte licencié (' + st.ppsUrl +
+        ') ou avec le formulaire du club : ' + st.licenceUrl + '. Déjà licencié(e) : connectez-vous absolument avec votre numéro de licence ' +
+        '(en cas d\'erreur avec l\'ancien compte, un nouveau compte est créé et il faut contacter la FFTT pour demander la correction). ' +
+        'Nouveau joueur : créez votre compte licencié FFTT.\n' : '') +
+      '\nSuivre votre dossier (n° ' + a.Dossier + ' + votre téléphone) : ' + adhPublicUrl_() +
+      '\n\nSportivement,\n' + (st.clubNom || 'Le club');
+    [a.Email, a.Email2].filter(function (e, i, arr) { return e && arr.indexOf(e) === i; }).forEach(function (to) {
+      adhMail_(to, sujet + ' – dossier ' + a.Dossier, body, st.contact);
+    });
+  } catch (e) {
+    console.warn('E-mail de suivi non envoyé (' + dossier + ') : ' + e.message);
+  }
 }
 
 /** Crée le dossier d'adhésion d'une famille. */
@@ -3200,18 +3262,8 @@ function createAdhesion(d) {
       m.licence, m.numLicence, m.montant, '', '', '', '', 'Inscrit', '']);
   });
   const recap = adhRecap_(a, a.membres, crs, st);
-  const url = adhPublicUrl_();
-  adhMail_(r.email, 'Inscription tennis de table ' + st.saison + ' – dossier ' + dossier,
-    'Bonjour ' + r.prenom + ',\n\nVotre demande d\'inscription est enregistrée sous le n° de dossier ' + dossier + '.\n\n' + recap +
-    '\n\nÉtapes suivantes (n° de dossier + téléphone) sur ' + url + ' :\n' +
-    '- remplir le questionnaire de santé et accepter le règlement intérieur pour chaque membre ;\n' +
-    '- envoyer les documents demandés (certificat médical si nécessaire, justificatifs d\'aides) ;\n' +
-    '- régler l\'adhésion.\n' +
-    (a.membres.some(function (m) { return m.licence !== 'Sans licence'; })
-      ? '\nLicence FFTT : faites la demande en ligne dès que vous êtes sur votre compte licencié (' + st.ppsUrl + ') ou avec le formulaire du club : ' + st.licenceUrl + '\n' +
-        'Déjà licencié(e) : connectez-vous absolument avec votre numéro de licence. En cas d\'erreur avec l\'ancien compte, un nouveau compte est créé et il faut contacter la FFTT pour demander la correction. ' +
-        'Nouveau joueur : créez votre compte licencié FFTT.\n' : '') +
-    '\nSportivement,\n' + (st.clubNom || 'Le club'));
+  adhFamilyMail_(dossier, 'Inscription enregistrée', 'Votre inscription au tennis de table pour la saison ' + st.saison +
+    ' est bien enregistrée sous le n° de dossier ' + dossier + ' : notez-le, il vous sera demandé avec votre téléphone.\n\n' + recap);
   adhMail_(st.contact, 'Nouvelle inscription ' + dossier + ' – ' + r.nom + ' ' + r.prenom,
     r.prenom + ' ' + r.nom + ' – ' + r.tel + ' – ' + r.email + '\n' + r.adresse + ', ' + r.cp + ' ' + r.ville + '\n\n' + recap);
   return { dossier: dossier, total: a.total, aidesMontant: a.aidesMontant, reste: Math.max(0, a.total - a.aidesMontant), mode: a.mode, email: r.email };
@@ -3228,7 +3280,8 @@ function adhAuth_(dossier, tel) {
   return a;
 }
 function adhAidesMontant_(a) { const m = String(a.Aides || '').match(/\(([\d.,]+) €\)\s*$/); return m ? adhNum_(m[1]) : 0; }
-function adhReste_(a) { return a.Statut === 'Annulé' ? 0 : Math.max(0, adhNum_(a.Total) - adhAidesMontant_(a) - adhNum_(a.Réglé)); }
+// « Réglé » posé par le club = dossier soldé, quel que soit le montant saisi.
+function adhReste_(a) { return a.Statut === 'Annulé' || a.Statut === 'Réglé' ? 0 : Math.max(0, adhNum_(a.Total) - adhAidesMontant_(a) - adhNum_(a.Réglé)); }
 
 /** Consultation d'un dossier par la famille. */
 function getAdhesion(dossier, tel) {
@@ -3318,6 +3371,7 @@ function submitQS(dossier, tel, n, toutNon, att) {
   const where = function (x) { return x.Dossier === a.Dossier && adhNum_(x.N) === adhNum_(m.N); };
   if (!toutNon) {
     adhUpdate_('AdhesionMembres', where, { QS: 'Certificat médical requis (questionnaire ' + f.num + ')', QSLe: adhNow_() });
+    adhFamilyMail_(a.Dossier, 'Questionnaire de santé', 'Questionnaire de santé de ' + m.Prénom + ' : au moins une réponse OUI, un certificat médical est à fournir.');
     return getAdhesion(dossier, tel);
   }
   const nom = adhTxt_(att.nom || m.Nom, 60).toUpperCase(), prenom = adhTxt_(att.prenom || m.Prénom, 60);
@@ -3356,6 +3410,7 @@ function submitQS(dossier, tel, n, toutNon, att) {
   adhAppend_('AdhesionDocuments', [a.Dossier, adhNum_(m.N), 'Attestation QS ' + f.num, fname, file.getUrl(), adhNow_()]);
   if (lic && !m.NumLicence) adhUpdate_('AdhesionMembres', where, { NumLicence: lic });
   adhUpdate_('AdhesionMembres', where, { QS: 'Attestation ' + f.num + ' signée (NON à toutes les questions)', QSLe: adhNow_() });
+  adhFamilyMail_(a.Dossier, 'Questionnaire de santé', 'Nous avons bien reçu l\'attestation de santé signée (FFTT n° ' + f.num + ') de ' + m.Prénom + '.');
   return getAdhesion(dossier, tel);
 }
 
@@ -3368,6 +3423,7 @@ function acceptReglement(dossier, tel, n, signataire) {
   if (!sig) throw new Error('Indiquez le nom du signataire.');
   adhUpdate_('AdhesionMembres', function (x) { return x.Dossier === a.Dossier && adhNum_(x.N) === adhNum_(m.N); },
     { Reglement: 'Accepté (' + sig + ')', ReglementLe: adhNow_() });
+  adhFamilyMail_(a.Dossier, 'Règlement intérieur', 'Le règlement intérieur est accepté pour ' + m.Prénom + '.');
   return getAdhesion(dossier, tel);
 }
 
@@ -3403,6 +3459,7 @@ function uploadAdhesionDocument(dossier, tel, n, type, filename, mime, base64) {
       { QS: type === 'Certificat médical' ? 'Certificat médical fourni' : 'Attestation PPS fournie', QSLe: adhNow_() });
   }
   adhMail_(adhSettings_().contact, 'Document reçu – dossier ' + a.Dossier, type + ' pour ' + who + ' : ' + file.getUrl());
+  adhFamilyMail_(a.Dossier, 'Document reçu', 'Nous avons bien reçu le document « ' + type + ' » (' + name + ') pour ' + who + '.');
   return getAdhesion(dossier, tel);
 }
 
@@ -3413,6 +3470,7 @@ function requestAdhesionChange(dossier, tel, message) {
   const msg = String(message || '').trim().slice(0, 2000);
   if (!msg) throw new Error('Décrivez la modification souhaitée.');
   adhAppend_('AdhesionMessages', [adhNow_(), a.Dossier, a.Prénom + ' ' + a.Nom, a.Email, a.Téléphone, 'Modification des activités', msg, 'Nouveau']);
+  adhFamilyMail_(a.Dossier, 'Demande de modification reçue', 'Nous avons bien reçu votre demande de modification des activités :\n« ' + msg + ' »\nLe club vous recontacte rapidement.');
   adhMail_(adhSettings_().contact, 'Demande de modification – dossier ' + a.Dossier,
     a.Prénom + ' ' + a.Nom + ' (' + a.Téléphone + ', ' + a.Email + ') :\n\n' + msg);
   return { ok: true };
@@ -3466,6 +3524,7 @@ function adhMarkPaid_(dossier, montant) {
     const du = adhNum_(x.Total) - adhAidesMontant_(x);
     return { Réglé: regle, Statut: regle >= du ? 'Réglé' : 'Partiellement réglé', Note: (x.Note ? x.Note + ' ; ' : '') + 'HelloAsso ' + montant + ' € le ' + adhNow_() };
   });
+  adhFamilyMail_(dossier, 'Paiement reçu', 'Votre paiement en ligne de ' + adhNum_(montant) + ' € (HelloAsso) est bien reçu. Merci !');
 }
 
 // --- Administration (jeton remis à la connexion administrateur) ---
@@ -3552,7 +3611,16 @@ function setAdhesionAdmin(token, dossier, patch) {
   }
   if (patch.regle !== undefined) p.Réglé = adhNum_(patch.regle);
   if (patch.note !== undefined) p.Note = String(patch.note || '').slice(0, 500);
+  const before = adhRows_('Adhesions').find(function (x) { return String(x.Dossier) === String(dossier); });
   if (!adhUpdate_('Adhesions', function (x) { return String(x.Dossier) === String(dossier); }, p)) throw new Error('Dossier introuvable.');
+  // Avancement du règlement : la famille est prévenue.
+  const statutChange = p.Statut !== undefined && p.Statut !== before.Statut;
+  const regleChange = p.Réglé !== undefined && p.Réglé !== adhNum_(before.Réglé);
+  if (statutChange || regleChange) {
+    adhFamilyMail_(dossier, p.Statut === 'Annulé' ? 'Inscription annulée' : 'Règlement',
+      p.Statut === 'Annulé' ? 'Votre inscription a été annulée par le club. Pour toute question, répondez à ce message ou contactez le club.'
+        : 'Le club a mis à jour le règlement de votre dossier : ' + (p.Statut || before.Statut) + (regleChange ? ', montant réglé ' + p.Réglé + ' €' : '') + '.');
+  }
   return getAdhesionsAdmin(token);
 }
 
@@ -3580,6 +3648,8 @@ function createPlayerFromAdhesion(token, dossier, n) {
   do { pin = String(Math.floor(100000 + Math.random() * 900000)); } while (used[pin]);
   const res = addPlayer(m.Nom, m.Prénom, 0, pin, false, a.Téléphone, m.Catégorie, m.Sexe, m.NumLicence);
   adhUpdate_('AdhesionMembres', function (x) { return x.Dossier === a.Dossier && adhNum_(x.N) === adhNum_(m.N); }, { JoueurID: res.id });
+  adhFamilyMail_(a.Dossier, 'Bienvenue au club', m.Prénom + ' est inscrit(e) dans l\'effectif du club. Son code personnel pour l\'application RebonTT ' +
+    '(disponibilités, convocations, compétitions) est : ' + pin + '. Il est personnel : ne le communiquez pas.');
   return { id: res.id, pin: pin, admin: getAdhesionsAdmin(token) };
 }
 

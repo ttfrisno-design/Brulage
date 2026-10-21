@@ -442,6 +442,12 @@ d'inscription* est vide).
    les créneaux de son âge sont proposés), aides (Pass'Sport…), mode de
    règlement (chèque en 1 à n fois, espèces, virement, HelloAsso). Le dossier
    reçoit un **n° (ex. TT26-001)** envoyé par e-mail avec le récapitulatif.
+   **E-mails de suivi** à la famille (e-mail et e-mail 2, réponse adressée à
+   l'e-mail du club) : inscription enregistrée, attestation de santé,
+   règlement intérieur, document reçu, demande de modification, paiement
+   HelloAsso, statut / montant réglé changés par le club, ajout à l'effectif
+   (avec le code RebonTT). Chaque e-mail rappelle l'état du dossier et **ce
+   qu'il reste à faire**, jusqu'à « dossier complet ».
 3. **Consulter votre compte**, 4. **Modifier vos activités** (demande au club),
    5. **Envoyer des documents** : n° de dossier + téléphone du responsable.
    Certification médicale selon la FFTT : **mineur** → questionnaire de santé
