@@ -3796,7 +3796,8 @@
   }
   // Éditeur des créneaux : une ligne = jour, début, fin, niveau.
   // Deuxième ligne : informations du site d'inscription (public, lieu,
-  // encadrant, tarif, séances comprises, part licence FFTT, places).
+  // encadrant, tarif, créneau lié à l'autre créneau du même niveau, part
+  // licence FFTT, places).
   function slotRowHtml(c) {
     var num = function (v) { return v ? escAttr(v) : ''; };
     var f = function (k, label, html) { return '<div><label>' + label + '</label>' + html + '</div>'; };
@@ -3811,7 +3812,7 @@
       f('lieu', 'Lieu', '<input type="text" data-f="lieu" placeholder="Salle" value="' + escAttr(c.lieu || '') + '">') +
       f('encadrant', 'Encadrant', '<input type="text" data-f="encadrant" value="' + escAttr(c.encadrant || '') + '">') +
       f('tarif', 'Tarif €', '<input type="number" min="0" data-f="tarif" value="' + num(c.tarif) + '">') +
-      f('seances', 'Séances (sem.)', '<select data-f="seances"><option value="1"' + (c.seances === 2 ? '' : ' selected') + '>1</option><option value="2"' + (c.seances === 2 ? ' selected' : '') + '>2</option></select>') +
+      f('seances', 'Lié (même niv.)', '<select data-f="seances" title="Oui : 2 séances par semaine, inscription aux deux créneaux du même niveau"><option value="1"' + (c.seances === 2 ? '' : ' selected') + '>Non</option><option value="2"' + (c.seances === 2 ? ' selected' : '') + '>Oui</option></select>') +
       f('licence', 'Licence €', '<input type="number" min="0" data-f="licence" value="' + num(c.licence) + '">') +
       f('places', 'Places', '<input type="number" min="0" data-f="places" placeholder="∞" value="' + num(c.places) + '">') +
       '</div></div>';

@@ -170,7 +170,7 @@
       <button class="back" onclick="go('vMenu')">← Retour au menu</button>
       <div class="page-title"><div class="big">🔎</div><h2>Les activités</h2><p>Créneaux de la saison, tarifs et places disponibles</p></div>
       <div id="weekBox"></div>
-      <div class="legend"><span>🟢 places disponibles</span><span>🟡 dernières places</span><span>🔴 complet</span><span><span class="tag">+ licence</span> part licence FFTT incluse au total</span></div>
+      <div class="legend"><span>🟢 places disponibles</span><span>🟡 dernières places</span><span>🔴 complet</span><span><span class="tag">+ licence</span> part licence FFTT incluse au total</span><span>🔗 créneaux liés : l'inscription vaut pour les deux séances</span></div>
       <div id="tarifNote"></div>
     </section>
 
@@ -419,7 +419,7 @@
       ((c.lieu || c.encadrant) ? '<div class="mut">' + (c.lieu ? '📍 ' + esc(c.lieu) : '') + (c.lieu && c.encadrant ? ' · ' : '') + (c.encadrant ? '👤 ' + esc(c.encadrant) : '') + '</div>' : '') +
       (c.tarif ? '<div style="color:' + col[1] + ';font-weight:600;">' + euros(c.tarif) + (c.seances === 2 ? ' <span class="mut">(2 séances)</span>' : '') + '</div>' : '') +
       (c.licence ? '<div><span class="lic">+' + euros(c.licence) + ' licence FFTT</span></div>' : '') +
-      (c.seances === 2 ? '<div class="mut">🔗 2e séance : au choix</div>' : '') + placesHtml(c);
+      (partnerOf(c) ? '<div class="mut">🔗 lié au ' + esc(partnerOf(c).jour.toLowerCase()) + ' ' + hm(partnerOf(c).debut) + '</div>' : '') + placesHtml(c);
   }
   function renderWeek() {
     if (!INFO) return;
@@ -475,6 +475,11 @@
     if (c.public === 'Jeunes') return YOUTH.indexOf(cat) >= 0;
     if (c.public === 'Adultes') return YOUTH.indexOf(cat) < 0;
     return true;
+  }
+  // Créneaux liés : 2 séances par semaine, même niveau → on s'inscrit aux deux.
+  function partnerOf(c) {
+    if (!c || c.seances !== 2 || !INFO) return null;
+    return INFO.creneaux.find(function (x) { return x.id !== c.id && x.seances === 2 && norm(x.niveau) === norm(c.niveau); }) || null;
   }
   function slotById(id) { return (INFO.creneaux || []).find(function (c) { return c.id === id; }); }
   function slotLabel(c) { return c ? (c.niveau || 'Entraînement') + ' – ' + c.jour + ' ' + hm(c.debut) + (c.fin ? '-' + hm(c.fin) : '') : ''; }
@@ -582,11 +587,11 @@
   }
   function removeMember(i) { readMembers(); W.membres.splice(i, 1); if (!W.membres.length) W.membres.push(emptyMember()); renderMembers(); }
   function copyResp(i) { readMembers(); W.membres[i].nom = $('rNom').value.trim(); W.membres[i].prenom = $('rPrenom').value.trim(); renderMembers(); }
-  function pickSlot(i, which, id) {
+  function pickSlot(i, id) {
     readMembers();
-    var m = W.membres[i];
-    if (which === 1) { m.creneau1 = m.creneau1 === id ? '' : id; m.creneau2 = ''; }
-    else m.creneau2 = id;
+    var m = W.membres[i], p = partnerOf(slotById(id));
+    if (m.creneau1 === id) { m.creneau1 = ''; m.creneau2 = ''; }
+    else { m.creneau1 = id; m.creneau2 = p ? p.id : ''; }
     renderMembers();
   }
   // Places encore libres pour ce membre (en tenant compte des autres membres
@@ -601,21 +606,26 @@
     var html = W.membres.map(function (m, i) {
       var cat = categorie(m.naissance);
       var slots = cat ? INFO.creneaux.filter(function (c) { return eligible(c, cat); }) : [];
-      var c1 = slotById(m.creneau1);
+      // Un choix par activité : un créneau seul, ou les deux créneaux liés.
+      var seen = {}, groups = [];
+      slots.forEach(function (c) {
+        if (seen[c.id]) return;
+        var p = partnerOf(c), g = [c].concat(p && eligible(p, cat) ? [p] : []);
+        g.forEach(function (x) { seen[x.id] = true; });
+        groups.push(g);
+      });
       var pick = !cat ? '<div class="note info">Indiquez la date de naissance pour voir les créneaux correspondant à l\'âge.</div>'
         : !slots.length ? '<div class="note warn">Aucun créneau pour la catégorie ' + esc(cat) + ' : contactez le club (menu « Envoyer un message »).</div>'
-        : '<div class="pick">' + slots.map(function (c) {
-          var sel = m.creneau1 === c.id, ok = sel || freeFor(c, i);
+        : '<div class="pick">' + groups.map(function (g) {
+          var c = g[0], sel = m.creneau1 === c.id, ok = sel || g.every(function (x) { return freeFor(x, i); });
+          var rest = g.map(function (x) { return x.restantes; }).filter(function (x) { return x !== null && x !== undefined; });
+          var places = rest.length ? Math.min.apply(null, rest) : null;
           return '<label class="' + (sel ? 'sel' : '') + (ok ? '' : ' off') + '"><input type="radio" name="c1_' + i + '"' + (sel ? ' checked' : '') + (ok ? '' : ' disabled') +
-            ' onclick="pickSlot(' + i + ',1,\'' + c.id + '\')"><span><span class="t">' + esc(c.niveau) + '</span><br><span class="s">' + c.jour + ' ' + hm(c.debut) + (c.fin ? '-' + hm(c.fin) : '') +
-            (c.tarif ? ' · ' + euros(c.tarif + c.licence) : '') + (c.seances === 2 ? ' · 2 séances' : '') + '</span>' + (ok ? (c.restantes !== null && c.restantes !== undefined ? '<br><span class="s">' + placesHtml(c).replace(/<[^>]+>/g, '') + '</span>' : '') : '<br><span class="s">🔴 Complet</span>') + '</span></label>';
+            ' onclick="pickSlot(' + i + ',\'' + c.id + '\')"><span><span class="t">' + esc(c.niveau) + '</span><br><span class="s">' +
+            g.map(function (x) { return x.jour + ' ' + hm(x.debut) + (x.fin ? '-' + hm(x.fin) : ''); }).join(' + ') +
+            (c.tarif ? ' · ' + euros(c.tarif + c.licence) : '') + (g.length > 1 ? ' · 2 séances liées' : '') + '</span>' +
+            (ok ? (places !== null ? '<br><span class="s">' + (places <= 3 ? '🟡 ' : '🟢 ') + places + ' place' + (places > 1 ? 's' : '') + '</span>' : '') : '<br><span class="s">🔴 Complet</span>') + '</span></label>';
         }).join('') + '</div>';
-      var second = '';
-      if (c1 && c1.seances === 2) {
-        var others = INFO.creneaux.filter(function (c) { return c.id !== c1.id && norm(c.niveau) === norm(c1.niveau) && eligible(c, cat) && (m.creneau2 === c.id || freeFor(c, i)); });
-        second = '<label>🔗 2e séance <small>(comprise dans le tarif, facultative)</small></label><select onchange="pickSlot(' + i + ',2,this.value)"><option value="">— Aucune —</option>' +
-          others.map(function (c) { return '<option value="' + c.id + '"' + (m.creneau2 === c.id ? ' selected' : '') + '>' + esc(c.jour + ' ' + hm(c.debut) + (c.fin ? '-' + hm(c.fin) : '')) + '</option>'; }).join('') + '</select>';
-      }
       return '<div class="member"><div class="member-h"><b>👤 Membre ' + (i + 1) + (m.prenom ? ' : ' + esc(m.prenom) : '') + '</b>' +
         '<span>' + (cat ? '<span class="cat">' + esc(cat) + '</span> ' : '') + (W.membres.length > 1 ? '<button class="btn light small" onclick="removeMember(' + i + ')">✕ Retirer</button>' : '') + '</span></div>' +
         '<div class="grid2">' +
@@ -625,7 +635,7 @@
         '<div><label>Sexe <span class="req">*</span></label><select data-k="sexe"><option value="">—</option><option value="F"' + (m.sexe === 'F' ? ' selected' : '') + '>Féminin</option><option value="M"' + (m.sexe === 'M' ? ' selected' : '') + '>Masculin</option></select></div>' +
         '<div><label>Licence FFTT</label><select data-k="licence"><option' + (m.licence !== 'Renouvellement' ? ' selected' : '') + '>Nouvelle</option><option' + (m.licence === 'Renouvellement' ? ' selected' : '') + '>Renouvellement</option></select></div>' +
         '<div><label>N° de licence <small>(si renouvellement)</small></label><input data-k="numLicence" value="' + esc(m.numLicence) + '"></div>' +
-        '<div class="full"><label>Créneau d\'entraînement <span class="req">*</span></label>' + pick + second + '</div>' +
+        '<div class="full"><label>Créneau d\'entraînement <span class="req">*</span></label>' + pick + '</div>' +
         '</div></div>';
     }).join('');
     $('members').innerHTML = html;
