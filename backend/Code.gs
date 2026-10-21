@@ -2959,13 +2959,18 @@ function adhSettings_() {
     reglementTexte: v('AdhReglementTexte', ''),
     contact: v('AdhContactEmail', ''),
     infos: v('AdhInfos', ''),
-    licences: adhLicences_(v('AdhLicences', '')),
+    licences: adhLicences_(v('AdhLicences', JSON.stringify(ADH_LICENCES_DEFAUT_))),
     clubNom: v('ClubNom', ''),
     clubVille: v('ClubVille', ''),
     clubAdresse: v('ClubAdresse', ''),
     site: v('SiteClub', ''),
   };
 }
+
+/** Prix de la licence FFTT du club par catégorie (modifiables dans l'onglet
+ * Adhésions). */
+const ADH_LICENCES_DEFAUT_ = { Poussin: 37, Benjamin: 37, Minime: 37, Cadet: 52, Junior: 70, Senior: 70,
+  V40: 70, V50: 70, V60: 70, V70: 70, V80: 70 };
 
 /** Prix de la licence FFTT par catégorie : {"Poussin": 37, …} (JSON). */
 function adhLicences_(raw) {
