@@ -2959,11 +2959,26 @@ function adhSettings_() {
     reglementTexte: v('AdhReglementTexte', ''),
     contact: v('AdhContactEmail', ''),
     infos: v('AdhInfos', ''),
+    licences: adhLicences_(v('AdhLicences', '')),
     clubNom: v('ClubNom', ''),
     clubVille: v('ClubVille', ''),
     clubAdresse: v('ClubAdresse', ''),
     site: v('SiteClub', ''),
   };
+}
+
+/** Prix de la licence FFTT par catégorie : {"Poussin": 37, …} (JSON). */
+function adhLicences_(raw) {
+  let o = {};
+  try { o = JSON.parse(String(raw || '{}')) || {}; } catch (e) { o = {}; }
+  const out = {};
+  ADH_CATS_.forEach(function (c) { const v = adhNum_(o[c[1]]); if (v > 0) out[c[1]] = v; });
+  return out;
+}
+/** Licence d'un membre selon sa catégorie (à défaut : ancien montant saisi
+ * sur le créneau). */
+function adhLicence_(st, cat, c) {
+  return st.licences[cat] > 0 ? st.licences[cat] : (c ? c.licence : 0);
 }
 
 /** Catégorie FFTT d'après l'année de naissance et la saison (âge atteint
@@ -3094,7 +3109,7 @@ function adhCompute_(d, st, crs) {
     const c2 = adhPartner_(c1, crs);
     out.creneau1 = c1.id;
     out.creneau2 = c2 ? c2.id : '';
-    out.montant = Math.max(0, c1.tarif + c1.licence + (exterieur ? st.supplement : 0) - (i > 0 ? st.reductionFamille : 0));
+    out.montant = Math.max(0, c1.tarif + adhLicence_(st, out.categorie, c1) + (exterieur ? st.supplement : 0) - (i > 0 ? st.reductionFamille : 0));
     total += out.montant;
     return out;
   });
@@ -3370,7 +3385,7 @@ function getAdhesionsAdmin(token) {
   const m = configMap_();
   const raw = {};
   ['AdhSaison', 'AdhOuvert', 'AdhCommune', 'AdhSupplementExterieur', 'AdhReductionFamille', 'AdhModes', 'AdhChequesMax', 'AdhOrdreCheque',
-    'AdhIban', 'AdhAides', 'AdhReglementUrl', 'AdhReglementTexte', 'AdhContactEmail', 'AdhInfos'].forEach(function (k) { raw[k] = m[k] || ''; });
+    'AdhIban', 'AdhAides', 'AdhReglementUrl', 'AdhReglementTexte', 'AdhContactEmail', 'AdhInfos', 'AdhLicences'].forEach(function (k) { raw[k] = m[k] || ''; });
   const crs = adhCreneaux_();
   const byId = {};
   crs.forEach(function (c) { byId[c.id] = c; });
@@ -3413,6 +3428,7 @@ function saveAdhesionSettings(token, s) {
   Object.keys(s || {}).forEach(function (k) {
     if (!/^Adh[A-Za-z]+$/.test(k)) throw new Error('Réglage inconnu : ' + k);
     const v = String(s[k] === undefined || s[k] === null ? '' : s[k]);
+    if (k === 'AdhLicences') { writeConfig_(k, JSON.stringify(adhLicences_(v))); return; }
     if (k === 'AdhReglementUrl' && v.trim() && !/^https?:\/\/\S+$/i.test(v.trim())) throw new Error('Lien du règlement invalide (https://…).');
     writeConfig_(k, v);
   });
