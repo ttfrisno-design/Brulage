@@ -130,6 +130,11 @@
     .doc-types label.sel { border-color: var(--ok); background: var(--ok-bg); }
     .doc-types b { display: block; font-size: 16px; }
     .doc-types small { color: var(--muted); }
+    .sig { margin-top: 8px; }
+    .sig canvas { display: block; width: 100%; max-width: 560px; height: auto; aspect-ratio: 56 / 17; background: #fff; border: 2px dashed #9ec3ee; border-radius: 10px; touch-action: none; cursor: crosshair; margin-bottom: 6px; }
+    .attest { border: 2px solid var(--navy); border-radius: 12px; padding: 14px; margin-top: 12px; background: #fff; }
+    .attest-h { text-align: center; font-weight: 800; letter-spacing: .04em; color: var(--navy); }
+    @media print { header.top, .hero, .back, #accessBox, .page-title, .doc-types, .note, .actions, footer, #globalMsg { display: none !important; } }
     footer { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 16px calc(24px + env(safe-area-inset-bottom)); }
     .spinner { text-align: center; color: var(--muted); padding: 30px; }
   </style>
@@ -249,7 +254,9 @@
             <li>Questionnaire de santé et règlement intérieur pour chaque membre.</li>
             <li>Documents : certificat médical si nécessaire, justificatifs d'aides.</li>
             <li id="donePay">Règlement de l'adhésion.</li>
+            <li id="doneLic" class="hidden">Demande de licence FFTT en ligne (voir ci-dessous).</li>
           </ol>
+          <div id="doneLicBox"></div>
           <div class="actions" style="justify-content:flex-start;margin-top:14px;">
             <button class="btn primary" onclick="go('vDocs')">📄 Questionnaire &amp; documents</button>
             <button class="btn orange hidden" id="donePayBtn" onclick="payOnline(this)">💳 Payer en ligne</button>
@@ -736,6 +743,9 @@
       $('doneTxt').innerHTML = 'Notez-le : il vous sera demandé avec votre téléphone pour consulter votre compte et envoyer vos documents. Un e-mail récapitulatif a été envoyé à <b>' + esc(res.email) + '</b>.';
       $('donePay').textContent = 'Règlement : ' + euros(res.reste) + ' — ' + modeText() + '.';
       $('donePayBtn').classList.toggle('hidden', res.mode !== 'HelloAsso' || !res.reste);
+      var licWho = W.membres.filter(function (m) { return m.licence === 'Nouvelle' || m.licence === 'Renouvellement'; }).map(function (m) { return m.licence; });
+      $('doneLic').classList.toggle('hidden', !licWho.length);
+      $('doneLicBox').innerHTML = licWho.length ? licenceHelp(licWho.every(function (x) { return x === licWho[0]; }) ? licWho[0] : '') : '';
       showStep(5);
       api('getAdhesionInfo').then(function (i) { INFO = i; }).catch(function () { /* places rafraîchies plus tard */ });
     }).catch(function (e) { busy(btn, false); flash(esc(e.message), 'err'); });
@@ -776,7 +786,8 @@
   function renderDossier() {
     var d = DOS, st = INFO ? INFO.settings : {};
     var mem = d.membres.map(function (m) {
-      var qs = m.qs ? (/requis/.test(m.qs) ? '<span class="chip warn">Certificat requis</span>' : '<span class="chip ok">✓</span>') : '<span class="chip err">À remplir</span>';
+      var qs = m.qs ? (/requis/.test(m.qs) ? '<span class="chip warn">Certificat requis</span>' : '<span class="chip ok">✓</span>') : '<span class="chip err">À faire</span>';
+      if (!m.qs && m.sante) qs += '<br><span style="font-size:12px;color:var(--muted);">' + esc(SANTE_LABEL[m.sante]) + '</span>';
       var ri = m.reglement ? '<span class="chip ok">✓</span>' : '<span class="chip err">À accepter</span>';
       return '<tr><td><b>' + esc(m.prenom + ' ' + m.nom) + '</b> <span class="cat">' + esc(m.categorie) + '</span> <span style="font-size:13px;">' + esc(m.licence) + '</span>' + (m.statut === 'Annulé' ? ' <span class="chip err">Annulé</span>' : '') +
         '<br><span style="font-size:13px;color:var(--muted);">' + esc(m.creneau1) + (m.creneau2 ? '<br>+ ' + esc(m.creneau2) : '') + '</span></td>' +
@@ -796,6 +807,10 @@
       '<tr><td>Déjà réglé</td><td class="num">' + euros(d.regle) + '</td></tr><tr class="tot"><td>Reste à régler</td><td class="num">' + euros(d.reste) + '</td></tr></table>' +
       '<p style="margin-bottom:0;">' + pay + '</p>' +
       (d.helloasso && d.reste > 0 ? '<div class="actions" style="justify-content:flex-start;"><button class="btn orange" onclick="payOnline(this)">💳 Payer ' + euros(d.reste) + ' en ligne</button></div>' : '') + '</div>' +
+      (function () {
+        var w = d.membres.filter(function (m) { return m.statut !== 'Annulé' && (m.licence === 'Nouvelle' || m.licence === 'Renouvellement'); }).map(function (m) { return m.licence; });
+        return w.length ? '<div class="card"><h3>📝 Licence FFTT</h3>' + licenceHelp(w.every(function (x) { return x === w[0]; }) ? w[0] : '') + '</div>' : '';
+      })() +
       '<div class="card"><h3>📎 Documents envoyés</h3>' + docs + '</div>' +
       '<div class="card"><h3>📇 Responsable légal</h3><p style="margin:0;">' + esc(d.responsable.prenom + ' ' + d.responsable.nom) + '<br>' + esc(d.responsable.adresse) + ', ' + esc(d.responsable.cp + ' ' + d.responsable.ville) +
       '<br>' + esc(d.responsable.tel) + ' · ' + esc(d.responsable.email) + '</p><p style="font-size:13px;color:var(--muted);margin-bottom:0;">Une erreur ? Signalez-la via « Envoyer un message ».</p></div>';
@@ -831,53 +846,97 @@
       .catch(function (e) { busy(btn, false); flash(esc(e.message), 'err'); });
   }
 
-  // --- Documents : questionnaire de santé, règlement intérieur, fichiers ----------------------
-  // Questionnaires officiels (Code du sport) : les réponses restent sur cet
-  // appareil, seule l'attestation est transmise au club.
-  var QS_ADULTE = [
-    ['Durant les 12 derniers mois', [
-      'Un membre de votre famille est-il décédé subitement d\'une cause cardiaque ou inexpliquée ?',
-      'Avez-vous ressenti une douleur dans la poitrine, des palpitations, un essoufflement inhabituel ou un malaise ?',
-      'Avez-vous eu un épisode de respiration sifflante (asthme) ?',
-      'Avez-vous eu une perte de connaissance ?',
-      'Si vous avez arrêté le sport pendant 30 jours ou plus pour des raisons de santé, avez-vous repris sans l\'accord d\'un médecin ?',
-      'Avez-vous débuté un traitement médical de longue durée (hors contraception et désensibilisation aux allergies) ?']],
-    ['À ce jour', [
-      'Ressentez-vous une douleur, un manque de force ou une raideur suite à un problème osseux, articulaire ou musculaire (fracture, entorse, luxation, déchirure, tendinite, etc.) survenu durant les 12 derniers mois ?',
-      'Votre pratique sportive est-elle interrompue pour des raisons de santé ?',
-      'Pensez-vous avoir besoin d\'un avis médical pour poursuivre votre pratique sportive ?']],
-  ];
-  var QS_MINEUR = [
-    ['Depuis l\'année dernière', [
-      'Es-tu allé(e) à l\'hôpital pendant toute une journée ou plusieurs jours ?',
-      'As-tu été opéré(e) ?',
-      'As-tu beaucoup plus grandi que les autres années ?',
-      'As-tu beaucoup maigri ou grossi ?',
-      'As-tu eu la tête qui tourne pendant un effort ?',
-      'As-tu perdu connaissance ou es-tu tombé(e) sans savoir pourquoi ?',
-      'As-tu reçu un ou plusieurs chocs violents qui t\'ont obligé(e) à interrompre un moment une séance de sport ?',
-      'As-tu eu beaucoup de mal à respirer pendant un effort par rapport à d\'habitude ?',
-      'As-tu eu beaucoup de mal à respirer après un effort ?',
-      'As-tu eu mal dans la poitrine ou des palpitations (le cœur qui bat très vite) ?',
-      'As-tu commencé à prendre un nouveau médicament tous les jours et pour longtemps ?',
-      'As-tu arrêté le sport à cause d\'un problème de santé pendant un mois ou plus ?']],
-    ['Depuis un certain temps (plus de 2 semaines)', [
-      'Te sens-tu très fatigué(e) ?',
-      'As-tu du mal à t\'endormir ou te réveilles-tu souvent dans la nuit ?',
-      'Sens-tu que tu as moins faim ? que tu manges moins ?',
-      'Te sens-tu triste ou inquiet(e) ?',
-      'Pleures-tu plus souvent ?',
-      'Ressens-tu une douleur ou un manque de force à cause d\'une blessure que tu t\'es faite cette année ?']],
-    ['Aujourd\'hui', [
-      'Penses-tu quelquefois à arrêter de faire du sport ou à changer de sport ?',
-      'Penses-tu avoir besoin de voir ton médecin pour continuer le sport ?',
-      'Souhaites-tu signaler quelque chose de plus concernant ta santé ?']],
-    ['Questions à faire remplir par tes parents', [
-      'Quelqu\'un dans votre famille proche a-t-il eu une maladie grave du cœur ou du cerveau, ou est-il décédé subitement avant l\'âge de 50 ans ?',
-      'Êtes-vous inquiet pour son poids ? Trouvez-vous qu\'il se nourrit trop ou pas assez ?',
-      'Avez-vous manqué l\'examen de santé prévu à l\'âge de votre enfant chez le médecin ? (prévu à 2, 3, 4 et 5 ans, entre 8 et 9 ans, entre 11 et 13 ans et entre 15 et 16 ans)']],
-  ];
+  // --- Documents : certification médicale FFTT, règlement intérieur, fichiers ----------------
+  // Formulaires FFTT de la saison (textes officiels) : questionnaire de santé
+  // pour mineur n° 26-10-2, questionnaire pour majeur « licence Découverte »
+  // n° 26-10-3 (créneaux loisir) ; PPS pour les adultes en compétition. Les
+  // réponses restent sur cet appareil : seule l'attestation signée est
+  // envoyée au club.
+  var QS_FORMS = {
+    mineur: {
+      num: '26-10-2', titre: 'Questionnaire de Santé pour Mineur',
+      intro: ['Vous pouvez répondre à cet autoquestionnaire si vous êtes mineur au moment de la prise de la licence.',
+        'Avertissement à destination des parents ou de la personne ayant l\'autorité parentale : il est préférable que ce questionnaire soit complété par votre enfant, c\'est à vous d\'estimer à quel âge il est capable de le faire. Il est de votre responsabilité de vous assurer que le questionnaire est correctement complété et de suivre les instructions en fonction des réponses données.',
+        'Faire du sport : c\'est recommandé pour tous. En as-tu parlé avec un médecin ? T\'a-t-il examiné(e) pour te conseiller ? Ce questionnaire n\'est pas un contrôle. Tu réponds par OUI ou par NON, mais il n\'y a pas de bonnes ou de mauvaises réponses. Tu peux regarder ton carnet de santé et demander à tes parents de t\'aider.'],
+      groups: [
+        ['Durant les 12 derniers mois :', [
+          'Es-tu allé(e) à l\'hôpital pendant toute une journée ou plusieurs jours ?',
+          'As-tu été opéré(e) ?',
+          'As-tu beaucoup plus grandi que les autres années ?',
+          'As-tu beaucoup maigri ou grossi ?',
+          'As-tu eu la tête qui tourne pendant un effort ?',
+          'As-tu perdu connaissance ou es-tu tombé sans te souvenir de ce qui s\'était passé ?',
+          'As-tu reçu un ou plusieurs chocs violents qui t\'ont obligé à interrompre un moment une séance de sport ?',
+          'As-tu eu beaucoup de mal à respirer pendant un effort par rapport à d\'habitude ?',
+          'As-tu eu beaucoup de mal à respirer après un effort ?',
+          'As-tu eu mal dans la poitrine ou des palpitations (le cœur qui bat très vite) ?',
+          'As-tu commencé à prendre un nouveau médicament tous les jours et pour longtemps ?',
+          'As-tu arrêté le sport à cause d\'un problème de santé pendant un mois ou plus ?']],
+        ['Depuis un certain temps : (plus de 2 semaines)', [
+          'Te sens-tu très fatigué(e) ?',
+          'As-tu du mal à t\'endormir ou te réveilles-tu souvent dans la nuit ?',
+          'Sens-tu que tu as moins faim ? que tu manges moins ?',
+          'Te sens-tu triste ou inquiet ?',
+          'Pleures-tu plus souvent ?',
+          'Ressens-tu une douleur ou un manque de force à cause d\'une blessure que tu t\'es faite cette année ?']],
+        ['Aujourd\'hui :', [
+          'Penses-tu quelquefois à arrêter de faire du sport ou à changer de sport ?',
+          'Penses-tu avoir besoin de voir ton médecin pour continuer le sport ?',
+          'Souhaites-tu signaler quelque chose de plus concernant ta santé ?']],
+        ['Questions à faire remplir par tes parents :', [
+          'Quelqu\'un dans votre famille proche a-t-il eu une maladie grave du cœur ou du cerveau, ou est-il décédé subitement avant l\'âge de 50 ans ?',
+          'Etes-vous inquiet pour son poids ? Trouvez-vous qu\'il se nourrit trop ou pas assez ?',
+          'Avez-vous manqué l\'examen de santé prévu à l\'âge de votre enfant chez le médecin ? (Cet examen médical est prévu à l\'âge de 2 ans, 3 ans, 4 ans, 5 ans, entre 8 et 9 ans, entre 11 et 13 ans et entre 15 et 16 ans.)']]],
+      resp: 'Les réponses formulées relèvent de la seule responsabilité du licencié et de son représentant légal.',
+      decl: 'déclare avoir répondu NON à toutes les questions du questionnaire de santé.',
+    },
+    decouverte: {
+      num: '26-10-3', titre: 'Questionnaire de Santé pour Majeur – Licence Découverte',
+      intro: ['Vous pouvez répondre à cet autoquestionnaire si vous êtes majeur et souhaitez souscrire à une licence Découverte auprès de la FFTT.'],
+      groups: [
+        ['Durant les 12 derniers mois :', [
+          'Un membre de votre famille est-il décédé subitement d\'une cause cardiaque ou inexpliquée ?',
+          'Avez-vous ressenti une douleur dans la poitrine, des palpitations, un essoufflement inhabituel ?',
+          'Avez-vous eu un épisode de respiration sifflante (asthme) ?',
+          'Avez-vous eu une perte de connaissance ?',
+          'Si vous avez arrêté le sport pendant 30 jours ou plus pour des raisons de santé, avez-vous repris sans l\'accord d\'un médecin ?',
+          'Avez-vous débuté un traitement médical de longue durée (hors contraception et désensibilisation aux allergies) ?']],
+        ['A ce jour :', [
+          'Ressentez-vous une douleur, un manque de force ou une raideur suite à un problème osseux, articulaire ou musculaire (fracture, entorse, luxation, déchirure, tendinite, etc.), survenue durant les 12 derniers mois ?',
+          'Votre pratique sportive est-elle interrompue pour des raisons de santé ?',
+          'Pensez-vous avoir besoin d\'un avis médical pour poursuivre votre pratique sportive ?']]],
+      resp: 'Les réponses formulées relèvent de la seule responsabilité du licencié.',
+      decl: 'atteste avoir répondu NON à toutes les questions du questionnaire de santé nécessaire à ma prise de licence Découverte (uniquement).',
+    },
+  };
+  var SANTE_LABEL = {
+    mineur: 'Questionnaire de santé mineur (FFTT n° 26-10-2)',
+    decouverte: 'Questionnaire de santé majeur – licence Découverte (FFTT n° 26-10-3)',
+    pps: 'Attestation PPS (Parcours de Prévention Santé)',
+    certificat: 'Certificat médical (entrée en catégorie V65, V70, V80, V85 ou V90)',
+  };
   var DOCSEL = { n: 0, types: { qs: true, ri: false, cm: false, pj: false } };
+  // Demande de licence FFTT en ligne : depuis l'espace MaLicence, ou par le
+  // formulaire d'inscription en ligne du club. who : 'Renouvellement',
+  // 'Nouvelle' ou '' (les deux cas).
+  function licenceHelp(who) {
+    var st = INFO ? INFO.settings : {};
+    var espace = st.ppsUrl || 'https://malicence.fftt.com/login';
+    var form = st.licenceUrl || 'https://inscriptionenligne.fftt.com/club/09760374';
+    return '<div class="note info" style="margin-top:12px;"><b>📝 Demande de licence FFTT en ligne</b><br>' +
+      'Faites votre demande de licence en ligne dès que vous êtes sur votre compte licencié, ou avec le formulaire d\'inscription en ligne du club :' +
+      '<div class="actions" style="justify-content:flex-start;margin:8px 0;">' +
+      '<a class="btn light small" href="' + esc(espace) + '" target="_blank" rel="noopener">Mon espace MaLicence FFTT ↗</a>' +
+      '<a class="btn light small" href="' + esc(form) + '" target="_blank" rel="noopener">Formulaire de licence du club ↗</a></div>' +
+      (who !== 'Nouvelle' ? '<div class="note warn" style="margin:6px 0;">⚠️ <b>Déjà licencié(e) :</b> connectez-vous absolument avec votre <b>numéro de licence</b>. ' +
+        'En cas d\'erreur avec l\'ancien compte, un <b>nouveau compte</b> est créé : il faut alors contacter la FFTT pour demander la correction.</div>' : '') +
+      (who !== 'Renouvellement' ? '<div style="margin-top:6px;">🆕 <b>Nouveau joueur :</b> créez votre compte licencié FFTT.</div>' : '') +
+      '</div>';
+  }
+  function santeChip(m) {
+    if (!m.qs) return '<span class="chip err">à faire</span>';
+    return '<span class="chip ' + (/requis/.test(m.qs) ? 'warn' : 'ok') + '">' + esc(m.qs) + '</span>';
+  }
   function renderDocs() {
     var d = DOS, st = INFO ? INFO.settings : {};
     if (!DOCSEL.n || !d.membres.some(function (m) { return m.n === DOCSEL.n; })) {
@@ -885,29 +944,46 @@
       DOCSEL.n = (todo || d.membres[0] || {}).n || 1;
     }
     var m = d.membres.find(function (x) { return x.n === DOCSEL.n; }) || {};
+    var form = m.sante || (m.mineur ? 'mineur' : 'decouverte');
     var T = DOCSEL.types;
     var typeBox = function (k, icon, title, sub) {
       return '<label class="' + (T[k] ? 'sel' : '') + '"><input type="checkbox"' + (T[k] ? ' checked' : '') + ' onchange="DOCSEL.types.' + k + '=this.checked;renderDocs()"><span><b>' + icon + ' ' + title + '</b><small>' + sub + '</small></span></label>';
     };
     var html = whoBar() + '<div class="card"><h3>👤 Pour quel membre ?</h3><select onchange="DOCSEL.n=Number(this.value);renderDocs()">' +
       d.membres.map(function (x) { return '<option value="' + x.n + '"' + (x.n === DOCSEL.n ? ' selected' : '') + '>' + esc(x.prenom + ' ' + x.nom) + ' (' + esc(x.categorie) + ')' + (x.qs && x.reglement ? ' ✓' : '') + '</option>'; }).join('') + '</select>' +
-      '<p style="font-size:14px;margin:10px 0 0;">Questionnaire de santé : ' + (m.qs ? '<span class="chip ' + (/requis/.test(m.qs) ? 'warn' : 'ok') + '">' + esc(m.qs) + '</span>' : '<span class="chip err">à remplir</span>') +
-      ' · Règlement intérieur : ' + (m.reglement ? '<span class="chip ok">' + esc(m.reglement) + '</span>' : '<span class="chip err">à accepter</span>') + '</p></div>' +
+      '<p style="font-size:14px;margin:10px 0 0;">Certification médicale demandée par la FFTT : <b>' + esc(SANTE_LABEL[form]) + '</b> ' + santeChip(m) +
+      '<br>Règlement intérieur : ' + (m.reglement ? '<span class="chip ok">' + esc(m.reglement) + '</span>' : '<span class="chip err">à accepter</span>') + '</p></div>' +
       '<div class="card"><h3>📌 Quel(s) document(s) souhaitez-vous envoyer ?</h3><div class="doc-types">' +
-      typeBox('qs', '🩺', 'Questionnaire de santé', (m.mineur ? 'Questionnaire du sportif mineur' : 'QS-SPORT') + ', obligatoire chaque saison') +
+      typeBox('qs', '🩺', form === 'pps' ? 'Attestation PPS' : form === 'certificat' ? 'Certificat médical' : 'Questionnaire de santé', esc(SANTE_LABEL[form])) +
       typeBox('ri', '📋', 'Règlement intérieur', 'Acceptation du règlement du club') +
-      typeBox('cm', '⚕️', 'Certificat médical', 'Obligatoire si vous avez répondu OUI à une question du questionnaire de santé') +
-      typeBox('pj', '📎', 'Pièces justificatives', 'Aides (Pass\'Sport, coupons sport, Atout Normandie…)') + '</div></div>';
+      (form === 'certificat' ? '' : typeBox('cm', '⚕️', 'Certificat médical', 'Si une réponse OUI au questionnaire, ou à la place du questionnaire / PPS (certificat en cours de validité)')) +
+      typeBox('pj', '📎', 'Pièces justificatives', 'Aides (Pass\'Sport, coupons sport, Atout Normandie…)') + '</div>' +
+      (m.licence === 'Nouvelle' || m.licence === 'Renouvellement' || form === 'pps' ? licenceHelp(m.licence === 'Nouvelle' || m.licence === 'Renouvellement' ? m.licence : '') : '') + '</div>';
     if (T.qs) {
-      var Q = m.mineur ? QS_MINEUR : QS_ADULTE, k = 0;
-      html += '<div class="card"><h3>🩺 Questionnaire de santé ' + (m.mineur ? 'du sportif mineur' : '(QS-SPORT)') + ' – ' + esc(m.prenom) + '</h3>' +
-        '<div class="note info">🔒 Vos réponses restent sur cet appareil : seule l\'attestation est transmise au club.</div>' +
-        '<table class="qs">' + Q.map(function (g) {
-          return '<tr class="grp"><td colspan="2">' + esc(g[0]) + '</td></tr>' + g[1].map(function (q) {
-            var id = 'q' + (k++);
-            return '<tr><td>' + esc(q) + '</td><td class="yn"><label><input type="radio" name="' + id + '" value="oui" onchange="qsChange()"> Oui</label><label><input type="radio" name="' + id + '" value="non" onchange="qsChange()"> Non</label></td></tr>';
-          }).join('');
-        }).join('') + '</table><div id="qsResult"></div></div>';
+      if (QS_FORMS[form]) {
+        var F = QS_FORMS[form], k = 0;
+        html += '<div class="card"><h3>🩺 ' + esc(F.titre) + ' – ' + esc(m.prenom) + ' <small style="font:400 13px sans-serif;color:var(--muted);">FFTT n° ' + F.num + '</small></h3>' +
+          F.intro.map(function (p) { return '<p style="font-size:14px;margin:0 0 8px;">' + esc(p) + '</p>'; }).join('') +
+          '<div class="note info">🔒 Ce questionnaire est confidentiel : vos réponses restent sur cet appareil, seule l\'attestation signée est transmise au club.</div>' +
+          '<p style="font-weight:600;margin:6px 0;">Répondez aux questions suivantes par oui ou par non.</p>' +
+          '<table class="qs">' + F.groups.map(function (g) {
+            return '<tr class="grp"><td colspan="2">' + esc(g[0]) + '</td></tr>' + g[1].map(function (q) {
+              var id = 'q' + (k++);
+              return '<tr><td><b>' + k + '</b>&nbsp; ' + esc(q) + '</td><td class="yn"><label><input type="radio" name="' + id + '" value="oui" onchange="qsChange()"> Oui</label><label><input type="radio" name="' + id + '" value="non" onchange="qsChange()"> Non</label></td></tr>';
+            }).join('');
+          }).join('') + '</table><p style="font-size:13px;color:var(--muted);">' + esc(F.resp) + '</p><div id="qsResult"></div></div>';
+      } else if (form === 'pps') {
+        html += '<div class="card"><h3>🩺 Parcours de Prévention Santé (PPS) – ' + esc(m.prenom) + '</h3>' +
+          '<p style="font-size:14px;">Joueur majeur de 18 à 64 ans en compétition : la FFTT demande l\'<b>attestation de suivi du Parcours de Prévention Santé (PPS)</b>, à réaliser <b>en ligne chaque année</b>.</p>' +
+          '<p style="font-size:14px;">Le PPS se fait dans votre <b>espace licencié FFTT (MaLicence)</b>, avec vos identifiants de joueur.</p>' +
+          '<p><a class="btn light small" href="' + esc(st.ppsUrl || 'https://malicence.fftt.com/login') + '" target="_blank" rel="noopener">Ouvrir mon espace MaLicence FFTT ↗</a></p>' +
+          '<p style="font-size:14px;">Envoyez ensuite l\'attestation PPS ci-dessous. Un certificat médical en cours de validité peut la remplacer (« Certificat médical »).</p>' +
+          fileInput('pps') + '</div>';
+      } else {
+        html += '<div class="card"><h3>⚕️ Certificat médical – ' + esc(m.prenom) + '</h3>' +
+          '<p style="font-size:14px;">65 ans et plus : la FFTT demande un <b>certificat médical</b> à l\'entrée dans chaque catégorie vétéran (V65, V70, V80, V85, V90), puis le PPS en ligne les autres années.</p>' +
+          fileInput('cm') + '</div>';
+      }
     }
     if (T.ri) {
       html += '<div class="card"><h3>📋 Règlement intérieur – ' + esc(m.prenom) + '</h3>' +
@@ -918,14 +994,41 @@
         '<div class="grid3"><div><label>Nom du signataire <span class="req">*</span></label><input id="riSig" value="' + esc(m.mineur ? d.responsable.prenom + ' ' + d.responsable.nom : m.prenom + ' ' + m.nom) + '"></div><div></div>' +
         '<div><button class="btn primary" onclick="sendRI(this)">Valider</button></div></div></div>';
     }
-    if (T.cm) html += fileCard('cm', '⚕️ Certificat médical – ' + esc(m.prenom), 'Certificat médical de non contre-indication à la pratique du tennis de table (photo ou PDF).');
-    if (T.pj) html += fileCard('pj', '📎 Pièces justificatives', 'Attestation Pass\'Sport, coupons sport, Atout Normandie… (photo ou PDF, plusieurs fichiers possibles).');
+    if (T.cm && form !== 'certificat') html += '<div class="card"><h3>⚕️ Certificat médical – ' + esc(m.prenom) + '</h3><p style="margin-top:-6px;color:var(--muted);font-size:14px;">Certificat médical de pratique sportive de moins d\'un an (photo ou PDF).</p>' + fileInput('cm') + '</div>';
+    if (T.pj) html += '<div class="card"><h3>📎 Pièces justificatives</h3><p style="margin-top:-6px;color:var(--muted);font-size:14px;">Attestation Pass\'Sport, coupons sport, Atout Normandie… (photo ou PDF, plusieurs fichiers possibles).</p>' + fileInput('pj') + '</div>';
     $('docsBox').innerHTML = html;
   }
-  function fileCard(k, title, sub) {
-    return '<div class="card"><h3>' + title + '</h3><p style="margin-top:-6px;color:var(--muted);font-size:14px;">' + sub + '</p>' +
-      '<input type="file" id="file_' + k + '" accept="image/*,application/pdf"' + (k === 'pj' ? ' multiple' : '') + '>' +
-      '<div class="actions"><span id="fs_' + k + '" style="font-size:14px;"></span><button class="btn primary" onclick="sendFiles(\'' + k + '\', this)">Envoyer</button></div></div>';
+  function fileInput(k) {
+    return '<input type="file" id="file_' + k + '" accept="image/*,application/pdf"' + (k === 'pj' ? ' multiple' : '') + '>' +
+      '<div class="actions"><span id="fs_' + k + '" style="font-size:14px;"></span><button class="btn primary" onclick="sendFiles(\'' + k + '\', this)">Envoyer</button></div>';
+  }
+  // Signature tracée au doigt ou à la souris.
+  function sigPad(id, label) {
+    return '<div class="sig"><label>' + label + ' <span class="req">*</span></label><canvas id="' + id + '" width="560" height="170"></canvas>' +
+      '<button type="button" class="btn light small" onclick="clearSig(\'' + id + '\')">Effacer</button></div>';
+  }
+  function initSig(id) {
+    var cv = $(id); if (!cv) return;
+    var ctx = cv.getContext('2d'), last = null;
+    ctx.lineWidth = 2.6; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0f2f57';
+    cv._ink = 0;
+    var pos = function (e) { var r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * cv.width / r.width, y: (e.clientY - r.top) * cv.height / r.height }; };
+    cv.onpointerdown = function (e) { last = pos(e); try { cv.setPointerCapture(e.pointerId); } catch (x) { /* rien */ } e.preventDefault(); };
+    cv.onpointermove = function (e) {
+      if (!last) return;
+      var p = pos(e);
+      ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+      cv._ink += Math.abs(p.x - last.x) + Math.abs(p.y - last.y); last = p;
+    };
+    cv.onpointerup = cv.onpointercancel = cv.onpointerleave = function () { last = null; };
+  }
+  function clearSig(id) { var cv = $(id); cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); cv._ink = 0; }
+  function sigData(id) {
+    var cv = $(id); if (!cv || cv._ink < 60) return '';
+    // Fond blanc pour le PDF.
+    var out = document.createElement('canvas'); out.width = cv.width; out.height = cv.height;
+    var c = out.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, out.width, out.height); c.drawImage(cv, 0, 0);
+    return out.toDataURL('image/png');
   }
   function qsChange() {
     var radios = Array.prototype.slice.call(document.querySelectorAll('.qs input[type=radio]'));
@@ -934,26 +1037,50 @@
     var box = $('qsResult');
     if (vals.some(function (v) { return !v; })) { box.innerHTML = '<p style="color:var(--muted);font-size:14px;">Répondez à toutes les questions (' + vals.filter(Boolean).length + '/' + vals.length + ').</p>'; return; }
     var m = DOS.membres.find(function (x) { return x.n === DOCSEL.n; });
+    var form = m.sante || (m.mineur ? 'mineur' : 'decouverte'), F = QS_FORMS[form];
     var allNo = vals.every(function (v) { return v === 'non'; });
-    var sig = m.mineur ? DOS.responsable.prenom + ' ' + DOS.responsable.nom : m.prenom + ' ' + m.nom;
-    box.innerHTML = (allNo
-      ? '<div class="note ok">✅ Vous avez répondu NON à toutes les questions : pas de certificat médical à fournir.</div>' +
-        '<label style="display:flex;gap:10px;font-weight:400;"><input type="checkbox" id="qsOk"> <span>' + (m.mineur ? 'En tant que responsable légal, j\'atteste que ' + esc(m.prenom) + ' a répondu' : 'J\'atteste avoir répondu') + ' NON à toutes les questions du questionnaire de santé.</span></label>'
-      : '<div class="note warn">⚠️ Au moins une réponse OUI : un <b>certificat médical</b> de non contre-indication est nécessaire. Envoyez-le avec « Certificat médical » ci-dessus.</div>' +
-        '<label style="display:flex;gap:10px;font-weight:400;"><input type="checkbox" id="qsOk"> <span>J\'ai bien noté qu\'un certificat médical est nécessaire.</span></label>') +
-      '<div class="grid3"><div><label>Nom du signataire <span class="req">*</span></label><input id="qsSig" value="' + esc(sig) + '"></div><div></div>' +
-      '<div><button class="btn primary" onclick="sendQS(this,' + allNo + ')">Valider le questionnaire</button></div></div>';
+    if (!allNo) {
+      box.innerHTML = '<div class="note warn"><b>Vous avez répondu OUI à une ou plusieurs questions :</b><br>Certificat médical à fournir. Consultez un médecin et présentez-lui ce questionnaire renseigné.' +
+        '<br><small>Ce questionnaire est confidentiel et ne doit être remis qu\'à un médecin si nécessaire.</small></div>' +
+        '<div class="actions"><button class="btn light" onclick="window.print()">🖨️ Imprimer le questionnaire renseigné</button><button class="btn primary" onclick="sendQS(this,false)">J\'ai compris : certificat médical à fournir</button></div>';
+      return;
+    }
+    var today = new Date().toLocaleDateString('fr-FR');
+    box.innerHTML = '<div class="note ok"><b>Vous avez répondu NON à toutes les questions :</b><br>Ainsi, il n\'est pas constaté, à ce jour, de contre-indication à la pratique du Tennis de Table. Pas de certificat médical à fournir : signez l\'attestation ci-dessous.</div>' +
+      '<div class="attest"><div class="attest-h">N° ' + F.num + ' — ATTESTATION</div>' +
+      '<p style="margin:6px 0;">Je soussigné :</p><div class="grid2">' +
+      '<div><label>NOM</label><input id="atNom" value="' + esc(m.nom) + '" style="text-transform:uppercase"></div>' +
+      '<div><label>PRÉNOM</label><input id="atPrenom" value="' + esc(m.prenom) + '"></div>' +
+      '<div><label>N° de licence <small>' + (form === 'decouverte' ? '(si existant et connu)' : '(si connu)') + '</small></label><input id="atLic" value="' + esc(m.numLicence || '') + '"></div>' +
+      (form === 'decouverte' ? '<div><label>Date de naissance</label><input value="' + esc(m.naissance) + '" disabled></div>' : '<div></div>') +
+      '</div><p>' + esc(F.decl) + '</p>' +
+      '<p style="font-size:14px;">Je sais qu\'à travers cette attestation, et comme cela est précisé dans la circulaire administrative de la FFTT, j\'engage ma propre responsabilité et qu\'en aucun cas celle de la FFTT ne pourra être recherchée.</p>' +
+      '<div class="grid2"><div><label>Fait à</label><input id="atLieu" placeholder="Ville"></div><div><label>Le</label><input value="' + today + '" disabled></div></div>' +
+      (form === 'mineur'
+        ? sigPad('sigJoueur', 'Signature du joueur mineur') +
+          '<label>Nom du représentant légal <span class="req">*</span></label><input id="atParent" value="' + esc(DOS.responsable.prenom + ' ' + DOS.responsable.nom) + '">' +
+          sigPad('sigParent', 'Signature du représentant légal (obligatoire)')
+        : sigPad('sigJoueur', 'Signature du titulaire ou du représentant légal')) +
+      '</div><div class="actions"><span></span><button class="btn orange" onclick="sendQS(this,true)">✍️ Signer et envoyer l\'attestation</button></div>';
+    initSig('sigJoueur'); initSig('sigParent');
   }
   function sendQS(btn, allNo) {
-    if (!$('qsOk').checked) { flash('Cochez la case de l\'attestation.', 'err'); return; }
+    var m = DOS.membres.find(function (x) { return x.n === DOCSEL.n; });
+    var att = {};
+    if (allNo) {
+      att = { nom: $('atNom').value, prenom: $('atPrenom').value, licence: $('atLic').value, lieu: $('atLieu').value,
+        sigJoueur: sigData('sigJoueur'), sigParent: sigData('sigParent'), parent: $('atParent') ? $('atParent').value : '' };
+      if (!att.sigJoueur) { flash('Signez dans le cadre « ' + (m.mineur ? 'Signature du joueur mineur' : 'Signature du titulaire') + ' ».', 'err'); return; }
+      if ($('sigParent') && !att.sigParent) { flash('La signature du représentant légal est obligatoire.', 'err'); return; }
+    }
     busy(btn, true, 'Envoi…');
-    api('submitQS', [ACC.dossier, ACC.tel, DOCSEL.n, allNo, $('qsSig').value]).then(function (res) {
+    api('submitQS', [ACC.dossier, ACC.tel, DOCSEL.n, allNo, att]).then(function (res) {
       busy(btn, false); DOS = res;
       if (!allNo) DOCSEL.types.cm = true;
       DOCSEL.types.qs = false;
       if (!res.membres.find(function (x) { return x.n === DOCSEL.n; }).reglement) DOCSEL.types.ri = true;
       renderDocs();
-      flash(allNo ? '✅ Questionnaire de santé enregistré.' : '✅ Enregistré : pensez à envoyer le certificat médical.', allNo ? 'ok' : 'warn');
+      flash(allNo ? '✅ Attestation signée et envoyée au club.' : 'Enregistré : envoyez le certificat médical dès que possible.', allNo ? 'ok' : 'warn');
     }).catch(function (e) { busy(btn, false); flash(esc(e.message), 'err'); });
   }
   function sendRI(btn) {
@@ -995,7 +1122,7 @@
   function sendFiles(k, btn) {
     var files = Array.prototype.slice.call($('file_' + k).files || []);
     if (!files.length) { flash('Choisissez un fichier.', 'err'); return; }
-    var type = k === 'cm' ? 'Certificat médical' : 'Justificatif';
+    var type = k === 'cm' ? 'Certificat médical' : k === 'pps' ? 'Attestation PPS' : 'Justificatif';
     busy(btn, true, 'Envoi…');
     var chain = Promise.resolve(), sent = 0;
     files.forEach(function (f) {
