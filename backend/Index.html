@@ -138,6 +138,8 @@
     td.avail-none select.assign-select { background: #fff; }
     td.burned-cell { background: var(--burn-bg) !important; }
     td.burned-cell select.assign-select { border-color: var(--burn-border); }
+    .past-lock { border: 0; background: none; padding: 0 2px; font-size: 11px; cursor: default; }
+    button.past-lock { cursor: pointer; }
     .team-count-badge {
       display: inline-block; min-width: 18px; padding: 1px 4px; border-radius: 8px; background: var(--gray-bg);
       font-size: 11px; margin: 0 1px;
@@ -436,7 +438,7 @@
         <h2 id="loginTitle">Mon compte</h2>
         <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Licencié du club : saisissez votre code personnel à 6 chiffres.</p>
         <label>Code</label>
-        <input type="password" id="loginPin" inputmode="numeric" maxlength="6" autocomplete="off" autofocus style="letter-spacing:4px;font-size:20px;text-align:center;" onkeydown="if (event.key === 'Enter') doLogin();">
+        <input type="password" id="loginPin" inputmode="numeric" maxlength="6" autocomplete="off" autofocus style="letter-spacing:4px;font-size:20px;text-align:center;" onkeydown="if (event.key === 'Enter') doLogin();" oninput="onPinInput()">
         <button class="primary" id="loginBtn" onclick="doLogin()">Se connecter</button>
         <div class="error hidden" id="loginError"></div>
       </div>
@@ -1017,6 +1019,7 @@
     document.getElementById('clubInfoName').textContent = club.nom || 'Mon club';
     var cached = null;
     try { cached = JSON.parse(storeGet('rebontt_clubinfo_' + club.id) || 'null'); } catch (e) { cached = null; }
+    onPinInput();
     if (cached) renderClubInfo(cached);
     else document.getElementById('clubInfo').innerHTML = '<div class="card">Chargement de la présentation du club…</div>';
     callServer('getClubInfo', [], 3).then(function (info) {
@@ -1025,6 +1028,13 @@
     }).catch(function () {
       if (!cached) renderClubInfo(null);
     });
+  }
+  // Dès que l'on tape son code (joueur ou admin), la présentation du club
+  // est masquée ; elle réapparaît si le champ est vidé.
+  function onPinInput() {
+    var pinEl = document.getElementById('loginPin');
+    var info = document.getElementById('clubInfo');
+    if (info) info.classList.toggle('hidden', !!(pinEl && pinEl.value));
   }
   var JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   function textBlock(v, empty) {
@@ -1104,6 +1114,7 @@
           return;
         }
         res.clubId = STATE.club ? STATE.club.id : '';
+        document.getElementById('loginPin').value = ''; // présentation du club réaffichée après déconnexion
         STATE.session = res;
         STATE.config = res.config; // renvoyée par login() elle-même, pas d'appel séparé
         sessionStorage.setItem('fri_session', JSON.stringify(res));
@@ -1821,6 +1832,41 @@
     return html;
   }
 
+  // Brûlage NON rétroactif : à une date donnée, seuls les matchs joués
+  // AVANT cette date comptent (même règle que computeBurnedTeams_ côté
+  // serveur : brûlé pour l'équipe N dès 2 matchs dans les équipes FRI
+  // au-dessus). Les journées où le joueur n'était pas encore brûlé ne sont
+  // donc pas marquées.
+  function burnedAsOf(p, date) {
+    var limit = parseFrDate(date);
+    var counts = {};
+    Object.keys(p.assignments || {}).forEach(function (dt) {
+      if (parseFrDate(dt) < limit) { var t = Number(p.assignments[dt]); counts[t] = (counts[t] || 0) + 1; }
+    });
+    var burned = {}, cumulative = 0;
+    STATE.config.teams.forEach(function (t) {
+      if (!isFriTeam(t)) { burned[t.id] = false; return; }
+      burned[t.id] = cumulative >= 2;
+      cumulative += counts[t.id] || 0;
+    });
+    return burned;
+  }
+
+  // Journée passée de plus de 2 jours : l'équipe jouée n'est plus
+  // modifiable (évite une modification involontaire). L'administrateur peut
+  // déverrouiller une case (🔒) pour corriger une erreur.
+  var PAST_LOCK_DAYS = 2;
+  function pastLocked(date) {
+    var d = parseFrDate(date);
+    return !!d && Math.round((todayStart() - d) / 86400000) > PAST_LOCK_DAYS;
+  }
+  function unlockPast(playerId, date) {
+    if (!confirm('Le match du ' + date + ' est passé depuis plus de ' + PAST_LOCK_DAYS + ' jours.\n\nDéverrouiller cette case pour modifier l\'équipe jouée ?')) return;
+    STATE.unlockedPast = STATE.unlockedPast || {};
+    STATE.unlockedPast[pendingKey(playerId, date)] = true;
+    renderBurnTable();
+  }
+
   function burnTableRowHtml(p, dates, lastTeamId, isLastRow, restrictToTeamId, viewOnly, showHomeTeamBadge) {
     // Pour un joueur "invité" (affiché dans le cadre d'une équipe qui n'est
     // pas la sienne, parce qu'il a été sélectionné pour y jouer un jour
@@ -1850,7 +1896,10 @@
       var status = p.availability[d.date] || 'Disponible';
       var assigned = p.assignments[d.date] || '';
       var availClass = status === 'Disponible' ? 'avail-green' : (status === 'Indisponible' ? 'avail-red' : 'avail-none');
-      var burnedNow = assigned && p.burned[assigned];
+      var burnedAt = burnedAsOf(p, d.date);
+      var burnedNow = assigned && burnedAt[assigned];
+      var isAdminCtx = STATE.session && STATE.session.isAdmin;
+      var pastLock = pastLocked(d.date) && !(isAdminCtx && (STATE.unlockedPast || {})[pendingKey(p.id, d.date)]);
       var gc = GROUP_COLORS[d.group] || '#999';
       var journee = journeeByDate[d.date];
       // Verrouillé si ce joueur est déjà affecté à une AUTRE date de la
@@ -1864,8 +1913,8 @@
       // Brûlé pour toutes les équipes qui jouent à cette date (ex. joueur
       // monté qui ne peut plus redescendre) : 🔥 affiché directement.
       var groupTeams = friTeams().filter(function (t) { return t.group === d.group; });
-      var allBurned = !assigned && groupTeams.length > 0 && groupTeams.every(function (t) { return p.burned[t.id]; });
-      if (viewOnly || journeeLocked || (restrictToTeamId && assigned && assigned !== restrictToTeamId)) {
+      var allBurned = !assigned && groupTeams.length > 0 && groupTeams.every(function (t) { return burnedAt[t.id]; });
+      if (viewOnly || journeeLocked || pastLock || (restrictToTeamId && assigned && assigned !== restrictToTeamId)) {
         // Lecture seule : soit une équipe qu'un capitaine ne fait que
         // consulter, soit une date verrouillée (déjà joué cette journée),
         // soit (vue capitaine sur sa propre équipe) une case déjà affectée
@@ -1873,6 +1922,11 @@
         var otherTeam = assigned ? STATE.config.teams.find(function (t) { return t.id === assigned; }) : null;
         var lockLabel = journeeLocked ? ('Déjà ' + journee + ' (' + usedJournees[journee] + ')') : (otherTeam ? otherTeam.name : allBurned ? '🔥' : '—');
         html += '<span style="font-size:11px;color:var(--muted);" title="' + (journeeLocked ? 'Ce joueur est déjà affecté le ' + usedJournees[journee] + ' pour la même journée (' + journee + ')' : '') + '">' + lockLabel + '</span>';
+        if (pastLock && !viewOnly && !journeeLocked) {
+          html += isAdminCtx
+            ? ' <button type="button" class="past-lock" onclick="unlockPast(\'' + p.id + '\',\'' + d.date + '\')" title="Match passé depuis plus de ' + PAST_LOCK_DAYS + ' jours : cliquer pour déverrouiller">🔒</button>'
+            : ' <span class="past-lock" title="Match passé depuis plus de ' + PAST_LOCK_DAYS + ' jours : équipe non modifiable">🔒</span>';
+        }
         if (status === 'Indisponible') html += '<span class="indispo-tag">✕ indispo</span>';
       } else {
         var isPending = !!STATE.pendingAssignments[pendingKey(p.id, d.date)];
@@ -1884,7 +1938,7 @@
         // (ancienne saisie) reste affichée pour pouvoir être corrigée.
         var teamOptions = friTeams().filter(function (t) { return t.group === d.group || assigned === t.id; });
         teamOptions.forEach(function (t) {
-          var isBurned = p.burned[t.id] && assigned !== t.id;
+          var isBurned = burnedAt[t.id] && assigned !== t.id;
           html += '<option value="' + t.id + '" ' + (assigned === t.id ? 'selected' : '') + '>' +
             t.name + (isBurned ? ' 🔥' : '') + '</option>';
         });
