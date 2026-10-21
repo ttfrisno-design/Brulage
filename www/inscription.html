@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="theme-color" content="#17457d">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/icon-32.png">
+  <link rel="apple-touch-icon" href="assets/icons/icon-180.png">
+  <title>Inscription tennis de table</title>
+  <style>
+    :root {
+      --navy: #17457d; --navy-dark: #0f2f57; --orange: #f2731d; --gold: #f2b84b;
+      --ink: #1c2530; --muted: #6b7684; --border: #dfe3e8; --bg: #f6f4ef; --card: #fff;
+      --ok: #2e7d32; --ok-bg: #e3f4e4; --warn: #b26a00; --warn-bg: #fff3d6; --err: #c62828; --err-bg: #fde3e3;
+      --info-bg: #e8f1fb;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+    a { color: var(--navy); }
+    header.top { background: var(--navy-dark); color: #fff; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: calc(10px + env(safe-area-inset-top)) 18px 10px; flex-wrap: wrap; }
+    header.top .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    header.top img { height: 48px; width: 48px; object-fit: contain; background: #fff; border-radius: 6px; padding: 2px; }
+    header.top .t1 { font-size: 18px; font-weight: 700; line-height: 1.2; }
+    header.top .t2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #9ec3ee; }
+    .season { background: var(--gold); color: var(--navy-dark); font-weight: 700; border-radius: 999px; padding: 8px 18px; font-size: 16px; white-space: nowrap; }
+    .hero { background: linear-gradient(120deg, var(--navy-dark), var(--navy) 55%, #2f6fb5); color: #fff; text-align: center; padding: 42px 16px 36px; }
+    .hero h1 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(28px, 6vw, 50px); margin: 0 0 10px; }
+    .hero p { margin: 0 auto; max-width: 640px; opacity: .92; font-size: 16px; }
+    .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 18px; }
+    .chips span { border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.1); border-radius: 999px; padding: 6px 14px; font-size: 14px; }
+    main { max-width: 1120px; margin: 0 auto; padding: 22px 16px 40px; }
+    h2.section { font-family: Georgia, "Times New Roman", serif; font-size: clamp(22px, 4vw, 30px); text-align: center; margin: 6px 0 20px; font-weight: 600; }
+    .menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
+    .menu button { display: flex; align-items: center; gap: 16px; text-align: left; background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px; cursor: pointer; font: inherit; color: inherit; transition: box-shadow .15s, transform .15s; }
+    .menu button:hover:not(:disabled) { box-shadow: 0 6px 18px rgba(23,69,125,.12); transform: translateY(-2px); }
+    .menu button:disabled { opacity: .55; cursor: not-allowed; }
+    .menu .ic { flex: none; width: 54px; height: 54px; border-radius: 50%; background: #e4eefb; display: grid; place-items: center; font-size: 26px; }
+    .menu b { display: block; font-size: 18px; font-weight: 600; margin-bottom: 2px; }
+    .menu small { color: var(--muted); font-size: 14px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; margin-bottom: 18px; }
+    .card h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; font-size: 20px; margin: 0 0 14px; }
+    .back { background: none; border: 0; color: var(--navy); font: inherit; font-weight: 600; cursor: pointer; padding: 0; margin-bottom: 14px; }
+    .page-title { text-align: center; margin-bottom: 18px; }
+    .page-title .big { font-size: 40px; }
+    .page-title h2 { margin: 4px 0; font-size: 26px; }
+    .page-title p { margin: 0; color: var(--muted); }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; }
+    .grid3 { display: grid; grid-template-columns: 2fr 1fr auto; gap: 10px; align-items: end; }
+    .full { grid-column: 1 / -1; }
+    @media (max-width: 640px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 8px 0 4px; }
+    label .req { color: var(--err); }
+    label small { font-weight: 400; color: var(--muted); }
+    input, select, textarea { width: 100%; padding: 11px 12px; border: 1px solid #cfd6de; border-radius: 9px; font: inherit; background: #fbfaf7; }
+    input:focus, select:focus, textarea:focus { outline: 2px solid #9ec3ee; border-color: var(--navy); background: #fff; }
+    input[type=checkbox], input[type=radio] { width: auto; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; border-radius: 10px; padding: 12px 22px; font: inherit; font-weight: 700; cursor: pointer; border: 1px solid var(--navy); }
+    .btn.primary { background: var(--navy); color: #fff; }
+    .btn.orange { background: var(--orange); border-color: var(--orange); color: #fff; }
+    .btn.light { background: #fff; color: var(--navy); }
+    .btn.small { padding: 7px 12px; font-size: 14px; }
+    .btn:disabled { opacity: .5; cursor: wait; }
+    .actions { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+    .note { border-radius: 10px; padding: 11px 14px; font-size: 14px; margin: 10px 0; }
+    .note.info { background: var(--info-bg); border: 1px solid #c4dbf3; }
+    .note.ok { background: var(--ok-bg); border: 1px solid #b9dfbb; }
+    .note.warn { background: var(--warn-bg); border: 1px solid #f0d491; }
+    .note.err { background: var(--err-bg); border: 1px solid #f3b7b7; color: var(--err); }
+    .search-box { background: #f3efe3; border: 1px solid #e3dcc7; border-radius: 14px; padding: 18px; margin-bottom: 18px; }
+    .search-box h3 { font-size: 18px; }
+    .tarif-box { border: 2px solid #9fd3a2; background: var(--ok-bg); border-radius: 9px; padding: 10px 12px; font-weight: 600; color: var(--ok); }
+    .tarif-box.ext { border-color: #f0d491; background: var(--warn-bg); color: var(--warn); }
+    .steps { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 18px; }
+    .steps span { font-size: 13px; padding: 6px 12px; border-radius: 999px; background: #e9e5da; color: var(--muted); }
+    .steps span.on { background: var(--navy); color: #fff; }
+    .steps span.done { background: #cfe3f7; color: var(--navy); }
+    .hidden { display: none !important; }
+    .hp { position: absolute; left: -5000px; }
+    /* Semainier */
+    .week { display: grid; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: #fbfaf7; }
+    .week .dh { background: var(--navy-dark); color: #fff; text-align: center; font-weight: 700; padding: 12px 4px; font-size: 14px; letter-spacing: .05em; }
+    .week .col { position: relative; border-left: 1px solid #e8e4da; }
+    .week .axis { position: relative; }
+    .week .axis span { position: absolute; right: 6px; font-size: 11px; color: var(--muted); transform: translateY(-50%); }
+    .slot { position: absolute; border-radius: 10px; padding: 6px 6px; text-align: center; font-size: 12.5px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+    .slot .nv { font-weight: 700; font-size: 13.5px; line-height: 1.2; }
+    .slot .mut { color: rgba(0,0,0,.55); }
+    .slot .lic, .tag { display: inline-block; background: var(--orange); color: #fff; font-weight: 700; border-radius: 5px; padding: 0 6px; font-size: 11.5px; }
+    .slot .pl { font-weight: 700; }
+    .slot.full { opacity: .6; }
+    .week-list { display: none; }
+    @media (max-width: 760px) { .week { display: none; } .week-list { display: block; } }
+    .week-list h4 { margin: 14px 0 8px; font-size: 15px; color: var(--navy); text-transform: uppercase; letter-spacing: .05em; }
+    .week-list .slot { position: static; margin-bottom: 8px; text-align: left; padding: 10px 12px; }
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin: 10px 2px 0; }
+    /* Choix des créneaux */
+    .member { border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 14px; background: #fff; }
+    .member-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .member-h b { font-size: 17px; }
+    .cat { display: inline-block; background: #e4eefb; color: var(--navy); font-weight: 700; border-radius: 999px; padding: 2px 10px; font-size: 13px; }
+    .pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin-top: 6px; }
+    .pick label { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin: 0; font-weight: 400; cursor: pointer; background: #fbfaf7; }
+    .pick label.sel { border-color: var(--navy); background: #e8f1fb; box-shadow: inset 0 0 0 1px var(--navy); }
+    .pick label.off { opacity: .5; cursor: not-allowed; }
+    .pick .t { font-weight: 700; }
+    .pick .s { font-size: 13px; color: var(--muted); }
+    table.recap { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table.recap th, table.recap td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    table.recap td.num, table.recap th.num { text-align: right; white-space: nowrap; }
+    table.recap tr.tot td { font-weight: 700; font-size: 16px; border-bottom: 0; }
+    .opts label { display: flex; align-items: flex-start; gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 0 0 8px; font-weight: 400; cursor: pointer; background: #fbfaf7; }
+    .opts label.sel { border-color: var(--navy); background: #e8f1fb; }
+    .opts b { display: block; }
+    .opts small { color: var(--muted); }
+    .done-num { font-size: 34px; font-weight: 800; letter-spacing: .05em; color: var(--navy); text-align: center; margin: 6px 0; }
+    .chip { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 700; }
+    .chip.ok { background: var(--ok-bg); color: var(--ok); }
+    .chip.warn { background: var(--warn-bg); color: var(--warn); }
+    .chip.err { background: var(--err-bg); color: var(--err); }
+    .qs { border-collapse: collapse; width: 100%; font-size: 14px; }
+    .qs td { padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .qs td.yn { white-space: nowrap; width: 1%; }
+    .qs td.yn label { display: inline-flex; gap: 4px; margin: 0 6px 0 0; font-weight: 400; }
+    .qs tr.grp td { background: #f3efe3; font-weight: 700; }
+    .doc-types label { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin: 0 0 10px; font-weight: 400; cursor: pointer; background: #fafafa; }
+    .doc-types label.sel { border-color: var(--ok); background: var(--ok-bg); }
+    .doc-types b { display: block; font-size: 16px; }
+    .doc-types small { color: var(--muted); }
+    footer { text-align: center; color: var(--muted); font-size: 13px; padding: 20px 16px calc(24px + env(safe-area-inset-bottom)); }
+    .spinner { text-align: center; color: var(--muted); padding: 30px; }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <img id="clubLogo" src="assets/logo-fri.png" alt="">
+      <div><div class="t1" id="clubName">Tennis de table</div><div class="t2">Inscriptions · Tennis de table</div></div>
+    </div>
+    <div class="season" id="seasonBadge">Saison</div>
+  </header>
+  <section class="hero">
+    <h1>Inscription au tennis de table</h1>
+    <p>Inscrivez toute votre famille en quelques minutes : loisir, compétition, jeunes et adultes.</p>
+    <div class="chips"><span>🏓 Loisir &amp; compétition</span><span>👨‍👩‍👧 Jeunes &amp; adultes</span><span id="chipVille">📍</span></div>
+  </section>
+
+  <main>
+    <div id="globalMsg"></div>
+
+    <!-- MENU -->
+    <section id="vMenu">
+      <h2 class="section">Que souhaitez-vous faire ?</h2>
+      <div class="menu">
+        <button onclick="go('vActivites')"><span class="ic">🔎</span><span><b>1. Consulter les activités</b><small>Horaires, lieux, tarifs et places disponibles</small></span></button>
+        <button id="btnCreate" onclick="startWizard()"><span class="ic">✍️</span><span><b>2. Créer un compte</b><small id="createSub">Inscrire votre famille pour la saison</small></span></button>
+        <button onclick="go('vDossier')"><span class="ic">👤</span><span><b>3. Consulter votre compte</b><small>Vos activités et l'état de votre règlement</small></span></button>
+        <button onclick="go('vModif')"><span class="ic">🔄</span><span><b>4. Modifier vos activités</b><small>Demander l'ajout ou le retrait d'une activité</small></span></button>
+        <button onclick="go('vDocs')"><span class="ic">📄</span><span><b>5. Envoyer des documents</b><small>Questionnaire santé, règlement intérieur, justificatifs</small></span></button>
+        <button onclick="go('vMessage')"><span class="ic">✉️</span><span><b>6. Envoyer un message</b><small>Une question ? Contactez le club</small></span></button>
+      </div>
+      <div id="menuInfos"></div>
+    </section>
+
+    <!-- ACTIVITÉS -->
+    <section id="vActivites" class="hidden">
+      <button class="back" onclick="go('vMenu')">← Retour au menu</button>
+      <div class="page-title"><div class="big">🔎</div><h2>Les activités</h2><p>Créneaux de la saison, tarifs et places disponibles</p></div>
+      <div id="weekBox"></div>
+      <div class="legend"><span>🟢 places disponibles</span><span>🟡 dernières places</span><span>🔴 complet</span><span><span class="tag">+ licence</span> part licence FFTT incluse au total</span></div>
+      <div id="tarifNote"></div>
+    </section>
+
+    <!-- CRÉATION DU COMPTE -->
+    <section id="vCompte" class="hidden">
+      <button class="back" onclick="go('vMenu')">← Retour au menu</button>
+      <div class="steps" id="steps"></div>
+
+      <div id="s1">
+        <div class="page-title"><div class="big">👤</div><h2>Responsable légal</h2><p>Informations du responsable du foyer ou de la famille</p></div>
+        <div class="note info">ℹ️ Ces informations sont celles du responsable légal. Vous ajouterez les membres de la famille à l'étape suivante.</div>
+        <div class="search-box">
+          <h3>🔍 Déjà adhérent ? Retrouvez vos informations</h3>
+          <div class="grid3">
+            <div><label for="fTel">Votre numéro de téléphone</label><input id="fTel" inputmode="tel" placeholder="06 12 34 56 78"></div>
+            <div><label for="fNom3">3 premières lettres du nom</label><input id="fNom3" maxlength="3" placeholder="EX : MAR" style="text-transform:uppercase"></div>
+            <div><button class="btn light" onclick="findMe(this)">🔍 Rechercher</button></div>
+          </div>
+          <div id="findMsg" style="font-size:13px;color:var(--muted);margin-top:6px;">Le numéro et le nom doivent correspondre à votre adhésion précédente ou à votre fiche au club.</div>
+        </div>
+        <div class="card">
+          <h3>📋 Coordonnées du responsable légal</h3>
+          <div class="grid2">
+            <div><label>Nom <span class="req">*</span></label><input id="rNom" placeholder="DUPONT" style="text-transform:uppercase"></div>
+            <div><label>Prénom <span class="req">*</span></label><input id="rPrenom" placeholder="Marie"></div>
+            <div><label>Adresse <span class="req">*</span></label><input id="rAdresse" placeholder="12 rue des Lilas"></div>
+            <div><label>Code postal <span class="req">*</span></label><input id="rCp" inputmode="numeric" maxlength="5" placeholder="76230"></div>
+            <div><label>Ville <span class="req">*</span></label><input id="rVille" placeholder="ISNEAUVILLE" style="text-transform:uppercase" oninput="updateTarifBox()"></div>
+            <div><label>Tarif applicable</label><div id="tarifBox" class="tarif-box">🏠 Saisissez votre ville</div></div>
+            <div><label>Téléphone <span class="req">*</span></label><input id="rTel" inputmode="tel" placeholder="06 XX XX XX XX"></div>
+            <div><label>E-mail <span class="req">*</span></label><input id="rEmail" type="email" placeholder="marie.dupont@exemple.fr"></div>
+            <div><label>Téléphone 2 <small>(facultatif)</small></label><input id="rTel2" inputmode="tel" placeholder="06 XX XX XX XX"></div>
+            <div><label>E-mail 2 <small>(facultatif)</small></label><input id="rEmail2" type="email" placeholder="autre.email@exemple.fr"></div>
+          </div>
+        </div>
+        <div class="actions"><span></span><button class="btn primary" onclick="toStep(2)">Continuer → Membres &amp; activités</button></div>
+      </div>
+
+      <div id="s2" class="hidden">
+        <div class="page-title"><div class="big">🏓</div><h2>Membres &amp; activités</h2><p>Chaque personne qui pratiquera, et son créneau d'entraînement</p></div>
+        <div id="members"></div>
+        <button class="btn light" onclick="addMember()">+ Ajouter un membre de la famille</button>
+        <div class="actions" style="margin-top:18px;"><button class="btn light" onclick="toStep(1)">← Retour</button><button class="btn primary" onclick="toStep(3)">Continuer → Règlement</button></div>
+      </div>
+
+      <div id="s3" class="hidden">
+        <div class="page-title"><div class="big">💶</div><h2>Règlement</h2><p>Récapitulatif et modalités de paiement</p></div>
+        <div class="card"><h3>🧾 Récapitulatif</h3><div id="recap"></div></div>
+        <div class="card" id="aidesCard"><h3>🎟️ Aides <small style="font:400 14px sans-serif;color:var(--muted);">(facultatif)</small></h3>
+          <p style="margin-top:-6px;color:var(--muted);font-size:14px;">Cochez les aides dont vous bénéficiez : le justificatif sera à envoyer depuis « Envoyer des documents ».</p>
+          <div id="aides" class="opts"></div></div>
+        <div class="card"><h3>💳 Mode de règlement</h3><div id="modes" class="opts"></div><div id="modeDetail"></div></div>
+        <div class="actions"><button class="btn light" onclick="toStep(2)">← Retour</button><button class="btn primary" onclick="toStep(4)">Continuer → Validation</button></div>
+      </div>
+
+      <div id="s4" class="hidden">
+        <div class="page-title"><div class="big">✅</div><h2>Validation</h2><p>Vérifiez puis validez votre inscription</p></div>
+        <div class="card"><div id="finalRecap"></div>
+          <label style="display:flex;gap:10px;font-weight:400;margin-top:14px;"><input type="checkbox" id="cExact"> <span>J'atteste l'exactitude des informations saisies.</span></label>
+          <label style="display:flex;gap:10px;font-weight:400;"><input type="checkbox" id="cRgpd"> <span>J'accepte que ces informations soient utilisées par le club uniquement pour gérer l'adhésion et la licence FFTT.</span></label>
+          <input class="hp" id="hp1" tabindex="-1" autocomplete="off" aria-hidden="true">
+        </div>
+        <div class="actions"><button class="btn light" onclick="toStep(3)">← Retour</button><button class="btn orange" id="btnSubmit" onclick="submitAdhesion()">Valider mon inscription</button></div>
+      </div>
+
+      <div id="s5" class="hidden">
+        <div class="card" style="text-align:center;">
+          <div class="big" style="font-size:48px;">🎉</div>
+          <h2 style="margin:6px 0;">Inscription enregistrée !</h2>
+          <p style="color:var(--muted);margin:0;">Votre numéro de dossier :</p>
+          <div class="done-num" id="doneNum"></div>
+          <p id="doneTxt" style="margin:6px auto 0;max-width:560px;"></p>
+        </div>
+        <div class="card"><h3>📌 Étapes suivantes</h3>
+          <ol style="margin:0;padding-left:20px;">
+            <li>Questionnaire de santé et règlement intérieur pour chaque membre.</li>
+            <li>Documents : certificat médical si nécessaire, justificatifs d'aides.</li>
+            <li id="donePay">Règlement de l'adhésion.</li>
+          </ol>
+          <div class="actions" style="justify-content:flex-start;margin-top:14px;">
+            <button class="btn primary" onclick="go('vDocs')">📄 Questionnaire &amp; documents</button>
+            <button class="btn orange hidden" id="donePayBtn" onclick="payOnline(this)">💳 Payer en ligne</button>
+            <button class="btn light" onclick="go('vDossier')">👤 Voir mon compte</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACCÈS AU DOSSIER (vues 3, 4, 5) -->
+    <div id="accessBox" class="card hidden">
+      <h3>🔑 Accéder à votre dossier</h3>
+      <div class="grid3">
+        <div><label for="aDossier">N° de dossier <span class="req">*</span></label><input id="aDossier" placeholder="TT26-001" style="text-transform:uppercase;letter-spacing:2px;font-weight:700;"></div>
+        <div><label for="aTel">Téléphone du responsable <span class="req">*</span></label><input id="aTel" inputmode="tel" placeholder="06 12 34 56 78"></div>
+        <div><button class="btn primary" onclick="doAccess(this)">🔍 Vérifier</button></div>
+      </div>
+      <p style="font-size:13px;color:var(--muted);margin:8px 0 0;">Le n° de dossier figure dans l'e-mail de confirmation de votre inscription.</p>
+    </div>
+
+    <section id="vDossier" class="hidden">
+      <button class="back" onclick="go('vMenu')">← Retour au menu</button>
+      <div class="page-title"><div class="big">👤</div><h2>Mon compte</h2><p>Vos activités et l'état de votre règlement</p></div>
+      <div id="dossierBox"></div>
+    </section>
+
+    <section id="vModif" class="hidden">
+      <button class="back" onclick="go('vMenu')">← Retour au menu</button>
+      <div class="page-title"><div class="big">🔄</div><h2>Modifier vos activités</h2><p>Demandez l'ajout ou le retrait d'une activité : le club vous répond rapidement</p></div>
+      <div id="modifBox"></div>
+    </section>
+
+    <section id="vDocs" class="hidden">
+      <button class="back" onclick="go('vMenu')">← Retour au menu</button>
+      <div class="page-title"><div class="big">📄</div><h2>Documents</h2><p>Questionnaire de santé, règlement intérieur, certificat médical et justificatifs</p></div>
+      <div id="docsBox"></div>
+    </section>
+
+    <section id="vMessage" class="hidden">
+      <button class="back" onclick="go('vMenu')">← Retour au menu</button>
+      <div class="page-title"><div class="big">✉️</div><h2>Envoyer un message</h2><p>Une question sur les inscriptions ? Écrivez au club</p></div>
+      <div class="card">
+        <div class="grid2">
+          <div><label>Nom et prénom <span class="req">*</span></label><input id="mNom"></div>
+          <div><label>N° de dossier <small>(si vous en avez un)</small></label><input id="mDossier" style="text-transform:uppercase"></div>
+          <div><label>E-mail</label><input id="mEmail" type="email"></div>
+          <div><label>Téléphone</label><input id="mTel" inputmode="tel"></div>
+          <div class="full"><label>Objet</label><select id="mObjet"><option>Question sur les activités</option><option>Inscription</option><option>Règlement</option><option>Documents</option><option>Autre</option></select></div>
+          <div class="full"><label>Message <span class="req">*</span></label><textarea id="mMsg" rows="5"></textarea></div>
+        </div>
+        <input class="hp" id="hp2" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <div class="actions"><span id="mStatus"></span><button class="btn primary" onclick="sendMessage(this)">Envoyer le message</button></div>
+      </div>
+      <div id="siteLink"></div>
+    </section>
+  </main>
+  <footer id="footer">RebonTT · Inscriptions tennis de table</footer>
+
+<script src="config.js"></script>
+<script>
+  // ---------------------------------------------------------------------------
+  // Site d'inscription au club (public, sans code) : mêmes données que
+  // l'application RebonTT (script Apps Script du club, feuilles Adhesions…).
+  // ---------------------------------------------------------------------------
+  var CFG = window.APP_CONFIG || {};
+  var PARAMS = new URLSearchParams(location.search);
+  var CLUB = (CFG.CLUBS || []).find(function (c) { return c.id === PARAMS.get('club'); }) || (CFG.CLUBS || [])[0] || {};
+  var SERVER_URL = CLUB.serverUrl || CFG.SERVER_URL || '';
+  var JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  var YOUTH = ['Poussin', 'Benjamin', 'Minime', 'Cadet', 'Junior'];
+  var CATS = [[8, 'Poussin'], [10, 'Benjamin'], [12, 'Minime'], [14, 'Cadet'], [18, 'Junior'], [39, 'Senior'], [49, 'V40'], [59, 'V50'], [69, 'V60'], [79, 'V70'], [200, 'V80']];
+  var PALETTE = [['#d6efd8', '#1f6b2a'], ['#ffd9cc', '#b23a17'], ['#fff1c7', '#7a5300'], ['#cfeaf8', '#0f5a85'], ['#e7d7f3', '#6a2c91'], ['#dfe7c9', '#4d6115'], ['#fbd5e5', '#9b1c55']];
+  var INFO = null, DOS = null, ACC = null, W = null;
+
+  function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function euros(n) { n = Number(n) || 0; return (Math.round(n * 100) / 100).toString().replace('.', ',') + ' €'; }
+  function norm(v) { return String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+  function hm(t) { return String(t || '').replace(':', 'h'); }
+  function $(id) { return document.getElementById(id); }
+
+  function api(fn, args, attempt) {
+    attempt = attempt || 1;
+    return fetch(SERVER_URL, { method: 'POST', mode: 'cors', credentials: 'omit', cache: 'no-store', body: JSON.stringify({ fn: fn, args: args || [] }) })
+      .then(function (r) { if (!r.ok) throw new Error('Erreur réseau HTTP ' + r.status); return r.json(); })
+      .then(function (p) {
+        if (!p || !p.ok) { var e = new Error((p && p.error) || 'Réponse invalide du serveur.'); e.app = true; throw e; }
+        return p.result;
+      })
+      .catch(function (e) {
+        if (e.app || attempt >= 3) throw e;
+        return new Promise(function (res) { setTimeout(res, 1200 * attempt); }).then(function () { return api(fn, args, attempt + 1); });
+      });
+  }
+  function busy(btn, on, label) {
+    if (!btn) return;
+    if (on) { btn.dataset.label = btn.innerHTML; btn.disabled = true; btn.innerHTML = label || 'Patientez…'; }
+    else { btn.disabled = false; if (btn.dataset.label) btn.innerHTML = btn.dataset.label; }
+  }
+  function flash(html, kind) {
+    $('globalMsg').innerHTML = html ? '<div class="note ' + (kind || 'info') + '">' + html + '</div>' : '';
+    if (html) window.scrollTo({ top: $('globalMsg').getBoundingClientRect().top + window.scrollY - 10, behavior: 'smooth' });
+  }
+
+  // --- Navigation ---------------------------------------------------------------
+  var VIEWS = ['vMenu', 'vActivites', 'vCompte', 'vDossier', 'vModif', 'vDocs', 'vMessage'];
+  function go(v, noPush) {
+    flash('');
+    VIEWS.forEach(function (x) { $(x).classList.toggle('hidden', x !== v); });
+    var needAcc = v === 'vDossier' || v === 'vModif' || v === 'vDocs';
+    var box = $('accessBox');
+    if (needAcc && !ACC) { ['dossierBox', 'modifBox', 'docsBox'].forEach(function (id) { $(id).innerHTML = ''; }); var title = $(v).querySelector('.page-title'); $(v).insertBefore(box, title.nextSibling); box.classList.remove('hidden'); }
+    else box.classList.add('hidden');
+    if (needAcc && ACC) loadDossier(v);
+    if (v === 'vActivites') renderWeek();
+    if (v === 'vMessage' && ACC) { $('mDossier').value = ACC.dossier; }
+    if (!noPush) history.pushState({ v: v }, '', location.pathname + (PARAMS.get('club') ? '?club=' + encodeURIComponent(PARAMS.get('club')) : ''));
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener('popstate', function (e) { go((e.state && e.state.v) || 'vMenu', true); });
+
+  // --- Chargement ---------------------------------------------------------------
+  function init() {
+    if (CLUB.logo) $('clubLogo').src = CLUB.logo;
+    if (CLUB.nom) $('clubName').textContent = CLUB.nom;
+    try { ACC = JSON.parse(sessionStorage.getItem('rebontt_adh_acces') || 'null'); } catch (e) { ACC = null; }
+    if (!SERVER_URL) { flash('Site mal configuré : adresse du serveur absente (config.js).', 'err'); return; }
+    $('weekBox').innerHTML = '<div class="spinner">Chargement des activités…</div>';
+    api('getAdhesionInfo').then(function (info) {
+      INFO = info;
+      var st = info.settings;
+      $('seasonBadge').textContent = 'Saison ' + st.saison.replace('/', ' / ');
+      if (st.clubNom) { $('clubName').textContent = st.clubNom; document.title = 'Inscription tennis de table – ' + st.clubNom; }
+      $('chipVille').textContent = '📍 ' + (st.clubVille || st.commune || 'Notre salle');
+      $('footer').textContent = (st.clubNom || 'Club') + ' · Inscriptions tennis de table · RebonTT';
+      if (!st.ouvert) { $('btnCreate').disabled = true; $('createSub').textContent = 'Inscriptions en ligne fermées pour le moment'; }
+      $('menuInfos').innerHTML = st.infos ? '<div class="note info" style="margin-top:18px;white-space:pre-line;">' + esc(st.infos) + '</div>' : '';
+      $('siteLink').innerHTML = st.site ? '<p style="text-align:center;">Site du club : <a href="' + esc(st.site) + '" target="_blank" rel="noopener">' + esc(st.site.replace(/^https?:\/\//, '')) + ' ↗</a></p>' : '';
+      if (!$('vActivites').classList.contains('hidden')) renderWeek();
+      afterLoad();
+    }).catch(function (e) { flash('Impossible de charger les activités : ' + esc(e.message), 'err'); $('weekBox').innerHTML = ''; });
+  }
+  function afterLoad() {
+    var ha = PARAMS.get('helloasso'), d = PARAMS.get('dossier');
+    if (d && ACC && ACC.dossier === d.toUpperCase()) {
+      go('vDossier', true);
+      if (ha === 'ok') flash('✅ Merci ! Votre paiement est en cours de validation par HelloAsso.', 'ok');
+      else if (ha) flash('Le paiement n\'a pas abouti. Vous pouvez réessayer depuis votre compte.', 'warn');
+    }
+  }
+
+  // --- Semainier -------------------------------------------------------------------
+  function toMin(t) { var m = String(t || '').match(/(\d{1,2})\s*[:h]\s*(\d{2})?/); return m ? Number(m[1]) * 60 + Number(m[2] || 0) : null; }
+  function colorOf(niveau) {
+    var list = [];
+    (INFO ? INFO.creneaux : []).forEach(function (c) { var k = norm(c.niveau); if (list.indexOf(k) < 0) list.push(k); });
+    return PALETTE[Math.max(0, list.indexOf(norm(niveau))) % PALETTE.length];
+  }
+  function placesHtml(c) {
+    if (c.restantes === null || c.restantes === undefined) return '';
+    if (c.restantes <= 0) return '<div class="pl">🔴 Complet</div>';
+    return '<div class="pl">' + (c.restantes <= 3 ? '🟡' : '🟢') + ' ' + c.restantes + ' place' + (c.restantes > 1 ? 's' : '') + '</div>';
+  }
+  function slotInner(c) {
+    var col = colorOf(c.niveau);
+    return '<div class="nv" style="color:' + col[1] + '">' + esc(c.niveau || 'Entraînement') + '</div>' +
+      '<div>' + hm(c.debut) + (c.fin ? ' / ' + hm(c.fin) : '') + '</div>' +
+      ((c.lieu || c.encadrant) ? '<div class="mut">' + (c.lieu ? '📍 ' + esc(c.lieu) : '') + (c.lieu && c.encadrant ? ' · ' : '') + (c.encadrant ? '👤 ' + esc(c.encadrant) : '') + '</div>' : '') +
+      (c.tarif ? '<div style="color:' + col[1] + ';font-weight:600;">' + euros(c.tarif) + (c.seances === 2 ? ' <span class="mut">(2 séances)</span>' : '') + '</div>' : '') +
+      (c.licence ? '<div><span class="lic">+' + euros(c.licence) + ' licence FFTT</span></div>' : '') +
+      (c.seances === 2 ? '<div class="mut">🔗 2e séance : au choix</div>' : '') + placesHtml(c);
+  }
+  function renderWeek() {
+    if (!INFO) return;
+    var crs = INFO.creneaux.slice();
+    if (!crs.length) { $('weekBox').innerHTML = '<div class="card">Les créneaux de la saison seront bientôt publiés.</div>'; return; }
+    var days = JOURS.filter(function (j) { return crs.some(function (c) { return c.jour === j; }); });
+    var mins = crs.map(function (c) { return toMin(c.debut); }).filter(function (x) { return x !== null; });
+    var maxs = crs.map(function (c) { return toMin(c.fin) || (toMin(c.debut) + 60); }).filter(function (x) { return x !== null; });
+    var start = Math.floor(Math.min.apply(null, mins) / 60) * 60, end = Math.ceil(Math.max.apply(null, maxs) / 60) * 60;
+    var PX = 2.5, OFF = 12, H = (end - start) * PX + 2 * OFF;
+    var html = '<div class="week" style="grid-template-columns:52px repeat(' + days.length + ', minmax(0,1fr));"><div class="dh" style="background:var(--navy-dark)"></div>' +
+      days.map(function (d) { return '<div class="dh">' + d.slice(0, 3).toUpperCase() + '.</div>'; }).join('');
+    var axis = '<div class="axis" style="height:' + H + 'px">';
+    for (var t = start; t <= end; t += 60) axis += '<span style="top:' + ((t - start) * PX + OFF) + 'px">' + (t / 60) + 'h</span>';
+    html += axis + '</div>';
+    var lines = 'background-image:repeating-linear-gradient(to bottom, #e3dfd3 0, #e3dfd3 1px, transparent 1px, transparent ' + (60 * PX) + 'px);background-position:0 ' + OFF + 'px;';
+    days.forEach(function (d) {
+      var list = crs.filter(function (c) { return c.jour === d; }).sort(function (a, b) { return toMin(a.debut) - toMin(b.debut); });
+      // Créneaux qui se chevauchent : côte à côte.
+      var lanes = [];
+      list.forEach(function (c) {
+        var s = toMin(c.debut), e = toMin(c.fin) || s + 60, k = 0;
+        while (lanes[k] && lanes[k] > s) k++;
+        lanes[k] = e; c._lane = k;
+      });
+      var n = Math.max(1, lanes.length);
+      html += '<div class="col" style="height:' + H + 'px;' + lines + '">' + list.map(function (c) {
+        var s = toMin(c.debut), e = toMin(c.fin) || s + 60, col = colorOf(c.niveau);
+        return '<div class="slot' + (c.restantes === 0 ? ' full' : '') + '" style="top:' + ((s - start) * PX + OFF + 2) + 'px;height:' + ((e - s) * PX - 4) + 'px;left:calc(' + (100 / n * c._lane) + '% + 3px);width:calc(' + (100 / n) + '% - 6px);background:' + col[0] + ';">' + slotInner(c) + '</div>';
+      }).join('') + '</div>';
+    });
+    html += '</div><div class="week-list">' + days.map(function (d) {
+      return '<h4>' + d + '</h4>' + crs.filter(function (c) { return c.jour === d; }).sort(function (a, b) { return toMin(a.debut) - toMin(b.debut); })
+        .map(function (c) { return '<div class="slot" style="background:' + colorOf(c.niveau)[0] + '">' + slotInner(c) + '</div>'; }).join('');
+    }).join('') + '</div>';
+    $('weekBox').innerHTML = html;
+    var st = INFO.settings, notes = [];
+    if (st.supplement) notes.push('Habitants hors ' + esc(st.commune) + ' : +' + euros(st.supplement) + ' par membre.');
+    if (st.reductionFamille) notes.push('Réduction famille : -' + euros(st.reductionFamille) + ' par membre supplémentaire.');
+    $('tarifNote').innerHTML = notes.length ? '<div class="note info">' + notes.join('<br>') + '</div>' : '';
+  }
+
+  // --- Création du compte (assistant) -------------------------------------------------
+  function categorie(naissance) {
+    var m = String(naissance || '').match(/^(\d{4})-\d{2}-\d{2}$/);
+    if (!m || !INFO) return '';
+    var age = Number(INFO.settings.saison.slice(0, 4)) - Number(m[1]);
+    for (var i = 0; i < CATS.length; i++) if (age <= CATS[i][0]) return CATS[i][1];
+    return '';
+  }
+  function eligible(c, cat) {
+    if (!cat) return false;
+    if (c.public === 'Jeunes') return YOUTH.indexOf(cat) >= 0;
+    if (c.public === 'Adultes') return YOUTH.indexOf(cat) < 0;
+    return true;
+  }
+  function slotById(id) { return (INFO.creneaux || []).find(function (c) { return c.id === id; }); }
+  function slotLabel(c) { return c ? (c.niveau || 'Entraînement') + ' – ' + c.jour + ' ' + hm(c.debut) + (c.fin ? '-' + hm(c.fin) : '') : ''; }
+  function emptyMember() { return { nom: '', prenom: '', naissance: '', sexe: '', licence: 'Nouvelle', numLicence: '', creneau1: '', creneau2: '' }; }
+
+  function startWizard() {
+    if (!INFO) return;
+    W = { step: 1, membres: [emptyMember()], aides: [], mode: '', echeances: 1 };
+    ['rNom', 'rPrenom', 'rAdresse', 'rCp', 'rVille', 'rTel', 'rEmail', 'rTel2', 'rEmail2', 'fTel', 'fNom3'].forEach(function (id) { $(id).value = ''; });
+    updateTarifBox();
+    go('vCompte');
+    showStep(1);
+  }
+  function showStep(n) {
+    W.step = n;
+    for (var i = 1; i <= 5; i++) $('s' + i).classList.toggle('hidden', i !== n);
+    var names = ['Responsable', 'Membres & activités', 'Règlement', 'Validation'];
+    $('steps').innerHTML = n === 5 ? '' : names.map(function (t, i) { return '<span class="' + (i + 1 === n ? 'on' : (i + 1 < n ? 'done' : '')) + '">' + (i + 1) + '. ' + t + '</span>'; }).join('');
+    if (n === 2) renderMembers();
+    if (n === 3) renderPayment();
+    if (n === 4) $('finalRecap').innerHTML = recapHtml(true);
+    window.scrollTo(0, 0);
+  }
+  function exterieur() { var st = INFO.settings; return !!st.commune && norm($('rVille').value) !== norm(st.commune); }
+  function updateTarifBox() {
+    var b = $('tarifBox'); if (!INFO) return;
+    var st = INFO.settings, v = $('rVille').value.trim();
+    if (!v) { b.className = 'tarif-box'; b.textContent = '🏠 Saisissez votre ville'; return; }
+    var ext = exterieur();
+    b.className = 'tarif-box' + (ext ? ' ext' : '');
+    b.textContent = ext ? '🧭 Tarif extérieur' + (st.supplement ? ' (+' + euros(st.supplement) + ' par membre)' : '') : '🏠 Tarif ' + (st.commune || 'commune');
+  }
+  function responsable() {
+    return { nom: $('rNom').value.trim(), prenom: $('rPrenom').value.trim(), adresse: $('rAdresse').value.trim(), cp: $('rCp').value.trim(), ville: $('rVille').value.trim(),
+      tel: $('rTel').value.trim(), email: $('rEmail').value.trim(), tel2: $('rTel2').value.trim(), email2: $('rEmail2').value.trim() };
+  }
+  function findMe(btn) {
+    var t = $('fTel').value, n = $('fNom3').value;
+    busy(btn, true, 'Recherche…');
+    api('findAdherent', [t, n]).then(function (res) {
+      busy(btn, false);
+      var r = res.responsable || {};
+      var map = { rNom: r.nom, rPrenom: r.prenom, rAdresse: r.adresse, rCp: r.cp, rVille: r.ville, rTel: r.tel, rEmail: r.email, rTel2: r.tel2, rEmail2: r.email2 };
+      Object.keys(map).forEach(function (k) { if (map[k]) $(k).value = map[k]; });
+      updateTarifBox();
+      if ((res.membres || []).length) {
+        W.membres = res.membres.map(function (m) {
+          var x = emptyMember();
+          x.nom = m.nom || ''; x.prenom = m.prenom || ''; x.sexe = m.sexe || ''; x.numLicence = m.numLicence || '';
+          var b = String(m.naissance || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+          if (b) x.naissance = b[3] + '-' + b[2] + '-' + b[1];
+          if (x.numLicence) x.licence = 'Renouvellement';
+          return x;
+        });
+      }
+      $('findMsg').innerHTML = '<span style="color:var(--ok);font-weight:600;">✓ Informations retrouvées' + (res.membres && res.membres.length ? ' (' + res.membres.length + ' membre' + (res.membres.length > 1 ? 's' : '') + ')' : '') + ' : vérifiez-les et complétez si besoin.</span>';
+    }).catch(function (e) { busy(btn, false); $('findMsg').innerHTML = '<span style="color:var(--err);">' + esc(e.message) + '</span>'; });
+  }
+  function toStep(n) {
+    flash('');
+    if (n > W.step) {
+      var err = validateStep(W.step);
+      if (err) { flash(err, 'err'); return; }
+      if (n > W.step + 1) return;
+    }
+    showStep(n);
+  }
+  function validateStep(s) {
+    if (s === 1) {
+      var r = responsable();
+      if (!r.nom || !r.prenom || !r.adresse || !r.cp || !r.ville || !r.tel || !r.email) return 'Merci de remplir tous les champs obligatoires (*).';
+      if (!/^\S+@\S+\.\S+$/.test(r.email) || (r.email2 && !/^\S+@\S+\.\S+$/.test(r.email2))) return 'Adresse e-mail invalide.';
+      if (r.tel.replace(/\D/g, '').length < 10) return 'Numéro de téléphone invalide.';
+    }
+    if (s === 2) {
+      readMembers();
+      for (var i = 0; i < W.membres.length; i++) {
+        var m = W.membres[i], who = m.prenom || ('Membre ' + (i + 1));
+        if (!m.nom || !m.prenom) return 'Membre ' + (i + 1) + ' : nom et prénom obligatoires.';
+        if (!categorie(m.naissance)) return who + ' : date de naissance obligatoire.';
+        if (!m.sexe) return who + ' : précisez le sexe (licence FFTT).';
+        if (!m.creneau1) return who + ' : choisissez un créneau.';
+      }
+    }
+    if (s === 3) {
+      if (!W.mode) return 'Choisissez un mode de règlement.';
+    }
+    if (s === 4) {
+      if (!$('cExact').checked || !$('cRgpd').checked) return 'Cochez les deux cases pour valider.';
+    }
+    return '';
+  }
+  function readMembers() {
+    document.querySelectorAll('#members .member').forEach(function (el, i) {
+      var m = W.membres[i]; if (!m) return;
+      ['nom', 'prenom', 'naissance', 'sexe', 'licence', 'numLicence'].forEach(function (k) { var f = el.querySelector('[data-k="' + k + '"]'); if (f) m[k] = f.value.trim(); });
+    });
+  }
+  function addMember() {
+    readMembers();
+    var m = emptyMember();
+    m.nom = $('rNom').value.trim();
+    W.membres.push(m);
+    renderMembers();
+  }
+  function removeMember(i) { readMembers(); W.membres.splice(i, 1); if (!W.membres.length) W.membres.push(emptyMember()); renderMembers(); }
+  function copyResp(i) { readMembers(); W.membres[i].nom = $('rNom').value.trim(); W.membres[i].prenom = $('rPrenom').value.trim(); renderMembers(); }
+  function pickSlot(i, which, id) {
+    readMembers();
+    var m = W.membres[i];
+    if (which === 1) { m.creneau1 = m.creneau1 === id ? '' : id; m.creneau2 = ''; }
+    else m.creneau2 = id;
+    renderMembers();
+  }
+  // Places encore libres pour ce membre (en tenant compte des autres membres
+  // du dossier en cours).
+  function freeFor(c, i) {
+    if (c.restantes === null || c.restantes === undefined) return true;
+    var taken = 0;
+    W.membres.forEach(function (m, j) { if (j !== i && (m.creneau1 === c.id || m.creneau2 === c.id)) taken++; });
+    return c.restantes - taken > 0;
+  }
+  function renderMembers() {
+    var html = W.membres.map(function (m, i) {
+      var cat = categorie(m.naissance);
+      var slots = cat ? INFO.creneaux.filter(function (c) { return eligible(c, cat); }) : [];
+      var c1 = slotById(m.creneau1);
+      var pick = !cat ? '<div class="note info">Indiquez la date de naissance pour voir les créneaux correspondant à l\'âge.</div>'
+        : !slots.length ? '<div class="note warn">Aucun créneau pour la catégorie ' + esc(cat) + ' : contactez le club (menu « Envoyer un message »).</div>'
+        : '<div class="pick">' + slots.map(function (c) {
+          var sel = m.creneau1 === c.id, ok = sel || freeFor(c, i);
+          return '<label class="' + (sel ? 'sel' : '') + (ok ? '' : ' off') + '"><input type="radio" name="c1_' + i + '"' + (sel ? ' checked' : '') + (ok ? '' : ' disabled') +
+            ' onclick="pickSlot(' + i + ',1,\'' + c.id + '\')"><span><span class="t">' + esc(c.niveau) + '</span><br><span class="s">' + c.jour + ' ' + hm(c.debut) + (c.fin ? '-' + hm(c.fin) : '') +
+            (c.tarif ? ' · ' + euros(c.tarif + c.licence) : '') + (c.seances === 2 ? ' · 2 séances' : '') + '</span>' + (ok ? (c.restantes !== null && c.restantes !== undefined ? '<br><span class="s">' + placesHtml(c).replace(/<[^>]+>/g, '') + '</span>' : '') : '<br><span class="s">🔴 Complet</span>') + '</span></label>';
+        }).join('') + '</div>';
+      var second = '';
+      if (c1 && c1.seances === 2) {
+        var others = INFO.creneaux.filter(function (c) { return c.id !== c1.id && norm(c.niveau) === norm(c1.niveau) && eligible(c, cat) && (m.creneau2 === c.id || freeFor(c, i)); });
+        second = '<label>🔗 2e séance <small>(comprise dans le tarif, facultative)</small></label><select onchange="pickSlot(' + i + ',2,this.value)"><option value="">— Aucune —</option>' +
+          others.map(function (c) { return '<option value="' + c.id + '"' + (m.creneau2 === c.id ? ' selected' : '') + '>' + esc(c.jour + ' ' + hm(c.debut) + (c.fin ? '-' + hm(c.fin) : '')) + '</option>'; }).join('') + '</select>';
+      }
+      return '<div class="member"><div class="member-h"><b>👤 Membre ' + (i + 1) + (m.prenom ? ' : ' + esc(m.prenom) : '') + '</b>' +
+        '<span>' + (cat ? '<span class="cat">' + esc(cat) + '</span> ' : '') + (W.membres.length > 1 ? '<button class="btn light small" onclick="removeMember(' + i + ')">✕ Retirer</button>' : '') + '</span></div>' +
+        '<div class="grid2">' +
+        '<div><label>Nom <span class="req">*</span></label><input data-k="nom" value="' + esc(m.nom) + '" style="text-transform:uppercase"></div>' +
+        '<div><label>Prénom <span class="req">*</span> ' + (i === 0 ? '<a href="#" style="font-weight:400;font-size:12px;" onclick="copyResp(' + i + ');return false;">(c\'est le responsable)</a>' : '') + '</label><input data-k="prenom" value="' + esc(m.prenom) + '"></div>' +
+        '<div><label>Date de naissance <span class="req">*</span></label><input type="date" data-k="naissance" value="' + esc(m.naissance) + '" onchange="readMembers();renderMembers()"></div>' +
+        '<div><label>Sexe <span class="req">*</span></label><select data-k="sexe"><option value="">—</option><option value="F"' + (m.sexe === 'F' ? ' selected' : '') + '>Féminin</option><option value="M"' + (m.sexe === 'M' ? ' selected' : '') + '>Masculin</option></select></div>' +
+        '<div><label>Licence FFTT</label><select data-k="licence"><option' + (m.licence !== 'Renouvellement' ? ' selected' : '') + '>Nouvelle</option><option' + (m.licence === 'Renouvellement' ? ' selected' : '') + '>Renouvellement</option></select></div>' +
+        '<div><label>N° de licence <small>(si renouvellement)</small></label><input data-k="numLicence" value="' + esc(m.numLicence) + '"></div>' +
+        '<div class="full"><label>Créneau d\'entraînement <span class="req">*</span></label>' + pick + second + '</div>' +
+        '</div></div>';
+    }).join('');
+    $('members').innerHTML = html;
+  }
+  function memberPrice(c, i, ext) {
+    var st = INFO.settings;
+    return Math.max(0, (c ? c.tarif + c.licence : 0) + (ext ? st.supplement : 0) - (i > 0 ? st.reductionFamille : 0));
+  }
+  function totals() {
+    var ext = exterieur(), total = 0;
+    W.membres.forEach(function (m, i) { total += memberPrice(slotById(m.creneau1), i, ext); });
+    var aides = INFO.settings.aides.filter(function (a) { return W.aides.indexOf(a.nom) >= 0; });
+    var am = Math.min(total, aides.reduce(function (s, a) { return s + (a.montant || 0); }, 0));
+    return { total: total, aides: am, reste: Math.max(0, total - am), ext: ext };
+  }
+  function recapHtml(full) {
+    var t = totals(), st = INFO.settings, r = responsable();
+    var rows = W.membres.map(function (m, i) {
+      var c1 = slotById(m.creneau1), c2 = slotById(m.creneau2);
+      var detail = c1 ? euros(c1.tarif) + (c1.licence ? ' + licence ' + euros(c1.licence) : '') + (t.ext && st.supplement ? ' + extérieur ' + euros(st.supplement) : '') + (i > 0 && st.reductionFamille ? ' − famille ' + euros(st.reductionFamille) : '') : '';
+      return '<tr><td><b>' + esc(m.prenom + ' ' + m.nom.toUpperCase()) + '</b> <span class="cat">' + esc(categorie(m.naissance)) + '</span><br><span style="color:var(--muted);font-size:13px;">' +
+        esc(slotLabel(c1)) + (c2 ? '<br>+ ' + esc(c2.jour + ' ' + hm(c2.debut) + (c2.fin ? '-' + hm(c2.fin) : '')) : '') + '<br>' + detail + '</span></td><td class="num">' + euros(memberPrice(c1, i, t.ext)) + '</td></tr>';
+    }).join('');
+    var html = (full ? '<p style="margin-top:0;"><b>Responsable :</b> ' + esc(r.prenom + ' ' + r.nom.toUpperCase()) + ' · ' + esc(r.tel) + ' · ' + esc(r.email) + '<br>' + esc(r.adresse + ', ' + r.cp + ' ' + r.ville.toUpperCase()) + '</p>' : '') +
+      '<table class="recap"><tr><th>Membre et activité</th><th class="num">Montant</th></tr>' + rows +
+      '<tr class="tot"><td>Total</td><td class="num">' + euros(t.total) + '</td></tr>' +
+      (t.aides ? '<tr><td>Aides déclarées (sous réserve du justificatif)</td><td class="num">− ' + euros(t.aides) + '</td></tr><tr class="tot"><td>Reste à régler</td><td class="num">' + euros(t.reste) + '</td></tr>' : '') + '</table>';
+    if (full && W.mode) html += '<p style="margin-bottom:0;"><b>Règlement :</b> ' + esc(modeText()) + '</p>';
+    return html;
+  }
+  function modeText() {
+    var st = INFO.settings, t = totals();
+    if (W.mode === 'Chèque') return W.echeances + ' chèque' + (W.echeances > 1 ? 's' : '') + ' à l\'ordre de « ' + st.ordreCheque + ' »' + (W.echeances > 1 ? ' (' + echeancesText(t.reste, W.echeances) + ')' : '');
+    if (W.mode === 'HelloAsso') return 'paiement en ligne (carte bancaire, HelloAsso), juste après la validation';
+    if (W.mode === 'Virement') return 'virement' + (st.iban ? ' (IBAN ' + st.iban + ')' : '');
+    return W.mode.toLowerCase();
+  }
+  function echeancesText(total, n) {
+    var part = Math.floor(total / n), first = total - part * (n - 1);
+    var a = [euros(first)]; for (var i = 1; i < n; i++) a.push(euros(part));
+    return a.join(' + ');
+  }
+  function renderPayment() {
+    readMembers();
+    var st = INFO.settings;
+    $('recap').innerHTML = recapHtml(false);
+    $('aidesCard').classList.toggle('hidden', !st.aides.length);
+    $('aides').innerHTML = st.aides.map(function (a, k) {
+      var on = W.aides.indexOf(a.nom) >= 0;
+      return '<label class="' + (on ? 'sel' : '') + '"><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="toggleAide(' + k + ')"><span><b>' + esc(a.nom) + '</b>' + (a.montant ? '<small>Déduit : ' + euros(a.montant) + '</small>' : '<small>Montant déduit après réception du justificatif</small>') + '</span></label>';
+    }).join('');
+    var desc = { 'Chèque': 'En 1 à ' + st.chequesMax + ' fois, à l\'ordre de « ' + st.ordreCheque + ' », à remettre au club', 'Espèces': 'À remettre au club (reçu fourni)', 'HelloAsso': 'Carte bancaire, en ligne et sécurisé', 'Virement': st.iban ? 'IBAN : ' + st.iban : 'Coordonnées bancaires communiquées par le club' };
+    var icon = { 'Chèque': '🧾', 'Espèces': '💶', 'HelloAsso': '💳', 'Virement': '🏦' };
+    if (st.modes.indexOf(W.mode) < 0) W.mode = st.modes.length === 1 ? st.modes[0] : '';
+    $('modes').innerHTML = st.modes.map(function (m) {
+      return '<label class="' + (W.mode === m ? 'sel' : '') + '"><input type="radio" name="mode"' + (W.mode === m ? ' checked' : '') + ' onchange="setMode(\'' + m + '\')"><span><b>' + (icon[m] || '•') + ' ' + esc(m === 'HelloAsso' ? 'Paiement en ligne (HelloAsso)' : m) + '</b><small>' + esc(desc[m] || '') + '</small></span></label>';
+    }).join('');
+    var t = totals();
+    $('modeDetail').innerHTML = W.mode === 'Chèque' && st.chequesMax > 1
+      ? '<label>Nombre de chèques</label><select onchange="W.echeances=Number(this.value);renderPayment()">' +
+        Array.from({ length: st.chequesMax }, function (_, k) { return '<option value="' + (k + 1) + '"' + (W.echeances === k + 1 ? ' selected' : '') + '>' + (k + 1) + ' fois' + (k ? ' : ' + echeancesText(t.reste, k + 1) : ' : ' + euros(t.reste)) + '</option>'; }).join('') + '</select>'
+      : '';
+  }
+  function toggleAide(k) { var a = INFO.settings.aides[k].nom, i = W.aides.indexOf(a); if (i >= 0) W.aides.splice(i, 1); else W.aides.push(a); renderPayment(); }
+  function setMode(m) { W.mode = m; if (m !== 'Chèque') W.echeances = 1; renderPayment(); }
+
+  function submitAdhesion() {
+    var err = validateStep(4); if (err) { flash(err, 'err'); return; }
+    var btn = $('btnSubmit');
+    busy(btn, true, 'Enregistrement…');
+    var data = { responsable: responsable(), membres: W.membres, aides: W.aides, mode: W.mode, echeances: W.echeances, website: $('hp1').value };
+    api('createAdhesion', [data]).then(function (res) {
+      busy(btn, false);
+      setAccess(res.dossier, data.responsable.tel);
+      $('doneNum').textContent = res.dossier;
+      $('doneTxt').innerHTML = 'Notez-le : il vous sera demandé avec votre téléphone pour consulter votre compte et envoyer vos documents. Un e-mail récapitulatif a été envoyé à <b>' + esc(res.email) + '</b>.';
+      $('donePay').textContent = 'Règlement : ' + euros(res.reste) + ' — ' + modeText() + '.';
+      $('donePayBtn').classList.toggle('hidden', res.mode !== 'HelloAsso' || !res.reste);
+      showStep(5);
+      api('getAdhesionInfo').then(function (i) { INFO = i; }).catch(function () { /* places rafraîchies plus tard */ });
+    }).catch(function (e) { busy(btn, false); flash(esc(e.message), 'err'); });
+  }
+
+  // --- Accès au dossier ---------------------------------------------------------------
+  function setAccess(dossier, tel) {
+    ACC = { dossier: String(dossier).toUpperCase(), tel: tel };
+    try { sessionStorage.setItem('rebontt_adh_acces', JSON.stringify(ACC)); } catch (e) { /* navigation privée */ }
+  }
+  function currentView() { return VIEWS.find(function (v) { return !$(v).classList.contains('hidden'); }); }
+  function doAccess(btn) {
+    var d = $('aDossier').value.trim().toUpperCase(), t = $('aTel').value.trim();
+    if (!d || !t) { flash('Indiquez le n° de dossier et le téléphone.', 'err'); return; }
+    busy(btn, true, 'Vérification…');
+    api('getAdhesion', [d, t]).then(function (res) {
+      busy(btn, false); setAccess(d, t); DOS = res;
+      $('accessBox').classList.add('hidden'); flash('');
+      renderAccountView(currentView());
+    }).catch(function (e) { busy(btn, false); flash(esc(e.message), 'err'); });
+  }
+  function logoutAcc() { ACC = null; DOS = null; try { sessionStorage.removeItem('rebontt_adh_acces'); } catch (e) { /* rien */ } go(currentView()); }
+  function loadDossier(v) {
+    var box = { vDossier: 'dossierBox', vModif: 'modifBox', vDocs: 'docsBox' }[v];
+    $(box).innerHTML = '<div class="spinner">Chargement du dossier…</div>';
+    api('getAdhesion', [ACC.dossier, ACC.tel]).then(function (res) { DOS = res; renderAccountView(v); })
+      .catch(function (e) { $(box).innerHTML = ''; flash(esc(e.message), 'err'); ACC = null; go(v, true); });
+  }
+  function renderAccountView(v) {
+    if (v === 'vDossier') renderDossier();
+    if (v === 'vModif') renderModif();
+    if (v === 'vDocs') renderDocs();
+  }
+  function whoBar() {
+    return '<div class="note info" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;"><span>Dossier <b>' + esc(DOS.dossier) + '</b> · ' + esc(DOS.responsable.prenom + ' ' + DOS.responsable.nom) + '</span><a href="#" onclick="logoutAcc();return false;">Changer de dossier</a></div>';
+  }
+  function statutChip(s) { return '<span class="chip ' + (s === 'Réglé' ? 'ok' : s === 'Annulé' ? 'err' : 'warn') + '">' + esc(s) + '</span>'; }
+  function renderDossier() {
+    var d = DOS, st = INFO ? INFO.settings : {};
+    var mem = d.membres.map(function (m) {
+      var qs = m.qs ? (/requis/.test(m.qs) ? '<span class="chip warn">Certificat requis</span>' : '<span class="chip ok">✓</span>') : '<span class="chip err">À remplir</span>';
+      var ri = m.reglement ? '<span class="chip ok">✓</span>' : '<span class="chip err">À accepter</span>';
+      return '<tr><td><b>' + esc(m.prenom + ' ' + m.nom) + '</b> <span class="cat">' + esc(m.categorie) + '</span>' + (m.statut === 'Annulé' ? ' <span class="chip err">Annulé</span>' : '') +
+        '<br><span style="font-size:13px;color:var(--muted);">' + esc(m.creneau1) + (m.creneau2 ? '<br>+ ' + esc(m.creneau2) : '') + '</span></td>' +
+        '<td>' + qs + '</td><td>' + ri + '</td><td class="num">' + euros(m.montant) + '</td></tr>';
+    }).join('');
+    var pay = 'Mode : ' + esc(d.mode) + (d.mode === 'Chèque' ? ' en ' + d.echeances + ' fois, à l\'ordre de « ' + esc(st.ordreCheque || '') + ' »' : '') + (d.mode === 'Virement' && st.iban ? ' — IBAN ' + esc(st.iban) : '');
+    var docs = d.documents.length ? '<ul style="margin:0;padding-left:20px;">' + d.documents.map(function (x) {
+      var m = d.membres.find(function (y) { return y.n === x.n; });
+      return '<li>' + esc(x.type) + (m ? ' – ' + esc(m.prenom) : '') + ' : ' + esc(x.fichier) + ' <span style="color:var(--muted);font-size:13px;">(' + esc(x.date) + ')</span></li>';
+    }).join('') + '</ul>' : '<p style="color:var(--muted);margin:0;">Aucun document envoyé.</p>';
+    $('dossierBox').innerHTML = whoBar() +
+      '<div class="card"><h3>🏓 Membres et activités</h3><div style="overflow-x:auto"><table class="recap"><tr><th>Membre</th><th>Santé</th><th>Règlement int.</th><th class="num">Montant</th></tr>' + mem + '</table></div>' +
+      '<div class="actions" style="justify-content:flex-start;margin-top:12px;"><button class="btn primary small" onclick="go(\'vDocs\')">📄 Questionnaire &amp; documents</button><button class="btn light small" onclick="go(\'vModif\')">🔄 Modifier mes activités</button></div></div>' +
+      '<div class="card"><h3>💶 Règlement ' + statutChip(d.statut) + '</h3><table class="recap">' +
+      '<tr><td>Total</td><td class="num">' + euros(d.total) + '</td></tr>' +
+      (d.aidesMontant ? '<tr><td>Aides : ' + esc(d.aides) + '</td><td class="num">− ' + euros(d.aidesMontant) + '</td></tr>' : '') +
+      '<tr><td>Déjà réglé</td><td class="num">' + euros(d.regle) + '</td></tr><tr class="tot"><td>Reste à régler</td><td class="num">' + euros(d.reste) + '</td></tr></table>' +
+      '<p style="margin-bottom:0;">' + pay + '</p>' +
+      (d.helloasso && d.reste > 0 ? '<div class="actions" style="justify-content:flex-start;"><button class="btn orange" onclick="payOnline(this)">💳 Payer ' + euros(d.reste) + ' en ligne</button></div>' : '') + '</div>' +
+      '<div class="card"><h3>📎 Documents envoyés</h3>' + docs + '</div>' +
+      '<div class="card"><h3>📇 Responsable légal</h3><p style="margin:0;">' + esc(d.responsable.prenom + ' ' + d.responsable.nom) + '<br>' + esc(d.responsable.adresse) + ', ' + esc(d.responsable.cp + ' ' + d.responsable.ville) +
+      '<br>' + esc(d.responsable.tel) + ' · ' + esc(d.responsable.email) + '</p><p style="font-size:13px;color:var(--muted);margin-bottom:0;">Une erreur ? Signalez-la via « Envoyer un message ».</p></div>';
+  }
+  function payOnline(btn) {
+    if (!ACC) { go('vDossier'); return; }
+    busy(btn, true, 'Ouverture de HelloAsso…');
+    api('createAdhesionCheckout', [ACC.dossier, ACC.tel]).then(function (res) { location.href = res.redirectUrl; })
+      .catch(function (e) { busy(btn, false); flash(esc(e.message), 'err'); });
+  }
+
+  // --- Modification des activités ---------------------------------------------------------
+  function renderModif() {
+    $('modifBox').innerHTML = whoBar() + '<div class="card"><h3>🏓 Activités actuelles</h3><ul style="margin:0 0 6px;padding-left:20px;">' +
+      DOS.membres.map(function (m) { return '<li><b>' + esc(m.prenom) + '</b> : ' + esc(m.creneau1) + (m.creneau2 ? ' + ' + esc(m.creneau2) : '') + '</li>'; }).join('') + '</ul>' +
+      '<label>Ajout ou retrait souhaité <span class="req">*</span></label><textarea id="modMsg" rows="4" placeholder="Ex. : ajouter le créneau du mercredi 18h30 pour Léo, retirer le lundi…"></textarea>' +
+      '<div class="actions"><span id="modStatus"></span><button class="btn primary" onclick="sendModif(this)">Envoyer la demande</button></div></div>' +
+      '<p style="text-align:center;"><a href="#" onclick="go(\'vActivites\');return false;">Voir les créneaux et les places disponibles</a></p>';
+  }
+  function sendModif(btn) {
+    busy(btn, true, 'Envoi…');
+    api('requestAdhesionChange', [ACC.dossier, ACC.tel, $('modMsg').value]).then(function () {
+      busy(btn, false); $('modMsg').value = '';
+      flash('✅ Demande envoyée au club : vous serez recontacté(e) rapidement.', 'ok');
+    }).catch(function (e) { busy(btn, false); flash(esc(e.message), 'err'); });
+  }
+
+  // --- Message libre ------------------------------------------------------------------------
+  function sendMessage(btn) {
+    busy(btn, true, 'Envoi…');
+    api('sendAdhesionMessage', [{ nom: $('mNom').value, email: $('mEmail').value, tel: $('mTel').value, dossier: $('mDossier').value, objet: $('mObjet').value, message: $('mMsg').value, website: $('hp2').value }])
+      .then(function () { busy(btn, false); $('mMsg').value = ''; flash('✅ Message envoyé. Merci, le club vous répondra rapidement.', 'ok'); })
+      .catch(function (e) { busy(btn, false); flash(esc(e.message), 'err'); });
+  }
+
+  // --- Documents : questionnaire de santé, règlement intérieur, fichiers ----------------------
+  // Questionnaires officiels (Code du sport) : les réponses restent sur cet
+  // appareil, seule l'attestation est transmise au club.
+  var QS_ADULTE = [
+    ['Durant les 12 derniers mois', [
+      'Un membre de votre famille est-il décédé subitement d\'une cause cardiaque ou inexpliquée ?',
+      'Avez-vous ressenti une douleur dans la poitrine, des palpitations, un essoufflement inhabituel ou un malaise ?',
+      'Avez-vous eu un épisode de respiration sifflante (asthme) ?',
+      'Avez-vous eu une perte de connaissance ?',
+      'Si vous avez arrêté le sport pendant 30 jours ou plus pour des raisons de santé, avez-vous repris sans l\'accord d\'un médecin ?',
+      'Avez-vous débuté un traitement médical de longue durée (hors contraception et désensibilisation aux allergies) ?']],
+    ['À ce jour', [
+      'Ressentez-vous une douleur, un manque de force ou une raideur suite à un problème osseux, articulaire ou musculaire (fracture, entorse, luxation, déchirure, tendinite, etc.) survenu durant les 12 derniers mois ?',
+      'Votre pratique sportive est-elle interrompue pour des raisons de santé ?',
+      'Pensez-vous avoir besoin d\'un avis médical pour poursuivre votre pratique sportive ?']],
+  ];
+  var QS_MINEUR = [
+    ['Depuis l\'année dernière', [
+      'Es-tu allé(e) à l\'hôpital pendant toute une journée ou plusieurs jours ?',
+      'As-tu été opéré(e) ?',
+      'As-tu beaucoup plus grandi que les autres années ?',
+      'As-tu beaucoup maigri ou grossi ?',
+      'As-tu eu la tête qui tourne pendant un effort ?',
+      'As-tu perdu connaissance ou es-tu tombé(e) sans savoir pourquoi ?',
+      'As-tu reçu un ou plusieurs chocs violents qui t\'ont obligé(e) à interrompre un moment une séance de sport ?',
+      'As-tu eu beaucoup de mal à respirer pendant un effort par rapport à d\'habitude ?',
+      'As-tu eu beaucoup de mal à respirer après un effort ?',
+      'As-tu eu mal dans la poitrine ou des palpitations (le cœur qui bat très vite) ?',
+      'As-tu commencé à prendre un nouveau médicament tous les jours et pour longtemps ?',
+      'As-tu arrêté le sport à cause d\'un problème de santé pendant un mois ou plus ?']],
+    ['Depuis un certain temps (plus de 2 semaines)', [
+      'Te sens-tu très fatigué(e) ?',
+      'As-tu du mal à t\'endormir ou te réveilles-tu souvent dans la nuit ?',
+      'Sens-tu que tu as moins faim ? que tu manges moins ?',
+      'Te sens-tu triste ou inquiet(e) ?',
+      'Pleures-tu plus souvent ?',
+      'Ressens-tu une douleur ou un manque de force à cause d\'une blessure que tu t\'es faite cette année ?']],
+    ['Aujourd\'hui', [
+      'Penses-tu quelquefois à arrêter de faire du sport ou à changer de sport ?',
+      'Penses-tu avoir besoin de voir ton médecin pour continuer le sport ?',
+      'Souhaites-tu signaler quelque chose de plus concernant ta santé ?']],
+    ['Questions à faire remplir par tes parents', [
+      'Quelqu\'un dans votre famille proche a-t-il eu une maladie grave du cœur ou du cerveau, ou est-il décédé subitement avant l\'âge de 50 ans ?',
+      'Êtes-vous inquiet pour son poids ? Trouvez-vous qu\'il se nourrit trop ou pas assez ?',
+      'Avez-vous manqué l\'examen de santé prévu à l\'âge de votre enfant chez le médecin ? (prévu à 2, 3, 4 et 5 ans, entre 8 et 9 ans, entre 11 et 13 ans et entre 15 et 16 ans)']],
+  ];
+  var DOCSEL = { n: 0, types: { qs: true, ri: false, cm: false, pj: false } };
+  function renderDocs() {
+    var d = DOS, st = INFO ? INFO.settings : {};
+    if (!DOCSEL.n || !d.membres.some(function (m) { return m.n === DOCSEL.n; })) {
+      var todo = d.membres.find(function (m) { return !m.qs || !m.reglement; });
+      DOCSEL.n = (todo || d.membres[0] || {}).n || 1;
+    }
+    var m = d.membres.find(function (x) { return x.n === DOCSEL.n; }) || {};
+    var T = DOCSEL.types;
+    var typeBox = function (k, icon, title, sub) {
+      return '<label class="' + (T[k] ? 'sel' : '') + '"><input type="checkbox"' + (T[k] ? ' checked' : '') + ' onchange="DOCSEL.types.' + k + '=this.checked;renderDocs()"><span><b>' + icon + ' ' + title + '</b><small>' + sub + '</small></span></label>';
+    };
+    var html = whoBar() + '<div class="card"><h3>👤 Pour quel membre ?</h3><select onchange="DOCSEL.n=Number(this.value);renderDocs()">' +
+      d.membres.map(function (x) { return '<option value="' + x.n + '"' + (x.n === DOCSEL.n ? ' selected' : '') + '>' + esc(x.prenom + ' ' + x.nom) + ' (' + esc(x.categorie) + ')' + (x.qs && x.reglement ? ' ✓' : '') + '</option>'; }).join('') + '</select>' +
+      '<p style="font-size:14px;margin:10px 0 0;">Questionnaire de santé : ' + (m.qs ? '<span class="chip ' + (/requis/.test(m.qs) ? 'warn' : 'ok') + '">' + esc(m.qs) + '</span>' : '<span class="chip err">à remplir</span>') +
+      ' · Règlement intérieur : ' + (m.reglement ? '<span class="chip ok">' + esc(m.reglement) + '</span>' : '<span class="chip err">à accepter</span>') + '</p></div>' +
+      '<div class="card"><h3>📌 Quel(s) document(s) souhaitez-vous envoyer ?</h3><div class="doc-types">' +
+      typeBox('qs', '🩺', 'Questionnaire de santé', (m.mineur ? 'Questionnaire du sportif mineur' : 'QS-SPORT') + ', obligatoire chaque saison') +
+      typeBox('ri', '📋', 'Règlement intérieur', 'Acceptation du règlement du club') +
+      typeBox('cm', '⚕️', 'Certificat médical', 'Obligatoire si vous avez répondu OUI à une question du questionnaire de santé') +
+      typeBox('pj', '📎', 'Pièces justificatives', 'Aides (Pass\'Sport, coupons sport, Atout Normandie…)') + '</div></div>';
+    if (T.qs) {
+      var Q = m.mineur ? QS_MINEUR : QS_ADULTE, k = 0;
+      html += '<div class="card"><h3>🩺 Questionnaire de santé ' + (m.mineur ? 'du sportif mineur' : '(QS-SPORT)') + ' – ' + esc(m.prenom) + '</h3>' +
+        '<div class="note info">🔒 Vos réponses restent sur cet appareil : seule l\'attestation est transmise au club.</div>' +
+        '<table class="qs">' + Q.map(function (g) {
+          return '<tr class="grp"><td colspan="2">' + esc(g[0]) + '</td></tr>' + g[1].map(function (q) {
+            var id = 'q' + (k++);
+            return '<tr><td>' + esc(q) + '</td><td class="yn"><label><input type="radio" name="' + id + '" value="oui" onchange="qsChange()"> Oui</label><label><input type="radio" name="' + id + '" value="non" onchange="qsChange()"> Non</label></td></tr>';
+          }).join('');
+        }).join('') + '</table><div id="qsResult"></div></div>';
+    }
+    if (T.ri) {
+      html += '<div class="card"><h3>📋 Règlement intérieur – ' + esc(m.prenom) + '</h3>' +
+        (st.reglementUrl ? '<p><a href="' + esc(st.reglementUrl) + '" target="_blank" rel="noopener">📄 Lire le règlement intérieur ↗</a></p>' : '') +
+        (st.reglementTexte ? '<div style="white-space:pre-line;max-height:260px;overflow:auto;border:1px solid var(--border);border-radius:9px;padding:10px;font-size:14px;background:#fbfaf7;">' + esc(st.reglementTexte) + '</div>' : '') +
+        (!st.reglementUrl && !st.reglementTexte ? '<p style="color:var(--muted);">Le règlement intérieur vous sera remis au club.</p>' : '') +
+        '<label style="display:flex;gap:10px;font-weight:400;"><input type="checkbox" id="riOk"> <span>J\'ai lu et j\'accepte le règlement intérieur' + (m.mineur ? ' (responsable légal pour ' + esc(m.prenom) + ')' : '') + '.</span></label>' +
+        '<div class="grid3"><div><label>Nom du signataire <span class="req">*</span></label><input id="riSig" value="' + esc(m.mineur ? d.responsable.prenom + ' ' + d.responsable.nom : m.prenom + ' ' + m.nom) + '"></div><div></div>' +
+        '<div><button class="btn primary" onclick="sendRI(this)">Valider</button></div></div></div>';
+    }
+    if (T.cm) html += fileCard('cm', '⚕️ Certificat médical – ' + esc(m.prenom), 'Certificat médical de non contre-indication à la pratique du tennis de table (photo ou PDF).');
+    if (T.pj) html += fileCard('pj', '📎 Pièces justificatives', 'Attestation Pass\'Sport, coupons sport, Atout Normandie… (photo ou PDF, plusieurs fichiers possibles).');
+    $('docsBox').innerHTML = html;
+  }
+  function fileCard(k, title, sub) {
+    return '<div class="card"><h3>' + title + '</h3><p style="margin-top:-6px;color:var(--muted);font-size:14px;">' + sub + '</p>' +
+      '<input type="file" id="file_' + k + '" accept="image/*,application/pdf"' + (k === 'pj' ? ' multiple' : '') + '>' +
+      '<div class="actions"><span id="fs_' + k + '" style="font-size:14px;"></span><button class="btn primary" onclick="sendFiles(\'' + k + '\', this)">Envoyer</button></div></div>';
+  }
+  function qsChange() {
+    var radios = Array.prototype.slice.call(document.querySelectorAll('.qs input[type=radio]'));
+    var names = {}; radios.forEach(function (r) { names[r.name] = names[r.name] || null; if (r.checked) names[r.name] = r.value; });
+    var vals = Object.keys(names).map(function (k) { return names[k]; });
+    var box = $('qsResult');
+    if (vals.some(function (v) { return !v; })) { box.innerHTML = '<p style="color:var(--muted);font-size:14px;">Répondez à toutes les questions (' + vals.filter(Boolean).length + '/' + vals.length + ').</p>'; return; }
+    var m = DOS.membres.find(function (x) { return x.n === DOCSEL.n; });
+    var allNo = vals.every(function (v) { return v === 'non'; });
+    var sig = m.mineur ? DOS.responsable.prenom + ' ' + DOS.responsable.nom : m.prenom + ' ' + m.nom;
+    box.innerHTML = (allNo
+      ? '<div class="note ok">✅ Vous avez répondu NON à toutes les questions : pas de certificat médical à fournir.</div>' +
+        '<label style="display:flex;gap:10px;font-weight:400;"><input type="checkbox" id="qsOk"> <span>' + (m.mineur ? 'En tant que responsable légal, j\'atteste que ' + esc(m.prenom) + ' a répondu' : 'J\'atteste avoir répondu') + ' NON à toutes les questions du questionnaire de santé.</span></label>'
+      : '<div class="note warn">⚠️ Au moins une réponse OUI : un <b>certificat médical</b> de non contre-indication est nécessaire. Envoyez-le avec « Certificat médical » ci-dessus.</div>' +
+        '<label style="display:flex;gap:10px;font-weight:400;"><input type="checkbox" id="qsOk"> <span>J\'ai bien noté qu\'un certificat médical est nécessaire.</span></label>') +
+      '<div class="grid3"><div><label>Nom du signataire <span class="req">*</span></label><input id="qsSig" value="' + esc(sig) + '"></div><div></div>' +
+      '<div><button class="btn primary" onclick="sendQS(this,' + allNo + ')">Valider le questionnaire</button></div></div>';
+  }
+  function sendQS(btn, allNo) {
+    if (!$('qsOk').checked) { flash('Cochez la case de l\'attestation.', 'err'); return; }
+    busy(btn, true, 'Envoi…');
+    api('submitQS', [ACC.dossier, ACC.tel, DOCSEL.n, allNo, $('qsSig').value]).then(function (res) {
+      busy(btn, false); DOS = res;
+      if (!allNo) DOCSEL.types.cm = true;
+      DOCSEL.types.qs = false;
+      if (!res.membres.find(function (x) { return x.n === DOCSEL.n; }).reglement) DOCSEL.types.ri = true;
+      renderDocs();
+      flash(allNo ? '✅ Questionnaire de santé enregistré.' : '✅ Enregistré : pensez à envoyer le certificat médical.', allNo ? 'ok' : 'warn');
+    }).catch(function (e) { busy(btn, false); flash(esc(e.message), 'err'); });
+  }
+  function sendRI(btn) {
+    if (!$('riOk').checked) { flash('Cochez la case d\'acceptation du règlement intérieur.', 'err'); return; }
+    busy(btn, true, 'Envoi…');
+    api('acceptReglement', [ACC.dossier, ACC.tel, DOCSEL.n, $('riSig').value]).then(function (res) {
+      busy(btn, false); DOS = res; DOCSEL.types.ri = false;
+      var next = res.membres.find(function (x) { return !x.qs || !x.reglement; });
+      if (next) { DOCSEL.n = next.n; DOCSEL.types.qs = !next.qs; DOCSEL.types.ri = !next.reglement; }
+      renderDocs();
+      flash('✅ Règlement intérieur accepté.' + (next ? ' Suivant : ' + esc(next.prenom) + '.' : ''), 'ok');
+    }).catch(function (e) { busy(btn, false); flash(esc(e.message), 'err'); });
+  }
+  // Photos réduites (1600 px, JPEG) avant l'envoi ; PDF tels quels (5 Mo max).
+  function readFile(f) {
+    return new Promise(function (resolve, reject) {
+      var fr = new FileReader();
+      fr.onerror = function () { reject(new Error('Lecture du fichier impossible.')); };
+      if (f.type === 'application/pdf') {
+        if (f.size > 5 * 1024 * 1024) { reject(new Error(f.name + ' : 5 Mo maximum.')); return; }
+        fr.onload = function () { resolve({ name: f.name, mime: 'application/pdf', data: fr.result }); };
+        fr.readAsDataURL(f); return;
+      }
+      if (!/^image\//.test(f.type)) { reject(new Error(f.name + ' : photo ou PDF uniquement.')); return; }
+      fr.onload = function () {
+        var img = new Image();
+        img.onload = function () {
+          var s = Math.min(1, 1600 / Math.max(img.width, img.height));
+          var cv = document.createElement('canvas'); cv.width = Math.round(img.width * s); cv.height = Math.round(img.height * s);
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          resolve({ name: f.name.replace(/\.\w+$/, '') + '.jpg', mime: 'image/jpeg', data: cv.toDataURL('image/jpeg', 0.85) });
+        };
+        img.onerror = function () { reject(new Error(f.name + ' : image illisible.')); };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(f);
+    });
+  }
+  function sendFiles(k, btn) {
+    var files = Array.prototype.slice.call($('file_' + k).files || []);
+    if (!files.length) { flash('Choisissez un fichier.', 'err'); return; }
+    var type = k === 'cm' ? 'Certificat médical' : 'Justificatif';
+    busy(btn, true, 'Envoi…');
+    var chain = Promise.resolve(), sent = 0;
+    files.forEach(function (f) {
+      chain = chain.then(function () { return readFile(f); }).then(function (x) {
+        $('fs_' + k).textContent = 'Envoi de ' + x.name + '…';
+        return api('uploadAdhesionDocument', [ACC.dossier, ACC.tel, DOCSEL.n, type, x.name, x.mime, x.data]);
+      }).then(function (res) { DOS = res; sent++; });
+    });
+    chain.then(function () {
+      busy(btn, false); DOCSEL.types[k] = false; renderDocs();
+      flash('✅ ' + sent + ' document' + (sent > 1 ? 's' : '') + ' envoyé' + (sent > 1 ? 's' : '') + ' au club.', 'ok');
+    }).catch(function (e) { busy(btn, false); $('fs_' + k).textContent = ''; flash(esc(e.message), 'err'); });
+  }
+
+  init();
+</script>
+</body>
+</html>

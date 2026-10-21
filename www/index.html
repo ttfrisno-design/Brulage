@@ -211,6 +211,27 @@
     .club-slots .slot-lvl { color: var(--muted); }
     .slot-editor { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
     .slot-row { display: grid; grid-template-columns: 120px 110px 110px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+    .slot-item { border: 1px solid var(--border); border-radius: 8px; padding: 6px; background: #fafbfc; }
+    .slot-more { display: grid; grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr) 80px 90px 80px 70px; gap: 6px; margin-top: 6px; }
+    .slot-more label { margin: 0; font-size: 11px; }
+    .slot-more select, .slot-more input { width: 100%; padding: 5px 6px; border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: 13px; }
+    @media (max-width: 760px) { .slot-more { grid-template-columns: 1fr 1fr 1fr; } }
+    .adh-dos { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: #fff; }
+    .adh-dos > summary { cursor: pointer; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+    .adh-dos > summary b { font-variant-numeric: tabular-nums; }
+    .adh-dos .adh-body { padding: 0 12px 12px; }
+    .adh-chip { display: inline-block; border-radius: 10px; padding: 1px 8px; font-size: 12px; font-weight: 600; }
+    .adh-chip.ok { background: var(--green-bg); color: var(--green); }
+    .adh-chip.warn { background: #fff3d6; color: #8a5a00; }
+    .adh-chip.err { background: var(--red-bg); color: var(--red); }
+    table.adh-t { border-collapse: collapse; width: 100%; font-size: 13px; }
+    table.adh-t th, table.adh-t td { border-bottom: 1px solid var(--border); padding: 5px 6px; text-align: left; vertical-align: top; }
+    .adh-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+    .adh-form .full { grid-column: 1 / -1; }
+    .adh-form textarea { width: 100%; font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; }
+    @media (max-width: 640px) { .adh-form { grid-template-columns: 1fr; } }
+    .adh-places { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+    .adh-places div { border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; font-size: 13px; }
     .slot-row select, .slot-row input { width: 100%; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: 14px; }
     @media (max-width: 640px) {
       .slot-row { grid-template-columns: 1.3fr 1fr 1fr; padding: 6px; border: 1px solid var(--border); border-radius: 8px; }
@@ -589,6 +610,7 @@
         <button class="tab-btn active" data-tab="tab-burn" onclick="switchAdminTab('tab-burn')">Tableau de brûlage</button>
         <button class="tab-btn" data-tab="tab-roster" onclick="switchAdminTab('tab-roster')">Effectif</button>
         <button class="tab-btn" data-tab="tab-compet" onclick="switchAdminTab('tab-compet'); loadAdminCompet();">Compétitions individuelles</button>
+        <button class="tab-btn" data-tab="tab-adh" onclick="switchAdminTab('tab-adh'); loadAdhAdmin();">Adhésions</button>
         <button class="tab-btn" data-tab="tab-dates" onclick="switchAdminTab('tab-dates')">Dates &amp; Réglages</button>
       </div>
 
@@ -671,6 +693,42 @@
           <div id="adminCompetList"></div>
         </div>
       </div>
+      <div id="tab-adh" class="admin-tab hidden">
+        <div class="card">
+          <h2>Site d'inscription au club</h2>
+          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Les familles s'inscrivent en ligne (créneaux, questionnaire de santé, règlement intérieur, documents, mode de paiement). Les créneaux, tarifs et places se règlent dans <b>Dates &amp; Réglages › Présentation du club</b>.</p>
+          <div id="adhLink"></div>
+        </div>
+        <div class="card"><h2>Places par créneau</h2><div id="adhPlaces">…</div></div>
+        <div class="card">
+          <h2>Dossiers</h2>
+          <input type="search" id="adhSearch" placeholder="Rechercher (n° de dossier, nom, téléphone…)" oninput="renderAdhDossiers()">
+          <div id="adhDossiers" style="margin-top:10px;">…</div>
+        </div>
+        <div class="card"><h2>Messages et demandes</h2><div id="adhMessages">…</div></div>
+        <div class="card">
+          <h2>Réglages des inscriptions</h2>
+          <div class="adh-form">
+            <div><label for="adhSaison">Saison</label><input type="text" id="adhSaison" placeholder="2026/2027"></div>
+            <div><label for="adhOuvert">Inscriptions en ligne</label><select id="adhOuvert"><option value="oui">Ouvertes</option><option value="non">Fermées</option></select></div>
+            <div><label for="adhCommune">Commune (tarif habitant)</label><input type="text" id="adhCommune" placeholder="Isneauville"></div>
+            <div><label for="adhSupp">Supplément hors commune (€ par membre)</label><input type="number" id="adhSupp" min="0" step="1"></div>
+            <div><label for="adhRed">Réduction famille (€ par membre supplémentaire)</label><input type="number" id="adhRed" min="0" step="1"></div>
+            <div><label for="adhCheques">Nombre maximal de chèques</label><input type="number" id="adhCheques" min="1" max="10" step="1"></div>
+            <div class="full"><label>Modes de règlement proposés</label>
+              <div id="adhModes" style="display:flex;gap:14px;flex-wrap:wrap;font-size:14px;"></div></div>
+            <div><label for="adhOrdre">Ordre des chèques</label><input type="text" id="adhOrdre"></div>
+            <div><label for="adhIban">IBAN (virement)</label><input type="text" id="adhIban"></div>
+            <div class="full"><label for="adhAides">Aides acceptées (une par ligne ; « Nom|montant » pour déduire un montant fixe)</label><textarea id="adhAides" rows="4"></textarea></div>
+            <div class="full"><label for="adhRiUrl">Lien vers le règlement intérieur (PDF, facultatif)</label><input type="text" id="adhRiUrl" placeholder="https://…"></div>
+            <div class="full"><label for="adhRiTxt">Texte du règlement intérieur (facultatif)</label><textarea id="adhRiTxt" rows="4"></textarea></div>
+            <div><label for="adhContact">E-mail du club (copie des inscriptions, documents et messages)</label><input type="text" id="adhContact" placeholder="club@exemple.fr"></div>
+            <div class="full"><label for="adhInfos">Informations affichées sur la page d'inscription (facultatif)</label><textarea id="adhInfos" rows="3" placeholder="Ex. reprise le 1er septembre, séance d'essai gratuite…"></textarea></div>
+          </div>
+          <button class="secondary" style="margin-top:10px;" onclick="saveAdhSettings()">Enregistrer les réglages</button>
+          <span id="adhStatus" style="font-size:13px;margin-left:8px;"></span>
+        </div>
+      </div>
       <div id="tab-dates" class="admin-tab hidden">
         <div class="card">
           <h2>Code administrateur</h2>
@@ -693,7 +751,7 @@
               <img id="ciEntrPhotoPreview" class="club-photo hidden" alt="Aperçu du planning"></div>
             <div class="full"><label for="ciEntr">Remarques sur les entraînements (facultatif)</label><textarea id="ciEntr" rows="2" placeholder="Ex. reprise le 2 septembre, entraîneur diplômé…"></textarea></div>
             <div class="full"><label for="ciTarifs">Tarifs (une ligne par tarif)</label><textarea id="ciTarifs" rows="4" placeholder="Jeunes : 120 €&#10;Adultes : 160 €"></textarea></div>
-            <div class="full"><label for="ciInscr">Lien vers le site d'inscription (facultatif)</label><input type="text" id="ciInscr" placeholder="https://…"></div>
+            <div class="full"><label for="ciInscr">Lien vers le site d'inscription (facultatif)</label><input type="text" id="ciInscr" placeholder="vide = site d'inscription RebonTT (onglet Adhésions)"></div>
             <div class="full"><label for="ciPhoto">Photo de la salle</label>
               <div class="club-photo-row"><input type="text" id="ciPhoto" placeholder="lien https://… ou envoyez une photo"><input type="file" id="ciPhotoFile" accept="image/*" onchange="uploadClubPhoto(this, 'salle')"></div>
               <img id="ciPhotoPreview" class="club-photo hidden" alt="Aperçu de la photo"></div>
@@ -1092,8 +1150,8 @@
       html += '<div class="card"><h3 class="club-h">💶 Tarifs</h3>' + textBlock(info.tarifs, 'Tarifs communiqués prochainement.') + '</div>';
     }
     html += '<div class="card club-actions">' +
-      (info && info.inscription
-        ? '<a class="primary btn-link" href="' + escAttr(info.inscription) + '" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)">S\'inscrire au club ↗</a>'
+      (info && (info.inscription || (info.adhesion && info.adhesion.ouvert))
+        ? '<a class="primary btn-link" href="' + escAttr(info.inscription || inscriptionUrl()) + '" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)">S\'inscrire au club ↗</a>'
         : '<button class="secondary" disabled>Inscription en ligne : bientôt disponible</button>') +
       (CLUBS ? '<button class="linkish" onclick="showClubPick()">← Changer de club</button>' : '') +
       '</div>';
@@ -1323,7 +1381,7 @@
     }
     document.getElementById('loginView').classList.add('hidden');
     if (STATE.session.isAdmin) {
-      document.getElementById('adminView').classList.remove('hidden');
+      showView('adminView'); // masque aussi la page du club (connexion)
       renderPhaseTabs('phaseTabsAdmin', loadAdminData);
       populateTeamSelect();
       loadAdminData();
@@ -3775,27 +3833,159 @@
     if (ed && !ed.contains(document.activeElement)) renderSlotEditor((info && info.creneaux) || []);
   }
   // Éditeur des créneaux : une ligne = jour, début, fin, niveau.
+  // Deuxième ligne : informations du site d'inscription (public, lieu,
+  // encadrant, tarif, séances comprises, part licence FFTT, places).
   function slotRowHtml(c) {
-    return '<div class="slot-row">' +
-      '<select aria-label="Jour">' + JOURS.map(function (j) { return '<option' + (c.jour === j ? ' selected' : '') + '>' + j + '</option>'; }).join('') + '</select>' +
-      '<input type="time" aria-label="Début" value="' + escAttr(c.debut || '') + '">' +
-      '<input type="time" aria-label="Fin" value="' + escAttr(c.fin || '') + '">' +
-      '<input type="text" aria-label="Niveau" placeholder="Niveau (ex. jeunes débutants)" value="' + escAttr(c.niveau || '') + '">' +
-      '<button type="button" class="small" title="Supprimer ce créneau" onclick="this.parentNode.remove()">✕</button></div>';
+    var num = function (v) { return v ? escAttr(v) : ''; };
+    var f = function (k, label, html) { return '<div><label>' + label + '</label>' + html + '</div>'; };
+    return '<div class="slot-item" data-id="' + escAttr(c.id || '') + '"><div class="slot-row">' +
+      '<select aria-label="Jour" data-f="jour">' + JOURS.map(function (j) { return '<option' + (c.jour === j ? ' selected' : '') + '>' + j + '</option>'; }).join('') + '</select>' +
+      '<input type="time" aria-label="Début" data-f="debut" value="' + escAttr(c.debut || '') + '">' +
+      '<input type="time" aria-label="Fin" data-f="fin" value="' + escAttr(c.fin || '') + '">' +
+      '<input type="text" aria-label="Niveau" data-f="niveau" placeholder="Niveau (ex. jeunes débutants)" value="' + escAttr(c.niveau || '') + '">' +
+      '<button type="button" class="small" title="Supprimer ce créneau" onclick="this.closest(\'.slot-item\').remove()">✕</button></div>' +
+      '<div class="slot-more">' +
+      f('public', 'Public', '<select data-f="public">' + ['Tous', 'Jeunes', 'Adultes'].map(function (p) { return '<option' + ((c.public || 'Tous') === p ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>') +
+      f('lieu', 'Lieu', '<input type="text" data-f="lieu" placeholder="Salle" value="' + escAttr(c.lieu || '') + '">') +
+      f('encadrant', 'Encadrant', '<input type="text" data-f="encadrant" value="' + escAttr(c.encadrant || '') + '">') +
+      f('tarif', 'Tarif €', '<input type="number" min="0" data-f="tarif" value="' + num(c.tarif) + '">') +
+      f('seances', 'Séances (sem.)', '<select data-f="seances"><option value="1"' + (c.seances === 2 ? '' : ' selected') + '>1</option><option value="2"' + (c.seances === 2 ? ' selected' : '') + '>2</option></select>') +
+      f('licence', 'Licence €', '<input type="number" min="0" data-f="licence" value="' + num(c.licence) + '">') +
+      f('places', 'Places', '<input type="number" min="0" data-f="places" placeholder="∞" value="' + num(c.places) + '">') +
+      '</div></div>';
   }
   function renderSlotEditor(list) {
     document.getElementById('ciSlots').innerHTML = list.map(slotRowHtml).join('');
   }
   function addSlot() {
     var ed = document.getElementById('ciSlots');
-    ed.insertAdjacentHTML('beforeend', slotRowHtml({ jour: 'Mardi', debut: '', fin: '', niveau: '' }));
+    ed.insertAdjacentHTML('beforeend', slotRowHtml({ jour: 'Mardi', debut: '', fin: '', niveau: '', seances: 1 }));
     ed.lastElementChild.querySelector('input').focus();
   }
   function readSlots() {
-    return Array.prototype.map.call(document.querySelectorAll('#ciSlots .slot-row'), function (row) {
-      var f = row.querySelectorAll('select, input');
-      return { jour: f[0].value, debut: f[1].value, fin: f[2].value, niveau: f[3].value.trim() };
+    return Array.prototype.map.call(document.querySelectorAll('#ciSlots .slot-item'), function (item) {
+      var c = { id: item.dataset.id || '' };
+      item.querySelectorAll('[data-f]').forEach(function (el) { c[el.dataset.f] = el.value.trim(); });
+      ['tarif', 'licence', 'places', 'seances'].forEach(function (k) { c[k] = Number(c[k]) || 0; });
+      return c;
     }).filter(function (c) { return c.debut || c.niveau; });
+  }
+  // ---------------------------------------------------------------------------
+  // ADHÉSIONS (site d'inscription au club) — onglet administrateur
+  // ---------------------------------------------------------------------------
+  var ADH_MODES = ['Chèque', 'Espèces', 'Virement', 'HelloAsso'];
+  function inscriptionUrl() {
+    var base = (window.APP_CONFIG && window.APP_CONFIG.INSCRIPTION_URL) ||
+      (/github\.io$|^localhost$|^127\./.test(location.hostname) ? 'inscription.html' : 'https://ttfrisno-design.github.io/Brulage/inscription.html');
+    return base + clubParam();
+  }
+  // Plusieurs clubs dans l'annuaire : le site d'inscription doit savoir lequel.
+  function clubParam() { return CLUBS && STATE.club && STATE.club.id ? '?club=' + encodeURIComponent(STATE.club.id) : ''; }
+  function adhToken() { return STATE.session && STATE.session.adminToken; }
+  function adhCall(fn, args) {
+    if (!adhToken()) return Promise.reject(new Error('Déconnectez-vous puis reconnectez-vous en administrateur pour accéder aux adhésions.'));
+    return callServer(fn, [adhToken()].concat(args || []));
+  }
+  function loadAdhAdmin() {
+    adhCall('getAdhesionsAdmin').then(function (res) { STATE.adh = res; renderAdhAdmin(true); })
+      .catch(function (err) { document.getElementById('adhDossiers').innerHTML = '<div class="error">' + escHtml(err.message || err) + '</div>'; });
+  }
+  function adhChip(s) { return '<span class="adh-chip ' + (s === 'Réglé' ? 'ok' : s === 'Annulé' ? 'err' : 'warn') + '">' + escHtml(s || '') + '</span>'; }
+  function renderAdhAdmin(fillForm) {
+    var d = STATE.adh;
+    var url = d.url ? d.url + clubParam() : inscriptionUrl();
+    document.getElementById('adhLink').innerHTML = '<a class="primary btn-link" href="' + escAttr(url) + '" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)">Ouvrir le site d\'inscription ↗</a> ' +
+      ' <button class="small" style="margin-top:8px;" onclick="copyText(\'' + escAttr(url) + '\', this)">Copier le lien</button>' +
+      '<p style="font-size:13px;margin:8px 0 0;">' + (d.settings.ouvert ? '🟢 Inscriptions ouvertes' : '🔴 Inscriptions fermées') + ' · saison ' + escHtml(d.settings.saison) + ' · ' + d.dossiers.filter(function (x) { return x.statut !== 'Annulé'; }).length + ' dossier(s)' +
+      (d.messages.filter(function (m) { return m.statut !== 'Traité'; }).length ? ' · <b>' + d.messages.filter(function (m) { return m.statut !== 'Traité'; }).length + ' message(s) à traiter</b>' : '') + '</p>';
+    document.getElementById('adhPlaces').innerHTML = d.creneaux.length ? '<div class="adh-places">' + d.creneaux.map(function (c) {
+      var full = c.places && c.inscrits >= c.places;
+      return '<div><b>' + escHtml(c.niveau || 'Créneau') + '</b><br>' + escHtml(c.jour + ' ' + c.debut + (c.fin ? '-' + c.fin : '')) + '<br>' +
+        '<span class="adh-chip ' + (full ? 'err' : 'ok') + '">' + c.inscrits + (c.places ? ' / ' + c.places : '') + ' inscrit' + (c.inscrits > 1 ? 's' : '') + '</span></div>';
+    }).join('') + '</div>' : '<p style="color:var(--muted);margin:0;">Aucun créneau : ajoutez-les dans Dates &amp; Réglages › Présentation du club.</p>';
+    renderAdhDossiers();
+    document.getElementById('adhMessages').innerHTML = d.messages.length ? d.messages.map(function (m) {
+      var done = m.statut === 'Traité';
+      return '<div style="border-bottom:1px solid var(--border);padding:8px 0;' + (done ? 'opacity:.6;' : '') + '"><b>' + escHtml(m.objet) + '</b> · ' + escHtml(m.nom) + (m.dossier ? ' (' + escHtml(m.dossier) + ')' : '') +
+        ' · <span style="color:var(--muted);">' + escHtml(m.date) + '</span><br>' + escHtml(m.message).replace(/\n/g, '<br>') + '<br>' +
+        (m.email ? '<a href="mailto:' + escAttr(m.email) + '">' + escHtml(m.email) + '</a> ' : '') + (m.tel ? '<a href="tel:' + escAttr(m.tel) + '">' + escHtml(m.tel) + '</a> ' : '') +
+        '<button class="small" onclick="adhMsgStatut(' + m.row + ',\'' + (done ? 'Nouveau' : 'Traité') + '\')">' + (done ? '↺ À traiter' : '✓ Traité') + '</button></div>';
+    }).join('') : '<p style="color:var(--muted);margin:0;">Aucun message.</p>';
+    if (fillForm) {
+      var r = d.raw, s = d.settings;
+      var set = function (id, v) { document.getElementById(id).value = v; };
+      set('adhSaison', r.AdhSaison || s.saison); set('adhOuvert', s.ouvert ? 'oui' : 'non'); set('adhCommune', r.AdhCommune || s.commune);
+      set('adhSupp', r.AdhSupplementExterieur || ''); set('adhRed', r.AdhReductionFamille || ''); set('adhCheques', s.chequesMax);
+      set('adhOrdre', r.AdhOrdreCheque || s.ordreCheque); set('adhIban', r.AdhIban); set('adhAides', s.aides.map(function (a) { return a.nom + (a.montant ? '|' + a.montant : ''); }).join('\n'));
+      set('adhRiUrl', r.AdhReglementUrl); set('adhRiTxt', r.AdhReglementTexte); set('adhContact', r.AdhContactEmail); set('adhInfos', r.AdhInfos);
+      var modes = (r.AdhModes || 'Chèque,Espèces,HelloAsso').split(',').map(function (x) { return x.trim(); });
+      document.getElementById('adhModes').innerHTML = ADH_MODES.map(function (m) {
+        return '<label style="display:flex;gap:6px;align-items:center;margin:0;color:var(--ink);"><input type="checkbox" value="' + m + '"' + (modes.indexOf(m) >= 0 ? ' checked' : '') + '> ' +
+          (m === 'HelloAsso' ? 'Paiement en ligne HelloAsso' + (d.helloasso ? '' : ' (non configuré)') : m) + '</label>';
+      }).join('');
+    }
+  }
+  function renderAdhDossiers() {
+    var d = STATE.adh; if (!d) return;
+    var q = (document.getElementById('adhSearch').value || '').toLowerCase().trim();
+    var list = d.dossiers.filter(function (x) {
+      return !q || [x.dossier, x.nom, x.prenom, x.tel, x.email, x.ville].concat(x.membres.map(function (m) { return m.nom + ' ' + m.prenom; })).join(' ').toLowerCase().indexOf(q) >= 0;
+    });
+    document.getElementById('adhDossiers').innerHTML = list.length ? list.map(function (x) {
+      var pend = x.membres.filter(function (m) { return m.statut !== 'Annulé' && (!m.qs || !m.reglement); }).length;
+      var certif = x.membres.some(function (m) { return /requis/.test(m.qs || ''); }) && !x.documents.some(function (doc) { return doc.type === 'Certificat médical'; });
+      return '<details class="adh-dos"><summary><b>' + escHtml(x.dossier) + '</b><span>' + escHtml(x.nom + ' ' + x.prenom) + '</span><span>' + x.membres.length + ' membre' + (x.membres.length > 1 ? 's' : '') + '</span>' +
+        '<span>' + x.total + ' €</span>' + adhChip(x.statut) + (x.reste && x.statut !== 'Annulé' ? '<span style="color:var(--muted);">reste ' + x.reste + ' €</span>' : '') +
+        (pend ? '<span class="adh-chip warn">' + pend + ' QS/règlement à faire</span>' : '<span class="adh-chip ok">QS ✓</span>') + (certif ? '<span class="adh-chip err">certificat attendu</span>' : '') + '</summary><div class="adh-body">' +
+        '<p style="margin:0 0 8px;font-size:13px;">📞 <a href="tel:' + escAttr(x.tel) + '">' + escHtml(x.tel) + '</a>' + (x.tel2 ? ' / ' + escHtml(x.tel2) : '') + ' · ✉️ <a href="mailto:' + escAttr(x.email) + '">' + escHtml(x.email) + '</a>' + (x.email2 ? ' / ' + escHtml(x.email2) : '') +
+        '<br>📍 ' + escHtml(x.adresse + ', ' + x.cp + ' ' + x.ville) + ' · tarif ' + escHtml(x.tarif) + ' · créé le ' + escHtml(x.creeLe) +
+        '<br>💶 ' + escHtml(x.mode) + (x.mode === 'Chèque' ? ' en ' + escHtml(x.echeances) + ' fois' : '') + (x.aides ? ' · aides : ' + escHtml(x.aides) : '') + '</p>' +
+        '<div class="table-scroll"><table class="adh-t"><tr><th>Membre</th><th>Naissance</th><th>Créneau(x)</th><th>Licence</th><th>Santé</th><th>Règlement int.</th><th>€</th><th>Effectif</th></tr>' +
+        x.membres.map(function (m) {
+          return '<tr><td><b>' + escHtml(m.prenom + ' ' + m.nom) + '</b> ' + escHtml(m.categorie) + ' ' + escHtml(m.sexe) + '</td><td>' + escHtml(m.naissance) + '</td><td>' + escHtml(m.creneau1) + (m.creneau2 ? '<br>+ ' + escHtml(m.creneau2) : '') + '</td>' +
+            '<td>' + escHtml(m.licence) + (m.numLicence ? '<br>' + escHtml(m.numLicence) : '') + '</td><td>' + (m.qs ? escHtml(m.qs) : '<span class="adh-chip err">à remplir</span>') + '</td>' +
+            '<td>' + (m.reglement ? escHtml(m.reglement) : '<span class="adh-chip err">à accepter</span>') + '</td><td>' + m.montant + '</td>' +
+            '<td>' + (m.joueurId ? '✓ n° ' + escHtml(m.joueurId) : '<button class="small" onclick="adhAddPlayer(\'' + escAttr(x.dossier) + '\',' + m.n + ')">+ Ajouter</button>') + '</td></tr>';
+        }).join('') + '</table></div>' +
+        (x.documents.length ? '<p style="margin:8px 0 0;font-size:13px;">📎 ' + x.documents.map(function (doc) {
+          var m = x.membres.find(function (y) { return y.n === doc.n; });
+          return '<a href="' + escAttr(doc.lien) + '" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)">' + escHtml(doc.type + (m ? ' – ' + m.prenom : '') + ' (' + doc.fichier + ')') + '</a>';
+        }).join(' · ') + '</p>' : '<p style="margin:8px 0 0;font-size:13px;color:var(--muted);">Aucun document.</p>') +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">' +
+        '<div><label style="margin-top:0;">Statut</label><select id="adhSt_' + escAttr(x.dossier) + '">' + ['À régler', 'Partiellement réglé', 'Réglé', 'Annulé'].map(function (s) { return '<option' + (x.statut === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></div>' +
+        '<div><label style="margin-top:0;">Montant réglé (€)</label><input type="number" min="0" id="adhRg_' + escAttr(x.dossier) + '" value="' + escAttr(x.regle) + '" style="max-width:120px;"></div>' +
+        '<div style="flex:1;min-width:180px;"><label style="margin-top:0;">Note</label><input type="text" id="adhNt_' + escAttr(x.dossier) + '" value="' + escAttr(x.note || '') + '"></div>' +
+        '<button class="secondary" onclick="saveAdhDossier(\'' + escAttr(x.dossier) + '\')">Enregistrer</button></div>' +
+        '</div></details>';
+    }).join('') : '<p style="color:var(--muted);margin:0;">' + (q ? 'Aucun dossier ne correspond.' : 'Aucune inscription pour le moment.') + '</p>';
+  }
+  function saveAdhDossier(dos) {
+    var g = function (p) { return document.getElementById(p + dos).value; };
+    adhCall('setAdhesionAdmin', [dos, { statut: g('adhSt_'), regle: g('adhRg_'), note: g('adhNt_') }])
+      .then(function (res) { STATE.adh = res; renderAdhAdmin(false); }).catch(onGsError);
+  }
+  function adhMsgStatut(row, statut) {
+    adhCall('setAdhesionMessageStatut', [row, statut]).then(function (res) { STATE.adh = res; renderAdhAdmin(false); }).catch(onGsError);
+  }
+  function adhAddPlayer(dos, n) {
+    if (!confirm('Ajouter ce membre à l\'effectif (onglet Effectif, sans équipe) avec un code personnel tiré au hasard ?')) return;
+    adhCall('createPlayerFromAdhesion', [dos, n]).then(function (res) {
+      STATE.adh = res.admin; renderAdhAdmin(false);
+      alert('✅ Joueur ajouté à l\'effectif (n° ' + res.id + '). Code personnel : ' + res.pin + '\n\nCommuniquez-le au joueur pour qu\'il se connecte à RebonTT.');
+    }).catch(onGsError);
+  }
+  function saveAdhSettings() {
+    var v = function (id) { return document.getElementById(id).value.trim(); };
+    var modes = Array.prototype.filter.call(document.querySelectorAll('#adhModes input'), function (i) { return i.checked; }).map(function (i) { return i.value; });
+    var st = document.getElementById('adhStatus');
+    st.textContent = 'Enregistrement…';
+    adhCall('saveAdhesionSettings', [{
+      AdhSaison: v('adhSaison'), AdhOuvert: v('adhOuvert'), AdhCommune: v('adhCommune'), AdhSupplementExterieur: v('adhSupp'),
+      AdhReductionFamille: v('adhRed'), AdhChequesMax: v('adhCheques'), AdhModes: modes.join(','), AdhOrdreCheque: v('adhOrdre'),
+      AdhIban: v('adhIban'), AdhAides: document.getElementById('adhAides').value.trim(), AdhReglementUrl: v('adhRiUrl'),
+      AdhReglementTexte: document.getElementById('adhRiTxt').value.trim(), AdhContactEmail: v('adhContact'), AdhInfos: document.getElementById('adhInfos').value.trim(),
+    }]).then(function (res) { STATE.adh = res; renderAdhAdmin(true); st.textContent = '✓ Enregistré'; })
+      .catch(function (err) { st.textContent = ''; onGsError(err); });
   }
   function loadClubInfoAdmin() {
     callServer('getClubInfo', [], 3).then(fillClubInfoAdmin).catch(function () { /* script pas encore mis à jour */ });
