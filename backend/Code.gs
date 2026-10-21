@@ -126,6 +126,22 @@ const API_FUNCTIONS_ = {
   unregisterPushToken: unregisterPushToken,
   getPushStatus: getPushStatus,
   sendTestPush: sendTestPush,
+  // Site d'inscription au club (inscription.html)
+  getAdhesionInfo: getAdhesionInfo,
+  findAdherent: findAdherent,
+  createAdhesion: createAdhesion,
+  getAdhesion: getAdhesion,
+  submitQS: submitQS,
+  acceptReglement: acceptReglement,
+  uploadAdhesionDocument: uploadAdhesionDocument,
+  requestAdhesionChange: requestAdhesionChange,
+  sendAdhesionMessage: sendAdhesionMessage,
+  createAdhesionCheckout: createAdhesionCheckout,
+  getAdhesionsAdmin: getAdhesionsAdmin,
+  saveAdhesionSettings: saveAdhesionSettings,
+  setAdhesionAdmin: setAdhesionAdmin,
+  setAdhesionMessageStatut: setAdhesionMessageStatut,
+  createPlayerFromAdhesion: createPlayerFromAdhesion,
 };
 
 // Fonctions en lecture seule : toutes les autres modifient les données et
@@ -134,6 +150,7 @@ const READ_ONLY_FUNCTIONS_ = {
   login: true, getStaticConfig: true, getPlayerData: true, getAdminData: true, listPlayers: true,
   getCompetitions: true, getCompetitionsAdmin: true, getDataVersion: true, getProfile: true,
   getPushStatus: true, getHelloAssoStatus: true, getClubInfo: true,
+  getAdhesionInfo: true, findAdherent: true, getAdhesionsAdmin: true,
 };
 
 /** Numéro de version des données, changé à chaque modification faite via
@@ -827,7 +844,7 @@ function login(pin) {
   const cfg = readTable_('Config');
   const adminPin = (cfg.find(function (r) { return r.Clé === 'AdminPIN'; }) || {}).Valeur;
   if (String(pin) === String(adminPin)) {
-    return { ok: true, isAdmin: true, name: 'Administrateur', config: getStaticConfig() };
+    return { ok: true, isAdmin: true, name: 'Administrateur', config: getStaticConfig(), adminToken: adminToken_() };
   }
 
   // Connexion joueur : identification uniquement par le code personnel
@@ -865,13 +882,23 @@ const CLUB_INFO_KEYS_ = ['ClubNom', 'ClubVille', 'ClubAdresse', 'ClubPhoto', 'Cl
   'ClubCreneaux', 'ClubEntrainementsPhoto'];
 const JOURS_ = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
-/** Créneaux d'entraînement : [{jour, debut, fin, niveau}] (JSON dans Config). */
+/** Créneaux d'entraînement (JSON dans Config) : jour, horaires, niveau
+ * (= activité, ex. « Jeunes confirmés »), et pour le site d'inscription :
+ * public (Jeunes / Adultes / Tous), lieu, encadrant, tarif, nombre de
+ * séances par semaine comprises (1 ou 2), part licence FFTT et places. */
 function parseCreneaux_(raw) {
   let list = [];
   try { list = JSON.parse(String(raw || '[]')); } catch (e) { list = []; }
-  return (Array.isArray(list) ? list : []).map(function (c) {
-    return { jour: String(c.jour || ''), debut: String(c.debut || ''), fin: String(c.fin || ''), niveau: String(c.niveau || '') };
-  }).filter(function (c) { return c.jour || c.debut || c.niveau; });
+  const num = function (v) { return Number(String(v === undefined || v === null ? '' : v).replace(',', '.')) || 0; };
+  return (Array.isArray(list) ? list : []).filter(function (c) { return c && (c.jour || c.debut || c.niveau); }).map(function (c, i) {
+    return {
+      id: String(c.id || ('s' + i)), jour: String(c.jour || ''), debut: String(c.debut || ''), fin: String(c.fin || ''), niveau: String(c.niveau || ''),
+      public: c.public === 'Jeunes' || c.public === 'Adultes' ? c.public : 'Tous',
+      lieu: String(c.lieu || ''), encadrant: String(c.encadrant || ''),
+      tarif: Math.max(0, num(c.tarif)), seances: Number(c.seances) === 2 ? 2 : 1, licence: Math.max(0, num(c.licence)),
+      places: Math.max(0, Math.floor(num(c.places))),
+    };
+  });
 }
 
 /** Présentation du club : nom, ville, adresse et photo de la salle,
@@ -885,6 +912,7 @@ function getClubInfo() {
     entrainements: v('ClubEntrainements'), tarifs: v('ClubTarifs'), inscription: v('ClubInscription'),
     creneaux: parseCreneaux_(v('ClubCreneaux')), entrainementsPhoto: v('ClubEntrainementsPhoto'),
     site: v('SiteClub'),
+    adhesion: { ouvert: !/^(non|0|false|fermé|ferme)$/i.test(v('AdhOuvert') || 'oui'), saison: v('AdhSaison') || defaultSaison_() },
     teams: TEAMS.filter(function (t) { return t.kind === 'FRI'; })
       .map(function (t) { return { name: t.name, division: t.division, day: t.day, time: t.time }; }),
   };
@@ -898,7 +926,10 @@ function setClubInfo(info) {
     entrainements: 'ClubEntrainements', tarifs: 'ClubTarifs', inscription: 'ClubInscription',
     entrainementsPhoto: 'ClubEntrainementsPhoto' };
   if (info.creneaux !== undefined) {
-    const list = parseCreneaux_(JSON.stringify(info.creneaux || []));
+    const stamp = Date.now();
+    const list = parseCreneaux_(JSON.stringify((info.creneaux || []).map(function (c, i) {
+      return c && !c.id ? Object.assign({}, c, { id: 'c' + (stamp + i).toString(36) }) : c;
+    })));
     list.forEach(function (c) { if (c.jour && JOURS_.indexOf(c.jour) < 0) throw new Error('Jour invalide : ' + c.jour); });
     setSetting('ClubCreneaux', list.length ? JSON.stringify(list) : '');
   }
@@ -1014,6 +1045,9 @@ function setAdminPin(newPin) {
       const cell = sheet.getRange(i + 1, 2);
       cell.setNumberFormat('@'); // toujours en texte, pour ne pas perdre un zéro de tête
       cell.setValue(String(newPin));
+      // Nouveau code : les sessions administrateur ouvertes avec l'ancien
+      // doivent se reconnecter pour les données des adhésions.
+      PropertiesService.getScriptProperties().deleteProperty('ADMIN_TOKEN');
       return { ok: true };
     }
   }
@@ -1877,6 +1911,11 @@ function verifyCheckout_(cfg, rowIndex, row, sheet) {
   }
   const now = new Date();
   sheet.getRange(rowIndex, 6, 1, 4).setValues([['Payé', row[6], now, String(order.id || '')]]);
+  // Adhésion au club (site d'inscription) : règlement du dossier.
+  if (String(row[1]).indexOf('ADH:') === 0) {
+    adhMarkPaid_(String(row[1]).slice(4), row[3]);
+    return 'Payé';
+  }
   const ids = String(row[2]).split(',').map(Number).filter(Boolean);
   withInscriptionsSheet_(function (rows) {
     ids.forEach(function (cid) {
@@ -2373,6 +2412,12 @@ function setSetting(key, value) {
   if (['LienFicheFFTT', 'SiteClub'].concat(CLUB_INFO_KEYS_).indexOf(key) < 0 && key.indexOf('MailInscription:') !== 0 && key.indexOf('PrixHelloAsso:') !== 0 && key.indexOf('DateLimite:') !== 0 && !/^LienPoule:\d+:\d+$/.test(key)) {
     throw new Error('Réglage non modifiable : ' + key);
   }
+  return writeConfig_(key, value);
+}
+
+/** Écrit une valeur (texte) dans la feuille Config, en ajoutant la clé si
+ * besoin. */
+function writeConfig_(key, value) {
   const v = String(value || '').trim();
   const sheet = ss_().getSheetByName('Config');
   const values = sheet.getDataRange().getValues();
@@ -2416,7 +2461,7 @@ function assertPinAvailable_(pin, excludeId) {
   }
 }
 
-function addPlayer(nom, prenom, teamId, pin, capitaine, telephone, categorie, sexe) {
+function addPlayer(nom, prenom, teamId, pin, capitaine, telephone, categorie, sexe, licence) {
   ensureSheets_();
   assertPinAvailable_(pin);
   const sheet = ss_().getSheetByName('Joueurs');
@@ -2424,7 +2469,7 @@ function addPlayer(nom, prenom, teamId, pin, capitaine, telephone, categorie, se
   const maxId = players.reduce(function (m, p) { return Math.max(m, Number(p.ID) || 0); }, 0);
   const newId = maxId + 1;
   // teamId 0 / vide = « Sans équipe » (hors championnat par équipes).
-  sheet.appendRow([newId, nom, prenom, Number(teamId) || '', pin, true, !!capitaine, String(telephone || ''), String(categorie || ''), '', '', normSexe_(sexe)]);
+  sheet.appendRow([newId, nom, prenom, Number(teamId) || '', pin, true, !!capitaine, String(telephone || ''), String(categorie || ''), String(licence || ''), '', normSexe_(sexe)]);
   return { ok: true, id: newId };
 }
 
@@ -2804,4 +2849,618 @@ function testerNotifications() {
     return;
   }
   Logger.log(JSON.stringify(sendTestPush()));
+}
+
+// ----------------------------------------------------------------------------------
+// ADHÉSIONS AU CLUB — site d'inscription public (www/inscription.html)
+// ----------------------------------------------------------------------------------
+// Une famille crée son « dossier » (responsable légal + membres + créneaux
+// choisis + mode de règlement), puis y revient avec son n° de dossier et son
+// téléphone pour le consulter, remplir le questionnaire de santé, accepter le
+// règlement intérieur, envoyer des documents ou demander une modification.
+// Données dans de nouvelles feuilles (Adhesions, AdhesionMembres,
+// AdhesionDocuments, AdhesionMessages) : l'effectif (Joueurs) n'est jamais
+// modifié ; l'administrateur peut seulement y AJOUTER un nouveau joueur.
+// Questionnaire de santé : les réponses restent sur l'appareil de la famille,
+// seule l'attestation (« NON à toutes les questions » ou « certificat
+// médical requis ») est enregistrée.
+
+const ADH_SHEETS_ = {
+  Adhesions: ['Dossier', 'CreeLe', 'Saison', 'Nom', 'Prénom', 'Adresse', 'CP', 'Ville', 'Téléphone', 'Email', 'Téléphone2', 'Email2',
+    'Tarif', 'Total', 'Aides', 'Mode', 'Echeances', 'Statut', 'Réglé', 'Note'],
+  AdhesionMembres: ['Dossier', 'N', 'Nom', 'Prénom', 'Naissance', 'Sexe', 'Catégorie', 'Creneau1', 'Creneau2', 'Licence', 'NumLicence',
+    'Montant', 'QS', 'QSLe', 'Reglement', 'ReglementLe', 'Statut', 'JoueurID'],
+  AdhesionDocuments: ['Dossier', 'N', 'Type', 'Fichier', 'Lien', 'EnvoyeLe'],
+  AdhesionMessages: ['Date', 'Dossier', 'Nom', 'Email', 'Téléphone', 'Objet', 'Message', 'Statut'],
+};
+const ADH_DOC_TYPES_ = ['Certificat médical', 'Justificatif', 'Autre'];
+const ADH_STATUTS_ = ['À régler', 'Partiellement réglé', 'Réglé', 'Annulé'];
+
+function adhSheet_(name) {
+  let sh = ss_().getSheetByName(name);
+  if (!sh) {
+    const h = ADH_SHEETS_[name];
+    sh = ss_().insertSheet(name);
+    sh.getRange(1, 1, sh.getMaxRows(), h.length).setNumberFormat('@'); // téléphones : garder le 0
+    sh.getRange(1, 1, 1, h.length).setValues([h]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function adhRows_(name) { adhSheet_(name); return readTable_(name); }
+function adhAppend_(name, row) {
+  const sh = adhSheet_(name);
+  const r = sh.getLastRow() + 1;
+  sh.getRange(r, 1, 1, row.length).setNumberFormat('@').setValues([row.map(function (v) { return v === null || v === undefined ? '' : String(v); })]);
+}
+/** Modifie les lignes d'une feuille d'adhésion qui vérifient match(obj) :
+ * seules ces lignes sont réécrites. */
+function adhUpdate_(name, match, patch) {
+  const sh = adhSheet_(name);
+  const values = sh.getDataRange().getValues();
+  const h = values[0];
+  let n = 0;
+  for (let i = 1; i < values.length; i++) {
+    const obj = {};
+    h.forEach(function (k, j) { obj[k] = values[i][j]; });
+    if (!match(obj)) continue;
+    const p = typeof patch === 'function' ? patch(obj) : patch;
+    Object.keys(p || {}).forEach(function (k) {
+      const j = h.indexOf(k);
+      if (j >= 0) sh.getRange(i + 1, j + 1).setNumberFormat('@').setValue(String(p[k] === null || p[k] === undefined ? '' : p[k]));
+    });
+    n++;
+  }
+  return n;
+}
+
+function adhNow_() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'); }
+function adhNum_(v) { return Number(String(v === undefined || v === null ? '' : v).replace(',', '.').replace(/[^\d.-]/g, '')) || 0; }
+function adhTxt_(v, max) { return String(v === undefined || v === null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max || 120); }
+function adhNorm_(v) { return String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function adhTel_(v) { return String(v || '').replace(/\D/g, '').replace(/^33/, '0').slice(-9); }
+
+function defaultSaison_() {
+  const d = new Date();
+  const y = d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1;
+  return y + '/' + (y + 1);
+}
+
+function configMap_() {
+  const m = {};
+  readTable_('Config').forEach(function (r) { m[String(r.Clé)] = String(r.Valeur === undefined || r.Valeur === null ? '' : r.Valeur); });
+  return m;
+}
+
+/** Réglages des inscriptions (clés « Adh… » de la feuille Config). */
+function adhSettings_() {
+  const m = configMap_();
+  const v = function (k, d) { return m[k] !== undefined && m[k] !== '' ? m[k] : (d || ''); };
+  const aides = v('AdhAides', "Pass'Sport|50\nCoupons Sport ANCV\nChèques-Vacances ANCV\nAtout Normandie\nPass'Jeunes 76")
+    .split('\n').map(function (l) {
+      const p = l.split('|');
+      return { nom: adhTxt_(p[0], 60), montant: adhNum_(p[1]) };
+    }).filter(function (a) { return a.nom; });
+  const helloasso = !!helloAssoConfig_();
+  return {
+    saison: v('AdhSaison', defaultSaison_()),
+    ouvert: !/^(non|0|false|fermé|ferme)$/i.test(v('AdhOuvert', 'oui')),
+    commune: v('AdhCommune', v('ClubVille', '')),
+    supplement: adhNum_(v('AdhSupplementExterieur', '0')),
+    reductionFamille: adhNum_(v('AdhReductionFamille', '0')),
+    modes: v('AdhModes', 'Chèque,Espèces,HelloAsso').split(',').map(function (s) { return s.trim(); })
+      .filter(function (s) { return s && (s !== 'HelloAsso' || helloasso); }),
+    chequesMax: Math.max(1, Math.min(10, adhNum_(v('AdhChequesMax', '3')) || 3)),
+    ordreCheque: v('AdhOrdreCheque', v('ClubNom', '')),
+    iban: v('AdhIban', ''),
+    aides: aides,
+    reglementUrl: v('AdhReglementUrl', ''),
+    reglementTexte: v('AdhReglementTexte', ''),
+    contact: v('AdhContactEmail', ''),
+    infos: v('AdhInfos', ''),
+    clubNom: v('ClubNom', ''),
+    clubVille: v('ClubVille', ''),
+    clubAdresse: v('ClubAdresse', ''),
+    site: v('SiteClub', ''),
+  };
+}
+
+/** Catégorie FFTT d'après l'année de naissance et la saison (âge atteint
+ * pendant la 1re année civile de la saison). */
+const ADH_CATS_ = [[8, 'Poussin'], [10, 'Benjamin'], [12, 'Minime'], [14, 'Cadet'], [18, 'Junior'], [39, 'Senior'],
+  [49, 'V40'], [59, 'V50'], [69, 'V60'], [79, 'V70'], [200, 'V80']];
+function adhBirth_(s) {
+  s = String(s || '').trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return { y: +m[1], m: +m[2], d: +m[3], fr: m[3] + '/' + m[2] + '/' + m[1] };
+  m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (m) return { y: +m[3], m: +m[2], d: +m[1], fr: s };
+  return null;
+}
+function adhCategorie_(naissance, saison) {
+  const b = adhBirth_(naissance);
+  if (!b) return '';
+  const age = Number(String(saison).slice(0, 4)) - b.y;
+  for (let i = 0; i < ADH_CATS_.length; i++) if (age <= ADH_CATS_[i][0]) return ADH_CATS_[i][1];
+  return '';
+}
+function adhJeune_(cat) { return YOUTH_CATEGORIES_.indexOf(cat) >= 0; }
+function adhEligible_(c, cat) {
+  if (!c) return false;
+  if (c.public === 'Jeunes') return adhJeune_(cat);
+  if (c.public === 'Adultes') return !adhJeune_(cat);
+  return true;
+}
+function adhSlotLabel_(c) {
+  return c ? (c.niveau || 'Entraînement') + ' – ' + c.jour + ' ' + c.debut + (c.fin ? '-' + c.fin : '') : '';
+}
+
+/** Créneaux avec le nombre d'inscrits (dossiers non annulés). */
+function adhCreneaux_() {
+  const crs = parseCreneaux_(readConfigValue_('ClubCreneaux', ''));
+  const cancelled = {};
+  adhRows_('Adhesions').forEach(function (a) { if (a.Statut === 'Annulé') cancelled[a.Dossier] = true; });
+  const used = {};
+  adhRows_('AdhesionMembres').forEach(function (m) {
+    if (cancelled[m.Dossier] || m.Statut === 'Annulé') return;
+    [m.Creneau1, m.Creneau2].forEach(function (id) { if (id) used[id] = (used[id] || 0) + 1; });
+  });
+  return crs.map(function (c) {
+    c.inscrits = used[c.id] || 0;
+    c.restantes = c.places > 0 ? Math.max(0, c.places - c.inscrits) : null;
+    return c;
+  });
+}
+
+/** Page d'inscription : club, saison, réglages publics et créneaux. */
+function getAdhesionInfo() {
+  ensureSheets_();
+  const st = adhSettings_();
+  delete st.contact;
+  return { settings: st, creneaux: adhCreneaux_(), helloasso: st.modes.indexOf('HelloAsso') >= 0 };
+}
+
+/** « Déjà adhérent ? » : retrouve un dossier (ou, à défaut, un joueur de
+ * l'effectif) par téléphone + 3 premières lettres du nom. */
+function findAdherent(tel, nom3) {
+  ensureSheets_();
+  const t = adhTel_(tel), n = adhNorm_(nom3).slice(0, 3);
+  if (t.length < 9 || n.length < 3) throw new Error('Saisissez votre numéro de téléphone et les 3 premières lettres du nom.');
+  const doss = adhRows_('Adhesions').filter(function (a) {
+    return (adhTel_(a.Téléphone) === t || adhTel_(a.Téléphone2) === t) && adhNorm_(a.Nom).indexOf(n) === 0;
+  });
+  if (doss.length) {
+    const a = doss[doss.length - 1];
+    return {
+      source: 'adhesion',
+      responsable: { nom: a.Nom, prenom: a.Prénom, adresse: a.Adresse, cp: a.CP, ville: a.Ville, tel: a.Téléphone, email: a.Email, tel2: a.Téléphone2, email2: a.Email2 },
+      membres: adhRows_('AdhesionMembres').filter(function (m) { return m.Dossier === a.Dossier && m.Statut !== 'Annulé'; })
+        .map(function (m) { return { nom: m.Nom, prenom: m.Prénom, naissance: m.Naissance, sexe: m.Sexe, numLicence: m.NumLicence }; }),
+    };
+  }
+  const players = readTable_('Joueurs').filter(function (p) { return adhTel_(p.Téléphone) === t && String(p.Nom || '').trim(); });
+  const first = players.find(function (p) { return adhNorm_(p.Nom).indexOf(n) === 0; });
+  if (!first) throw new Error('Aucune adhésion trouvée avec ce téléphone et ce nom : remplissez le formulaire.');
+  return {
+    source: 'effectif',
+    responsable: { nom: first.Nom, prenom: first.Prénom, tel: first.Téléphone },
+    membres: players.map(function (p) { return { nom: p.Nom, prenom: p.Prénom, sexe: normSexe_(p.Sexe), numLicence: String(p.Licence || '') }; }),
+  };
+}
+
+/** Vérifie et chiffre une demande d'adhésion (même calcul que la page). */
+function adhCompute_(d, st, crs) {
+  d = d || {};
+  const r = d.responsable || {};
+  const resp = {
+    nom: adhTxt_(r.nom, 60).toUpperCase(), prenom: adhTxt_(r.prenom, 60), adresse: adhTxt_(r.adresse, 150), cp: adhTxt_(r.cp, 10),
+    ville: adhTxt_(r.ville, 60).toUpperCase(), tel: adhTxt_(r.tel, 20), email: adhTxt_(r.email, 120).toLowerCase(),
+    tel2: adhTxt_(r.tel2, 20), email2: adhTxt_(r.email2, 120).toLowerCase(),
+  };
+  ['nom', 'prenom', 'adresse', 'cp', 'ville', 'tel', 'email'].forEach(function (k) {
+    if (!resp[k]) throw new Error('Responsable légal : champ obligatoire manquant (' + k + ').');
+  });
+  if (!/^\S+@\S+\.\S+$/.test(resp.email) || (resp.email2 && !/^\S+@\S+\.\S+$/.test(resp.email2))) throw new Error('Adresse e-mail invalide.');
+  if (adhTel_(resp.tel).length < 9) throw new Error('Numéro de téléphone invalide.');
+  const exterieur = !!st.commune && adhNorm_(resp.ville) !== adhNorm_(st.commune);
+  const byId = {};
+  crs.forEach(function (c) { byId[c.id] = c; });
+  const list = (d.membres || []).filter(function (m) { return m && (adhTxt_(m.nom) || adhTxt_(m.prenom)); });
+  if (!list.length) throw new Error('Ajoutez au moins un membre.');
+  if (list.length > 10) throw new Error('10 membres au maximum par dossier.');
+  let total = 0;
+  const membres = list.map(function (m, i) {
+    const label = 'Membre ' + (i + 1);
+    const b = adhBirth_(m.naissance);
+    const out = {
+      nom: adhTxt_(m.nom, 60).toUpperCase(), prenom: adhTxt_(m.prenom, 60), naissance: b ? b.fr : '', sexe: normSexe_(m.sexe),
+      licence: m.licence === 'Renouvellement' ? 'Renouvellement' : 'Nouvelle', numLicence: adhTxt_(m.numLicence, 20),
+    };
+    if (!out.nom || !out.prenom) throw new Error(label + ' : nom et prénom obligatoires.');
+    if (!b || b.y < 1900 || b.y > new Date().getFullYear()) throw new Error(out.prenom + ' : date de naissance invalide.');
+    if (!out.sexe) throw new Error(out.prenom + ' : précisez le sexe (licence FFTT).');
+    out.categorie = adhCategorie_(out.naissance, st.saison);
+    const c1 = byId[m.creneau1];
+    if (!c1) throw new Error(out.prenom + ' : choisissez un créneau.');
+    if (!adhEligible_(c1, out.categorie)) throw new Error(out.prenom + ' (' + out.categorie + ') : le créneau « ' + adhSlotLabel_(c1) + ' » ne correspond pas à son âge.');
+    let c2 = null;
+    if (m.creneau2) {
+      c2 = byId[m.creneau2];
+      if (!c2 || c2.id === c1.id || c1.seances !== 2 || adhNorm_(c2.niveau) !== adhNorm_(c1.niveau)) throw new Error(out.prenom + ' : 2e séance invalide.');
+    }
+    out.creneau1 = c1.id;
+    out.creneau2 = c2 ? c2.id : '';
+    out.montant = Math.max(0, c1.tarif + c1.licence + (exterieur ? st.supplement : 0) - (i > 0 ? st.reductionFamille : 0));
+    total += out.montant;
+    return out;
+  });
+  const aides = st.aides.filter(function (a) { return (d.aides || []).indexOf(a.nom) >= 0; });
+  const aidesMontant = Math.min(total, aides.reduce(function (s, a) { return s + a.montant; }, 0));
+  const mode = String(d.mode || '');
+  if (st.modes.indexOf(mode) < 0) throw new Error('Choisissez un mode de règlement.');
+  const echeances = mode === 'Chèque' ? Math.max(1, Math.min(st.chequesMax, Math.floor(adhNum_(d.echeances)) || 1)) : 1;
+  return {
+    responsable: resp, exterieur: exterieur, membres: membres, total: total,
+    aides: aides.map(function (a) { return a.nom; }), aidesMontant: aidesMontant, mode: mode, echeances: echeances,
+  };
+}
+
+function adhPublicUrl_() {
+  const p = PropertiesService.getScriptProperties();
+  const app = p.getProperty('APP_URL') || 'https://ttfrisno-design.github.io/Brulage/';
+  return app.replace(/[?#].*$/, '').replace(/[^/]*$/, '') + 'inscription.html';
+}
+
+function adhMail_(to, subject, body) {
+  if (!to) return false;
+  try {
+    MailApp.sendEmail({ to: to, subject: subject, body: body, name: readConfigValue_('ClubNom', 'RebonTT') || 'RebonTT' });
+    return true;
+  } catch (e) {
+    console.warn('E-mail non envoyé (' + to + ') : ' + e.message);
+    return false;
+  }
+}
+
+function adhRecap_(a, membres, crs, st) {
+  const byId = {};
+  crs.forEach(function (c) { byId[c.id] = c; });
+  const lines = membres.map(function (m) {
+    return '- ' + m.prenom + ' ' + m.nom + ' (' + m.categorie + ') : ' + adhSlotLabel_(byId[m.creneau1]) +
+      (m.creneau2 ? ' + ' + adhSlotLabel_(byId[m.creneau2]) : '') + ' — ' + m.montant + ' €';
+  });
+  let pay = 'Mode de règlement : ' + a.mode;
+  if (a.mode === 'Chèque') pay += ' en ' + a.echeances + ' fois, à l\'ordre de « ' + st.ordreCheque + ' »';
+  if (a.mode === 'Virement' && st.iban) pay += ' (IBAN : ' + st.iban + ')';
+  return lines.join('\n') + '\n\nTotal : ' + a.total + ' €' +
+    (a.aidesMontant ? '\nAides déclarées (' + a.aides.join(', ') + ') : -' + a.aidesMontant + ' € (justificatif à envoyer)' : '') +
+    '\nReste à régler : ' + Math.max(0, a.total - a.aidesMontant) + ' €\n' + pay;
+}
+
+/** Crée le dossier d'adhésion d'une famille. */
+function createAdhesion(d) {
+  ensureSheets_();
+  d = d || {};
+  if (d.website) throw new Error('Demande refusée.'); // champ piège anti-robots
+  const st = adhSettings_();
+  if (!st.ouvert) throw new Error('Les inscriptions en ligne sont fermées pour le moment.');
+  const crs = adhCreneaux_();
+  const a = adhCompute_(d, st, crs);
+  // Places restantes (pour l'ensemble des membres du dossier).
+  const need = {};
+  a.membres.forEach(function (m) { [m.creneau1, m.creneau2].forEach(function (id) { if (id) need[id] = (need[id] || 0) + 1; }); });
+  crs.forEach(function (c) {
+    if (need[c.id] && c.restantes !== null && need[c.id] > c.restantes) {
+      throw new Error('Plus assez de places pour « ' + adhSlotLabel_(c) + ' » (' + c.restantes + ' restante' + (c.restantes > 1 ? 's' : '') + ').');
+    }
+  });
+  const prefix = 'TT' + String(st.saison).slice(2, 4) + '-';
+  const nums = adhRows_('Adhesions').map(function (x) { return String(x.Dossier); })
+    .filter(function (x) { return x.indexOf(prefix) === 0; }).map(function (x) { return Number(x.slice(prefix.length)) || 0; });
+  const dossier = prefix + ('00' + (Math.max.apply(null, [0].concat(nums)) + 1)).slice(-3);
+  const r = a.responsable;
+  adhAppend_('Adhesions', [dossier, adhNow_(), st.saison, r.nom, r.prenom, r.adresse, r.cp, r.ville, r.tel, r.email, r.tel2, r.email2,
+    a.exterieur ? 'Extérieur' : 'Commune', a.total, a.aidesMontant ? a.aides.join(', ') + ' (' + a.aidesMontant + ' €)' : '',
+    a.mode, a.echeances, 'À régler', 0, '']);
+  a.membres.forEach(function (m, i) {
+    adhAppend_('AdhesionMembres', [dossier, i + 1, m.nom, m.prenom, m.naissance, m.sexe, m.categorie, m.creneau1, m.creneau2,
+      m.licence, m.numLicence, m.montant, '', '', '', '', 'Inscrit', '']);
+  });
+  const recap = adhRecap_(a, a.membres, crs, st);
+  const url = adhPublicUrl_();
+  adhMail_(r.email, 'Inscription tennis de table ' + st.saison + ' – dossier ' + dossier,
+    'Bonjour ' + r.prenom + ',\n\nVotre demande d\'inscription est enregistrée sous le n° de dossier ' + dossier + '.\n\n' + recap +
+    '\n\nÉtapes suivantes (n° de dossier + téléphone) sur ' + url + ' :\n' +
+    '- remplir le questionnaire de santé et accepter le règlement intérieur pour chaque membre ;\n' +
+    '- envoyer les documents demandés (certificat médical si nécessaire, justificatifs d\'aides) ;\n' +
+    '- régler l\'adhésion.\n\nSportivement,\n' + (st.clubNom || 'Le club'));
+  adhMail_(st.contact, 'Nouvelle inscription ' + dossier + ' – ' + r.nom + ' ' + r.prenom,
+    r.prenom + ' ' + r.nom + ' – ' + r.tel + ' – ' + r.email + '\n' + r.adresse + ', ' + r.cp + ' ' + r.ville + '\n\n' + recap);
+  return { dossier: dossier, total: a.total, aidesMontant: a.aidesMontant, reste: Math.max(0, a.total - a.aidesMontant), mode: a.mode, email: r.email };
+}
+
+/** Accès à un dossier : n° de dossier + téléphone du responsable. */
+function adhAuth_(dossier, tel) {
+  const d = String(dossier || '').trim().toUpperCase();
+  const t = adhTel_(tel);
+  const a = adhRows_('Adhesions').find(function (x) { return String(x.Dossier).toUpperCase() === d; });
+  if (!a || t.length < 9 || (adhTel_(a.Téléphone) !== t && adhTel_(a.Téléphone2) !== t)) {
+    throw new Error('Dossier introuvable ou téléphone incorrect.');
+  }
+  return a;
+}
+function adhAidesMontant_(a) { const m = String(a.Aides || '').match(/\(([\d.,]+) €\)\s*$/); return m ? adhNum_(m[1]) : 0; }
+function adhReste_(a) { return a.Statut === 'Annulé' ? 0 : Math.max(0, adhNum_(a.Total) - adhAidesMontant_(a) - adhNum_(a.Réglé)); }
+
+/** Consultation d'un dossier par la famille. */
+function getAdhesion(dossier, tel) {
+  ensureSheets_();
+  let a = adhAuth_(dossier, tel);
+  // Paiement HelloAsso en attente pour ce dossier : on le revérifie.
+  if (helloAssoConfig_() && readTable_Safe_('Paiements').some(function (p) { return String(p.JoueurID) === 'ADH:' + a.Dossier && p.Statut === 'En attente'; })) {
+    withScriptLock_(function () { checkPayments_('ADH:' + a.Dossier); });
+    a = adhAuth_(dossier, tel);
+  }
+  const crs = adhCreneaux_();
+  const byId = {};
+  crs.forEach(function (c) { byId[c.id] = c; });
+  const docs = adhRows_('AdhesionDocuments').filter(function (x) { return x.Dossier === a.Dossier; });
+  return {
+    dossier: a.Dossier, saison: a.Saison, creeLe: a.CreeLe,
+    responsable: { nom: a.Nom, prenom: a.Prénom, adresse: a.Adresse, cp: a.CP, ville: a.Ville, tel: a.Téléphone, email: a.Email, tel2: a.Téléphone2, email2: a.Email2 },
+    tarif: a.Tarif, total: adhNum_(a.Total), aides: a.Aides, aidesMontant: adhAidesMontant_(a), mode: a.Mode, echeances: adhNum_(a.Echeances) || 1,
+    statut: a.Statut, regle: adhNum_(a.Réglé), reste: adhReste_(a),
+    membres: adhRows_('AdhesionMembres').filter(function (m) { return m.Dossier === a.Dossier; }).map(function (m) {
+      return {
+        n: adhNum_(m.N), nom: m.Nom, prenom: m.Prénom, naissance: m.Naissance, sexe: m.Sexe, categorie: m.Catégorie,
+        creneau1: adhSlotLabel_(byId[m.Creneau1]) || m.Creneau1, creneau2: m.Creneau2 ? (adhSlotLabel_(byId[m.Creneau2]) || m.Creneau2) : '',
+        licence: m.Licence, numLicence: m.NumLicence, montant: adhNum_(m.Montant), statut: m.Statut,
+        qs: m.QS, qsLe: m.QSLe, reglement: m.Reglement, reglementLe: m.ReglementLe,
+        mineur: adhJeune_(m.Catégorie) || (function () { const b = adhBirth_(m.Naissance); return b ? (new Date().getFullYear() - b.y) < 18 : false; })(),
+      };
+    }),
+    documents: docs.map(function (x) { return { n: adhNum_(x.N), type: x.Type, fichier: x.Fichier, date: x.EnvoyeLe }; }),
+    helloasso: adhSettings_().modes.indexOf('HelloAsso') >= 0,
+  };
+}
+function readTable_Safe_(name) { return ss_().getSheetByName(name) ? readTable_(name) : []; }
+
+function adhMembre_(a, n) {
+  const m = adhRows_('AdhesionMembres').find(function (x) { return x.Dossier === a.Dossier && adhNum_(x.N) === Number(n); });
+  if (!m) throw new Error('Membre introuvable dans ce dossier.');
+  return m;
+}
+
+/** Questionnaire de santé : seule l'attestation est enregistrée. */
+function submitQS(dossier, tel, n, toutNon, signataire) {
+  ensureSheets_();
+  const a = adhAuth_(dossier, tel);
+  const m = adhMembre_(a, n);
+  const sig = adhTxt_(signataire, 80);
+  if (!sig) throw new Error('Indiquez le nom du signataire.');
+  const qs = toutNon ? 'Attesté : NON à toutes les questions (' + sig + ')' : 'Certificat médical requis (' + sig + ')';
+  adhUpdate_('AdhesionMembres', function (x) { return x.Dossier === a.Dossier && adhNum_(x.N) === adhNum_(m.N); }, { QS: qs, QSLe: adhNow_() });
+  return getAdhesion(dossier, tel);
+}
+
+/** Règlement intérieur accepté pour un membre. */
+function acceptReglement(dossier, tel, n, signataire) {
+  ensureSheets_();
+  const a = adhAuth_(dossier, tel);
+  const m = adhMembre_(a, n);
+  const sig = adhTxt_(signataire, 80);
+  if (!sig) throw new Error('Indiquez le nom du signataire.');
+  adhUpdate_('AdhesionMembres', function (x) { return x.Dossier === a.Dossier && adhNum_(x.N) === adhNum_(m.N); },
+    { Reglement: 'Accepté (' + sig + ')', ReglementLe: adhNow_() });
+  return getAdhesion(dossier, tel);
+}
+
+function adhFolder_() {
+  const p = PropertiesService.getScriptProperties();
+  const id = p.getProperty('ADH_FOLDER_ID');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (e) { /* dossier supprimé : on le recrée */ } }
+  const f = DriveApp.createFolder('RebonTT – Documents des adhésions');
+  p.setProperty('ADH_FOLDER_ID', f.getId());
+  return f;
+}
+
+/** Document envoyé par la famille (certificat médical, justificatif d'aide…),
+ * enregistré dans un dossier PRIVÉ du Drive du club (non partagé). */
+function uploadAdhesionDocument(dossier, tel, n, type, filename, mime, base64) {
+  ensureSheets_();
+  const a = adhAuth_(dossier, tel);
+  let who = 'Famille';
+  if (Number(n) > 0) { const m = adhMembre_(a, n); who = m.Prénom + ' ' + m.Nom; }
+  if (ADH_DOC_TYPES_.indexOf(type) < 0) throw new Error('Type de document invalide.');
+  if (['image/jpeg', 'image/png', 'application/pdf'].indexOf(mime) < 0) throw new Error('Format accepté : photo (JPEG, PNG) ou PDF.');
+  const data = String(base64 || '').replace(/^data:[^,]+,/, '');
+  if (!data) throw new Error('Fichier vide.');
+  if (data.length > 7 * 1024 * 1024) throw new Error('Fichier trop volumineux (5 Mo maximum).');
+  const name = adhTxt_(filename, 80).replace(/[\\/:*?"<>|]/g, '_') || 'document';
+  const blob = Utilities.newBlob(Utilities.base64Decode(data), mime, a.Dossier + ' – ' + who + ' – ' + type + ' – ' + name);
+  const file = adhFolder_().createFile(blob);
+  adhAppend_('AdhesionDocuments', [a.Dossier, Number(n) || 0, type, name, file.getUrl(), adhNow_()]);
+  adhMail_(adhSettings_().contact, 'Document reçu – dossier ' + a.Dossier, type + ' pour ' + who + ' : ' + file.getUrl());
+  return getAdhesion(dossier, tel);
+}
+
+/** Demande de modification des activités (traitée par le club). */
+function requestAdhesionChange(dossier, tel, message) {
+  ensureSheets_();
+  const a = adhAuth_(dossier, tel);
+  const msg = String(message || '').trim().slice(0, 2000);
+  if (!msg) throw new Error('Décrivez la modification souhaitée.');
+  adhAppend_('AdhesionMessages', [adhNow_(), a.Dossier, a.Prénom + ' ' + a.Nom, a.Email, a.Téléphone, 'Modification des activités', msg, 'Nouveau']);
+  adhMail_(adhSettings_().contact, 'Demande de modification – dossier ' + a.Dossier,
+    a.Prénom + ' ' + a.Nom + ' (' + a.Téléphone + ', ' + a.Email + ') :\n\n' + msg);
+  return { ok: true };
+}
+
+/** Message libre envoyé au club depuis la page d'inscription. */
+function sendAdhesionMessage(d) {
+  ensureSheets_();
+  d = d || {};
+  if (d.website) throw new Error('Demande refusée.');
+  const nom = adhTxt_(d.nom, 80), email = adhTxt_(d.email, 120), tel = adhTxt_(d.tel, 20);
+  const objet = adhTxt_(d.objet, 120) || 'Question', msg = String(d.message || '').trim().slice(0, 3000);
+  if (!nom || !msg) throw new Error('Indiquez votre nom et votre message.');
+  if (!/^\S+@\S+\.\S+$/.test(email) && adhTel_(tel).length < 9) throw new Error('Indiquez un e-mail ou un téléphone pour la réponse.');
+  adhAppend_('AdhesionMessages', [adhNow_(), adhTxt_(d.dossier, 20).toUpperCase(), nom, email, tel, objet, msg, 'Nouveau']);
+  adhMail_(adhSettings_().contact, 'Message (inscriptions) : ' + objet, nom + ' (' + [tel, email].filter(Boolean).join(', ') + ') :\n\n' + msg);
+  return { ok: true };
+}
+
+/** Paiement en ligne du reste à régler d'un dossier (HelloAsso). */
+function createAdhesionCheckout(dossier, tel) {
+  ensureSheets_();
+  const cfg = helloAssoConfig_();
+  if (!cfg) throw new Error('Le paiement en ligne n\'est pas configuré par le club.');
+  const a = adhAuth_(dossier, tel);
+  const reste = adhReste_(a);
+  if (!reste) throw new Error('Rien à régler pour ce dossier.');
+  const label = ('Adhésion tennis de table ' + a.Saison + ' – dossier ' + a.Dossier + ' – ' + a.Prénom + ' ' + a.Nom).slice(0, 250);
+  const page = adhPublicUrl_() + '?dossier=' + encodeURIComponent(a.Dossier) + '&helloasso=';
+  const cents = Math.round(reste * 100);
+  const clean = function (v) { return String(v || '').replace(/[^A-Za-zÀ-ÖØ-öø-ÿ' -]/g, '').trim(); };
+  const body = {
+    totalAmount: cents, initialAmount: cents, itemName: label,
+    backUrl: page + 'retour', errorUrl: page + 'erreur', returnUrl: page + 'ok',
+    containsDonation: false, metadata: { adhesion: a.Dossier },
+  };
+  const first = clean(a.Prénom), last = clean(a.Nom);
+  if (first && last) body.payer = { firstName: first, lastName: last, email: a.Email };
+  const intent = helloAssoApi_(cfg, 'post', '/checkout-intents', body);
+  if (!intent || !intent.redirectUrl) throw new Error('HelloAsso n\'a pas renvoyé de page de paiement.');
+  withScriptLock_(function () {
+    ensurePaymentsSheet_().appendRow([String(intent.id), 'ADH:' + a.Dossier, '', reste, label, 'En attente', new Date(), '', '']);
+  });
+  return { redirectUrl: intent.redirectUrl };
+}
+
+/** Paiement HelloAsso confirmé pour un dossier d'adhésion. */
+function adhMarkPaid_(dossier, montant) {
+  adhUpdate_('Adhesions', function (x) { return String(x.Dossier) === String(dossier); }, function (x) {
+    const regle = adhNum_(x.Réglé) + adhNum_(montant);
+    const du = adhNum_(x.Total) - adhAidesMontant_(x);
+    return { Réglé: regle, Statut: regle >= du ? 'Réglé' : 'Partiellement réglé', Note: (x.Note ? x.Note + ' ; ' : '') + 'HelloAsso ' + montant + ' € le ' + adhNow_() };
+  });
+}
+
+// --- Administration (jeton remis à la connexion administrateur) ---
+
+function adminToken_() {
+  const p = PropertiesService.getScriptProperties();
+  let t = p.getProperty('ADMIN_TOKEN');
+  if (!t) { t = Utilities.getUuid(); p.setProperty('ADMIN_TOKEN', t); }
+  return t;
+}
+function requireAdmin_(token) {
+  const t = PropertiesService.getScriptProperties().getProperty('ADMIN_TOKEN');
+  if (!t || String(token || '') !== t) throw new Error('Session administrateur expirée : déconnectez-vous puis reconnectez-vous.');
+}
+
+/** Admin : réglages, créneaux (places), dossiers et messages. */
+function getAdhesionsAdmin(token) {
+  ensureSheets_();
+  requireAdmin_(token);
+  const m = configMap_();
+  const raw = {};
+  ['AdhSaison', 'AdhOuvert', 'AdhCommune', 'AdhSupplementExterieur', 'AdhReductionFamille', 'AdhModes', 'AdhChequesMax', 'AdhOrdreCheque',
+    'AdhIban', 'AdhAides', 'AdhReglementUrl', 'AdhReglementTexte', 'AdhContactEmail', 'AdhInfos'].forEach(function (k) { raw[k] = m[k] || ''; });
+  const crs = adhCreneaux_();
+  const byId = {};
+  crs.forEach(function (c) { byId[c.id] = c; });
+  const membres = adhRows_('AdhesionMembres');
+  const docs = adhRows_('AdhesionDocuments');
+  const msgSheet = adhSheet_('AdhesionMessages').getDataRange().getValues();
+  const msgs = [];
+  for (let i = 1; i < msgSheet.length; i++) {
+    const r = msgSheet[i];
+    if (!r.join('')) continue;
+    msgs.push({ row: i + 1, date: String(r[0]), dossier: r[1], nom: r[2], email: r[3], tel: r[4], objet: r[5], message: r[6], statut: r[7] });
+  }
+  return {
+    raw: raw, settings: adhSettings_(), helloasso: !!helloAssoConfig_(), url: adhPublicUrl_(),
+    creneaux: crs,
+    dossiers: adhRows_('Adhesions').map(function (a) {
+      return {
+        dossier: a.Dossier, creeLe: a.CreeLe, saison: a.Saison, nom: a.Nom, prenom: a.Prénom, adresse: a.Adresse, cp: a.CP, ville: a.Ville,
+        tel: a.Téléphone, email: a.Email, tel2: a.Téléphone2, email2: a.Email2, tarif: a.Tarif, total: adhNum_(a.Total), aides: a.Aides,
+        mode: a.Mode, echeances: a.Echeances, statut: a.Statut, regle: adhNum_(a.Réglé), reste: adhReste_(a), note: a.Note,
+        membres: membres.filter(function (x) { return x.Dossier === a.Dossier; }).map(function (x) {
+          return {
+            n: adhNum_(x.N), nom: x.Nom, prenom: x.Prénom, naissance: x.Naissance, sexe: x.Sexe, categorie: x.Catégorie,
+            creneau1: adhSlotLabel_(byId[x.Creneau1]) || x.Creneau1, creneau2: x.Creneau2 ? (adhSlotLabel_(byId[x.Creneau2]) || x.Creneau2) : '',
+            licence: x.Licence, numLicence: x.NumLicence, montant: adhNum_(x.Montant), qs: x.QS, reglement: x.Reglement,
+            statut: x.Statut, joueurId: x.JoueurID,
+          };
+        }),
+        documents: docs.filter(function (x) { return x.Dossier === a.Dossier; })
+          .map(function (x) { return { n: adhNum_(x.N), type: x.Type, fichier: x.Fichier, lien: x.Lien, date: x.EnvoyeLe }; }),
+      };
+    }).reverse(),
+    messages: msgs.reverse(),
+  };
+}
+
+/** Admin : réglages des inscriptions. */
+function saveAdhesionSettings(token, s) {
+  requireAdmin_(token);
+  Object.keys(s || {}).forEach(function (k) {
+    if (!/^Adh[A-Za-z]+$/.test(k)) throw new Error('Réglage inconnu : ' + k);
+    const v = String(s[k] === undefined || s[k] === null ? '' : s[k]);
+    if (k === 'AdhReglementUrl' && v.trim() && !/^https?:\/\/\S+$/i.test(v.trim())) throw new Error('Lien du règlement invalide (https://…).');
+    writeConfig_(k, v);
+  });
+  return getAdhesionsAdmin(token);
+}
+
+/** Admin : statut de règlement, montant réglé et note d'un dossier. */
+function setAdhesionAdmin(token, dossier, patch) {
+  requireAdmin_(token);
+  patch = patch || {};
+  const p = {};
+  if (patch.statut !== undefined) {
+    if (ADH_STATUTS_.indexOf(patch.statut) < 0) throw new Error('Statut invalide.');
+    p.Statut = patch.statut;
+  }
+  if (patch.regle !== undefined) p.Réglé = adhNum_(patch.regle);
+  if (patch.note !== undefined) p.Note = String(patch.note || '').slice(0, 500);
+  if (!adhUpdate_('Adhesions', function (x) { return String(x.Dossier) === String(dossier); }, p)) throw new Error('Dossier introuvable.');
+  return getAdhesionsAdmin(token);
+}
+
+/** Admin : message traité / à traiter. */
+function setAdhesionMessageStatut(token, row, statut) {
+  requireAdmin_(token);
+  const sh = adhSheet_('AdhesionMessages');
+  if (Number(row) < 2 || Number(row) > sh.getLastRow()) throw new Error('Message introuvable.');
+  sh.getRange(Number(row), 8).setValue(statut === 'Traité' ? 'Traité' : 'Nouveau');
+  return getAdhesionsAdmin(token);
+}
+
+/** Admin : ajoute un membre d'un dossier à l'effectif (nouvelle ligne de
+ * Joueurs, sans équipe, avec un code personnel tiré au hasard). */
+function createPlayerFromAdhesion(token, dossier, n) {
+  requireAdmin_(token);
+  const a = adhRows_('Adhesions').find(function (x) { return String(x.Dossier) === String(dossier); });
+  if (!a) throw new Error('Dossier introuvable.');
+  const m = adhMembre_(a, n);
+  if (m.JoueurID) throw new Error('Ce membre est déjà dans l\'effectif.');
+  const used = {};
+  readTable_('Joueurs').forEach(function (p) { used[String(p.PIN)] = true; });
+  used[String(readConfigValue_('AdminPIN', ''))] = true;
+  let pin = '';
+  do { pin = String(Math.floor(100000 + Math.random() * 900000)); } while (used[pin]);
+  const res = addPlayer(m.Nom, m.Prénom, 0, pin, false, a.Téléphone, m.Catégorie, m.Sexe, m.NumLicence);
+  adhUpdate_('AdhesionMembres', function (x) { return x.Dossier === a.Dossier && adhNum_(x.N) === adhNum_(m.N); }, { JoueurID: res.id });
+  return { id: res.id, pin: pin, admin: getAdhesionsAdmin(token) };
+}
+
+/** À lancer UNE FOIS depuis l'éditeur Apps Script (menu Exécuter) : Google
+ * demande l'autorisation d'envoyer des e-mails (confirmations d'inscription)
+ * et d'enregistrer les documents dans le Drive du club. */
+function autoriserInscriptions() {
+  adhFolder_();
+  Logger.log('Autorisations OK. Quota d\'e-mails restant aujourd\'hui : ' + MailApp.getRemainingDailyQuota());
 }

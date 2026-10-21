@@ -426,6 +426,51 @@ Drive. Un joueur déjà connecté arrive directement sur son accueil ; la
 version servie par le script lui-même (sans annuaire) commence à la
 présentation du club.
 
+## Site d'inscription au club (`inscription.html`)
+
+Page publique (sans code) pour l'adhésion des familles au club de tennis de
+table, organisée comme le site d'inscription du FRI :
+`https://ttfrisno-design.github.io/Brulage/inscription.html` (bouton
+« S'inscrire au club » de la page du club quand le champ *Lien vers le site
+d'inscription* est vide).
+
+1. **Consulter les activités** : semainier des créneaux (horaires, lieu,
+   encadrant, tarif, part licence FFTT, 2e séance au choix, places restantes).
+2. **Créer un compte** : responsable légal (« Déjà adhérent ? » retrouve les
+   informations par téléphone + 3 lettres du nom, dans les dossiers ou
+   l'effectif), membres (date de naissance → catégorie FFTT de la saison, seuls
+   les créneaux de son âge sont proposés), aides (Pass'Sport…), mode de
+   règlement (chèque en 1 à n fois, espèces, virement, HelloAsso). Le dossier
+   reçoit un **n° (ex. TT26-001)** envoyé par e-mail avec le récapitulatif.
+3. **Consulter votre compte**, 4. **Modifier vos activités** (demande au club),
+   5. **Envoyer des documents** : n° de dossier + téléphone du responsable.
+   Questionnaire de santé (QS-SPORT adulte ou questionnaire du sportif
+   mineur) : **les réponses restent sur l'appareil**, seule l'attestation est
+   enregistrée (« NON à toutes les questions » ou « certificat médical
+   requis »). Acceptation du règlement intérieur, envoi du certificat médical et
+   des justificatifs (photo ou PDF, 5 Mo max) dans un dossier **privé** du
+   Drive du club (« RebonTT – Documents des adhésions »).
+6. **Envoyer un message** au club.
+
+Mise en place :
+- Créneaux, tarifs et places : *Dates & Réglages › Présentation du club*
+  (2e ligne de chaque créneau : public Jeunes/Adultes/Tous, lieu, encadrant,
+  tarif, 1 ou 2 séances par semaine comprises, part licence FFTT, places).
+- Réglages (saison, ouverture, commune et supplément extérieur, réduction
+  famille, modes de règlement, ordre des chèques, IBAN, aides, règlement
+  intérieur, e-mail du club) : onglet **Adhésions** de l'admin, qui liste aussi
+  les dossiers (statut et montant réglé, documents, ajout d'un membre à
+  l'effectif avec un code tiré au hasard), les places et les messages.
+- Après avoir collé Code.gs : lancer **une fois** `autoriserInscriptions`
+  depuis l'éditeur Apps Script (autorisations e-mail et Drive), puis
+  redéployer. L'administrateur doit se déconnecter / reconnecter une fois pour
+  ouvrir l'onglet Adhésions.
+- Feuilles créées automatiquement : `Adhesions`, `AdhesionMembres`,
+  `AdhesionDocuments`, `AdhesionMessages` (l'onglet Joueurs n'est jamais
+  modifié ; « + Ajouter » à l'effectif y ajoute seulement une nouvelle ligne).
+- Les textes des questionnaires de santé sont ceux du Code du sport : à
+  vérifier par le club avec les versions officielles en vigueur.
+
 ## Rassemblements féminins
 
 Réservés aux joueuses : colonne **L « Sexe »** (F / M) de la feuille Joueurs
