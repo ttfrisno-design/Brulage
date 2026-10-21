@@ -2965,6 +2965,8 @@ function adhSettings_() {
     infos: v('AdhInfos', ''),
     // PPS : à faire dans l'espace licencié FFTT du joueur.
     ppsUrl: v('AdhPpsUrl', 'https://malicence.fftt.com/login'),
+    // Formulaire FFTT d'inscription en ligne du club (demande de licence).
+    licenceUrl: v('AdhLicenceUrl', 'https://inscriptionenligne.fftt.com/club/09760374'),
     licences: adhLicences_(v('AdhLicences', JSON.stringify(ADH_LICENCES_DEFAUT_))),
     clubNom: v('ClubNom', ''),
     clubVille: v('ClubVille', ''),
@@ -3204,7 +3206,12 @@ function createAdhesion(d) {
     '\n\nÉtapes suivantes (n° de dossier + téléphone) sur ' + url + ' :\n' +
     '- remplir le questionnaire de santé et accepter le règlement intérieur pour chaque membre ;\n' +
     '- envoyer les documents demandés (certificat médical si nécessaire, justificatifs d\'aides) ;\n' +
-    '- régler l\'adhésion.\n\nSportivement,\n' + (st.clubNom || 'Le club'));
+    '- régler l\'adhésion.\n' +
+    (a.membres.some(function (m) { return m.licence !== 'Sans licence'; })
+      ? '\nLicence FFTT : faites la demande en ligne dès que vous êtes sur votre compte licencié (' + st.ppsUrl + ') ou avec le formulaire du club : ' + st.licenceUrl + '\n' +
+        'Déjà licencié(e) : connectez-vous absolument avec votre numéro de licence. En cas d\'erreur avec l\'ancien compte, un nouveau compte est créé et il faut contacter la FFTT pour demander la correction. ' +
+        'Nouveau joueur : créez votre compte licencié FFTT.\n' : '') +
+    '\nSportivement,\n' + (st.clubNom || 'Le club'));
   adhMail_(st.contact, 'Nouvelle inscription ' + dossier + ' – ' + r.nom + ' ' + r.prenom,
     r.prenom + ' ' + r.nom + ' – ' + r.tel + ' – ' + r.email + '\n' + r.adresse + ', ' + r.cp + ' ' + r.ville + '\n\n' + recap);
   return { dossier: dossier, total: a.total, aidesMontant: a.aidesMontant, reste: Math.max(0, a.total - a.aidesMontant), mode: a.mode, email: r.email };
@@ -3481,7 +3488,7 @@ function getAdhesionsAdmin(token) {
   const m = configMap_();
   const raw = {};
   ['AdhSaison', 'AdhOuvert', 'AdhCommune', 'AdhSupplementExterieur', 'AdhReductionFamille', 'AdhModes', 'AdhChequesMax', 'AdhOrdreCheque',
-    'AdhIban', 'AdhAides', 'AdhReglementUrl', 'AdhReglementTexte', 'AdhContactEmail', 'AdhInfos', 'AdhLicences', 'AdhPpsUrl'].forEach(function (k) { raw[k] = m[k] || ''; });
+    'AdhIban', 'AdhAides', 'AdhReglementUrl', 'AdhReglementTexte', 'AdhContactEmail', 'AdhInfos', 'AdhLicences', 'AdhPpsUrl', 'AdhLicenceUrl'].forEach(function (k) { raw[k] = m[k] || ''; });
   const crs = adhCreneaux_();
   const byId = {};
   crs.forEach(function (c) { byId[c.id] = c; });
@@ -3526,6 +3533,7 @@ function saveAdhesionSettings(token, s) {
     if (!/^Adh[A-Za-z]+$/.test(k)) throw new Error('Réglage inconnu : ' + k);
     const v = String(s[k] === undefined || s[k] === null ? '' : s[k]);
     if (k === 'AdhLicences') { writeConfig_(k, JSON.stringify(adhLicences_(v))); return; }
+    if (k === 'AdhLicenceUrl' && v.trim() && !/^https?:\/\/\S+$/i.test(v.trim())) throw new Error('Lien du formulaire de licence invalide (https://…).');
     if (k === 'AdhPpsUrl' && v.trim() && !/^https?:\/\/\S+$/i.test(v.trim())) throw new Error('Lien PPS invalide (https://…).');
     if (k === 'AdhReglementUrl' && v.trim() && !/^https?:\/\/\S+$/i.test(v.trim())) throw new Error('Lien du règlement invalide (https://…).');
     writeConfig_(k, v);

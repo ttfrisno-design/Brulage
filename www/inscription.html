@@ -254,7 +254,9 @@
             <li>Questionnaire de santé et règlement intérieur pour chaque membre.</li>
             <li>Documents : certificat médical si nécessaire, justificatifs d'aides.</li>
             <li id="donePay">Règlement de l'adhésion.</li>
+            <li id="doneLic" class="hidden">Demande de licence FFTT en ligne (voir ci-dessous).</li>
           </ol>
+          <div id="doneLicBox"></div>
           <div class="actions" style="justify-content:flex-start;margin-top:14px;">
             <button class="btn primary" onclick="go('vDocs')">📄 Questionnaire &amp; documents</button>
             <button class="btn orange hidden" id="donePayBtn" onclick="payOnline(this)">💳 Payer en ligne</button>
@@ -741,6 +743,9 @@
       $('doneTxt').innerHTML = 'Notez-le : il vous sera demandé avec votre téléphone pour consulter votre compte et envoyer vos documents. Un e-mail récapitulatif a été envoyé à <b>' + esc(res.email) + '</b>.';
       $('donePay').textContent = 'Règlement : ' + euros(res.reste) + ' — ' + modeText() + '.';
       $('donePayBtn').classList.toggle('hidden', res.mode !== 'HelloAsso' || !res.reste);
+      var licWho = W.membres.filter(function (m) { return m.licence === 'Nouvelle' || m.licence === 'Renouvellement'; }).map(function (m) { return m.licence; });
+      $('doneLic').classList.toggle('hidden', !licWho.length);
+      $('doneLicBox').innerHTML = licWho.length ? licenceHelp(licWho.every(function (x) { return x === licWho[0]; }) ? licWho[0] : '') : '';
       showStep(5);
       api('getAdhesionInfo').then(function (i) { INFO = i; }).catch(function () { /* places rafraîchies plus tard */ });
     }).catch(function (e) { busy(btn, false); flash(esc(e.message), 'err'); });
@@ -802,6 +807,10 @@
       '<tr><td>Déjà réglé</td><td class="num">' + euros(d.regle) + '</td></tr><tr class="tot"><td>Reste à régler</td><td class="num">' + euros(d.reste) + '</td></tr></table>' +
       '<p style="margin-bottom:0;">' + pay + '</p>' +
       (d.helloasso && d.reste > 0 ? '<div class="actions" style="justify-content:flex-start;"><button class="btn orange" onclick="payOnline(this)">💳 Payer ' + euros(d.reste) + ' en ligne</button></div>' : '') + '</div>' +
+      (function () {
+        var w = d.membres.filter(function (m) { return m.statut !== 'Annulé' && (m.licence === 'Nouvelle' || m.licence === 'Renouvellement'); }).map(function (m) { return m.licence; });
+        return w.length ? '<div class="card"><h3>📝 Licence FFTT</h3>' + licenceHelp(w.every(function (x) { return x === w[0]; }) ? w[0] : '') + '</div>' : '';
+      })() +
       '<div class="card"><h3>📎 Documents envoyés</h3>' + docs + '</div>' +
       '<div class="card"><h3>📇 Responsable légal</h3><p style="margin:0;">' + esc(d.responsable.prenom + ' ' + d.responsable.nom) + '<br>' + esc(d.responsable.adresse) + ', ' + esc(d.responsable.cp + ' ' + d.responsable.ville) +
       '<br>' + esc(d.responsable.tel) + ' · ' + esc(d.responsable.email) + '</p><p style="font-size:13px;color:var(--muted);margin-bottom:0;">Une erreur ? Signalez-la via « Envoyer un message ».</p></div>';
@@ -907,6 +916,23 @@
     certificat: 'Certificat médical (entrée en catégorie V65, V70, V80, V85 ou V90)',
   };
   var DOCSEL = { n: 0, types: { qs: true, ri: false, cm: false, pj: false } };
+  // Demande de licence FFTT en ligne : depuis l'espace MaLicence, ou par le
+  // formulaire d'inscription en ligne du club. who : 'Renouvellement',
+  // 'Nouvelle' ou '' (les deux cas).
+  function licenceHelp(who) {
+    var st = INFO ? INFO.settings : {};
+    var espace = st.ppsUrl || 'https://malicence.fftt.com/login';
+    var form = st.licenceUrl || 'https://inscriptionenligne.fftt.com/club/09760374';
+    return '<div class="note info" style="margin-top:12px;"><b>📝 Demande de licence FFTT en ligne</b><br>' +
+      'Faites votre demande de licence en ligne dès que vous êtes sur votre compte licencié, ou avec le formulaire d\'inscription en ligne du club :' +
+      '<div class="actions" style="justify-content:flex-start;margin:8px 0;">' +
+      '<a class="btn light small" href="' + esc(espace) + '" target="_blank" rel="noopener">Mon espace MaLicence FFTT ↗</a>' +
+      '<a class="btn light small" href="' + esc(form) + '" target="_blank" rel="noopener">Formulaire de licence du club ↗</a></div>' +
+      (who !== 'Nouvelle' ? '<div class="note warn" style="margin:6px 0;">⚠️ <b>Déjà licencié(e) :</b> connectez-vous absolument avec votre <b>numéro de licence</b>. ' +
+        'En cas d\'erreur avec l\'ancien compte, un <b>nouveau compte</b> est créé : il faut alors contacter la FFTT pour demander la correction.</div>' : '') +
+      (who !== 'Renouvellement' ? '<div style="margin-top:6px;">🆕 <b>Nouveau joueur :</b> créez votre compte licencié FFTT.</div>' : '') +
+      '</div>';
+  }
   function santeChip(m) {
     if (!m.qs) return '<span class="chip err">à faire</span>';
     return '<span class="chip ' + (/requis/.test(m.qs) ? 'warn' : 'ok') + '">' + esc(m.qs) + '</span>';
@@ -931,7 +957,8 @@
       typeBox('qs', '🩺', form === 'pps' ? 'Attestation PPS' : form === 'certificat' ? 'Certificat médical' : 'Questionnaire de santé', esc(SANTE_LABEL[form])) +
       typeBox('ri', '📋', 'Règlement intérieur', 'Acceptation du règlement du club') +
       (form === 'certificat' ? '' : typeBox('cm', '⚕️', 'Certificat médical', 'Si une réponse OUI au questionnaire, ou à la place du questionnaire / PPS (certificat en cours de validité)')) +
-      typeBox('pj', '📎', 'Pièces justificatives', 'Aides (Pass\'Sport, coupons sport, Atout Normandie…)') + '</div></div>';
+      typeBox('pj', '📎', 'Pièces justificatives', 'Aides (Pass\'Sport, coupons sport, Atout Normandie…)') + '</div>' +
+      (m.licence === 'Nouvelle' || m.licence === 'Renouvellement' || form === 'pps' ? licenceHelp(m.licence === 'Nouvelle' || m.licence === 'Renouvellement' ? m.licence : '') : '') + '</div>';
     if (T.qs) {
       if (QS_FORMS[form]) {
         var F = QS_FORMS[form], k = 0;
