@@ -2963,7 +2963,8 @@ function adhSettings_() {
     reglementTexte: v('AdhReglementTexte', ''),
     contact: v('AdhContactEmail', ''),
     infos: v('AdhInfos', ''),
-    ppsUrl: v('AdhPpsUrl', ''),
+    // PPS : à faire dans l'espace licencié FFTT du joueur.
+    ppsUrl: v('AdhPpsUrl', 'https://malicence.fftt.com/login'),
     licences: adhLicences_(v('AdhLicences', JSON.stringify(ADH_LICENCES_DEFAUT_))),
     clubNom: v('ClubNom', ''),
     clubVille: v('ClubVille', ''),

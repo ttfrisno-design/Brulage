@@ -948,7 +948,8 @@
       } else if (form === 'pps') {
         html += '<div class="card"><h3>🩺 Parcours de Prévention Santé (PPS) – ' + esc(m.prenom) + '</h3>' +
           '<p style="font-size:14px;">Joueur majeur de 18 à 64 ans en compétition : la FFTT demande l\'<b>attestation de suivi du Parcours de Prévention Santé (PPS)</b>, à réaliser <b>en ligne chaque année</b>.</p>' +
-          (st.ppsUrl ? '<p><a class="btn light small" href="' + esc(st.ppsUrl) + '" target="_blank" rel="noopener">Faire le PPS en ligne ↗</a></p>' : '<p style="font-size:14px;color:var(--muted);">Le lien vers le PPS en ligne vous est communiqué par le club.</p>') +
+          '<p style="font-size:14px;">Le PPS se fait dans votre <b>espace licencié FFTT (MaLicence)</b>, avec vos identifiants de joueur.</p>' +
+          '<p><a class="btn light small" href="' + esc(st.ppsUrl || 'https://malicence.fftt.com/login') + '" target="_blank" rel="noopener">Ouvrir mon espace MaLicence FFTT ↗</a></p>' +
           '<p style="font-size:14px;">Envoyez ensuite l\'attestation PPS ci-dessous. Un certificat médical en cours de validité peut la remplacer (« Certificat médical »).</p>' +
           fileInput('pps') + '</div>';
       } else {

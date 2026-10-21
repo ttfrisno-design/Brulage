@@ -454,7 +454,8 @@ d'inscription* est vide).
    questionnaire. Les réponses restent sur l'appareil ; si tout est NON,
    l'attestation (coupon FFTT) est signée au doigt / à la souris et
    enregistrée en PDF dans le Drive du club. Type Loisir / Compétition de
-   chaque créneau et lien du PPS : réglages de l'admin. Acceptation du règlement intérieur, envoi du certificat médical et
+   chaque créneau : réglages de l'admin. Le PPS se fait dans l'espace
+   licencié MaLicence (https://malicence.fftt.com/login), lien modifiable. Acceptation du règlement intérieur, envoi du certificat médical et
    des justificatifs (photo ou PDF, 5 Mo max) dans un dossier **privé** du
    Drive du club (« RebonTT – Documents des adhésions »).
 6. **Envoyer un message** au club.
