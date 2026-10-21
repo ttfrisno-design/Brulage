@@ -170,7 +170,7 @@
       <button class="back" onclick="go('vMenu')">← Retour au menu</button>
       <div class="page-title"><div class="big">🔎</div><h2>Les activités</h2><p>Créneaux de la saison, tarifs et places disponibles</p></div>
       <div id="weekBox"></div>
-      <div class="legend"><span>🟢 places disponibles</span><span>🟡 dernières places</span><span>🔴 complet</span><span><span class="tag">+ licence</span> licence FFTT selon la catégorie d'âge</span><span>🔗 créneaux liés : l'inscription vaut pour les deux séances</span></div>
+      <div class="legend"><span>🟢 places disponibles</span><span>🟡 dernières places</span><span>🔴 complet</span><span>Licence FFTT facultative (nécessaire pour la compétition), prix selon l'âge</span><span>🔗 créneaux liés : l'inscription vaut pour les deux séances</span></div>
       <div id="tarifNote"></div>
     </section>
 
@@ -418,7 +418,7 @@
       '<div>' + hm(c.debut) + (c.fin ? ' / ' + hm(c.fin) : '') + '</div>' +
       ((c.lieu || c.encadrant) ? '<div class="mut">' + (c.lieu ? '📍 ' + esc(c.lieu) : '') + (c.lieu && c.encadrant ? ' · ' : '') + (c.encadrant ? '👤 ' + esc(c.encadrant) : '') + '</div>' : '') +
       (c.tarif ? '<div style="color:' + col[1] + ';font-weight:600;">' + euros(c.tarif) + (c.seances === 2 ? ' <span class="mut">(2 séances)</span>' : '') + '</div>' : '') +
-      (licRange(c) ? '<div><span class="lic">+ licence FFTT ' + licRange(c) + '</span></div>' : '') +
+      (licRange(c) ? '<div class="mut">Licence FFTT facultative : ' + licRange(c) + '</div>' : '') +
       (partnerOf(c) ? '<div class="mut">🔗 lié au ' + esc(partnerOf(c).jour.toLowerCase()) + ' ' + hm(partnerOf(c).debut) + '</div>' : '') + placesHtml(c);
   }
   function renderWeek() {
@@ -459,7 +459,7 @@
     var st = INFO.settings, notes = [];
     if (st.supplement) notes.push('Habitants hors ' + esc(st.commune) + ' : +' + euros(st.supplement) + ' par membre.');
     var lic = CATS.map(function (x) { return x[1]; }).filter(function (k) { return st.licences && st.licences[k] > 0; });
-    if (lic.length) notes.push('Licence FFTT selon la catégorie d\'âge (saison ' + esc(st.saison) + ') : ' + lic.map(function (k) { return k + ' ' + euros(st.licences[k]); }).join(' · ') + '.');
+    if (lic.length) notes.push('Licence FFTT facultative, nécessaire pour faire de la compétition (saison ' + esc(st.saison) + ') : ' + lic.map(function (k) { return k + ' ' + euros(st.licences[k]); }).join(' · ') + '.');
     if (st.reductionFamille) notes.push('Réduction famille : -' + euros(st.reductionFamille) + ' par membre supplémentaire.');
     $('tarifNote').innerHTML = notes.length ? '<div class="note info">' + notes.join('<br>') + '</div>' : '';
   }
@@ -500,7 +500,9 @@
   }
   function slotById(id) { return (INFO.creneaux || []).find(function (c) { return c.id === id; }); }
   function slotLabel(c) { return c ? (c.niveau || 'Entraînement') + ' – ' + c.jour + ' ' + hm(c.debut) + (c.fin ? '-' + hm(c.fin) : '') : ''; }
-  function emptyMember() { return { nom: '', prenom: '', naissance: '', sexe: '', licence: 'Nouvelle', numLicence: '', creneau1: '', creneau2: '' }; }
+  function emptyMember() { return { nom: '', prenom: '', naissance: '', sexe: '', licence: 'Sans licence', numLicence: '', creneau1: '', creneau2: '' }; }
+  // Licence FFTT facultative (nécessaire pour la compétition).
+  function hasLicence(m) { return m.licence === 'Nouvelle' || m.licence === 'Renouvellement'; }
 
   function startWizard() {
     if (!INFO) return;
@@ -640,7 +642,7 @@
           return '<label class="' + (sel ? 'sel' : '') + (ok ? '' : ' off') + '"><input type="radio" name="c1_' + i + '"' + (sel ? ' checked' : '') + (ok ? '' : ' disabled') +
             ' onclick="pickSlot(' + i + ',\'' + c.id + '\')"><span><span class="t">' + esc(c.niveau) + '</span><br><span class="s">' +
             g.map(function (x) { return x.jour + ' ' + hm(x.debut) + (x.fin ? '-' + hm(x.fin) : ''); }).join(' + ') +
-            (c.tarif ? ' · ' + euros(c.tarif + licenceFor(cat, c)) : '') + (g.length > 1 ? ' · 2 séances liées' : '') + '</span>' +
+            (c.tarif ? ' · ' + euros(c.tarif) : '') + (g.length > 1 ? ' · 2 séances liées' : '') + '</span>' +
             (ok ? (places !== null ? '<br><span class="s">' + (places <= 3 ? '🟡 ' : '🟢 ') + places + ' place' + (places > 1 ? 's' : '') + '</span>' : '') : '<br><span class="s">🔴 Complet</span>') + '</span></label>';
         }).join('') + '</div>';
       return '<div class="member"><div class="member-h"><b>👤 Membre ' + (i + 1) + (m.prenom ? ' : ' + esc(m.prenom) : '') + '</b>' +
@@ -650,20 +652,23 @@
         '<div><label>Prénom <span class="req">*</span> ' + (i === 0 ? '<a href="#" style="font-weight:400;font-size:12px;" onclick="copyResp(' + i + ');return false;">(c\'est le responsable)</a>' : '') + '</label><input data-k="prenom" value="' + esc(m.prenom) + '"></div>' +
         '<div><label>Date de naissance <span class="req">*</span></label><input type="date" data-k="naissance" value="' + esc(m.naissance) + '" onchange="readMembers();renderMembers()"></div>' +
         '<div><label>Sexe <span class="req">*</span></label><select data-k="sexe"><option value="">—</option><option value="F"' + (m.sexe === 'F' ? ' selected' : '') + '>Féminin</option><option value="M"' + (m.sexe === 'M' ? ' selected' : '') + '>Masculin</option></select></div>' +
-        '<div><label>Licence FFTT</label><select data-k="licence"><option' + (m.licence !== 'Renouvellement' ? ' selected' : '') + '>Nouvelle</option><option' + (m.licence === 'Renouvellement' ? ' selected' : '') + '>Renouvellement</option></select></div>' +
-        '<div><label>N° de licence <small>(si renouvellement)</small></label><input data-k="numLicence" value="' + esc(m.numLicence) + '"></div>' +
+        '<div><label>Licence FFTT <small>(facultative, nécessaire pour la compétition)</small></label><select data-k="licence" onchange="readMembers();renderMembers()">' +
+          ['Sans licence', 'Nouvelle', 'Renouvellement'].map(function (o) {
+            return '<option value="' + o + '"' + (m.licence === o ? ' selected' : '') + '>' + (o === 'Sans licence' ? o : 'Avec licence – ' + o.toLowerCase()) + (o !== 'Sans licence' && cat && licenceFor(cat) ? ' (+' + euros(licenceFor(cat)) + ')' : '') + '</option>';
+          }).join('') + '</select></div>' +
+        (m.licence === 'Renouvellement' ? '<div><label>N° de licence</label><input data-k="numLicence" value="' + esc(m.numLicence) + '"></div>' : '<div></div>') +
         '<div class="full"><label>Créneau d\'entraînement <span class="req">*</span></label>' + pick + '</div>' +
         '</div></div>';
     }).join('');
     $('members').innerHTML = html;
   }
-  function memberPrice(c, i, ext, cat) {
+  function memberPrice(c, i, ext, cat, m) {
     var st = INFO.settings;
-    return Math.max(0, (c ? c.tarif + licenceFor(cat, c) : 0) + (ext ? st.supplement : 0) - (i > 0 ? st.reductionFamille : 0));
+    return Math.max(0, (c ? c.tarif + (hasLicence(m) ? licenceFor(cat, c) : 0) : 0) + (ext ? st.supplement : 0) - (i > 0 ? st.reductionFamille : 0));
   }
   function totals() {
     var ext = exterieur(), total = 0;
-    W.membres.forEach(function (m, i) { total += memberPrice(slotById(m.creneau1), i, ext, categorie(m.naissance)); });
+    W.membres.forEach(function (m, i) { total += memberPrice(slotById(m.creneau1), i, ext, categorie(m.naissance), m); });
     var aides = INFO.settings.aides.filter(function (a) { return W.aides.indexOf(a.nom) >= 0; });
     var am = Math.min(total, aides.reduce(function (s, a) { return s + (a.montant || 0); }, 0));
     return { total: total, aides: am, reste: Math.max(0, total - am), ext: ext };
@@ -671,10 +676,10 @@
   function recapHtml(full) {
     var t = totals(), st = INFO.settings, r = responsable();
     var rows = W.membres.map(function (m, i) {
-      var c1 = slotById(m.creneau1), c2 = slotById(m.creneau2), cat = categorie(m.naissance), lic = licenceFor(cat, c1);
-      var detail = c1 ? euros(c1.tarif) + (lic ? ' + licence ' + esc(cat) + ' ' + euros(lic) : '') + (t.ext && st.supplement ? ' + extérieur ' + euros(st.supplement) : '') + (i > 0 && st.reductionFamille ? ' − famille ' + euros(st.reductionFamille) : '') : '';
+      var c1 = slotById(m.creneau1), c2 = slotById(m.creneau2), cat = categorie(m.naissance), lic = hasLicence(m) ? licenceFor(cat, c1) : 0;
+      var detail = c1 ? euros(c1.tarif) + (lic ? ' + licence ' + esc(cat) + ' ' + euros(lic) : ' (sans licence)') + (t.ext && st.supplement ? ' + extérieur ' + euros(st.supplement) : '') + (i > 0 && st.reductionFamille ? ' − famille ' + euros(st.reductionFamille) : '') : '';
       return '<tr><td><b>' + esc(m.prenom + ' ' + m.nom.toUpperCase()) + '</b> <span class="cat">' + esc(categorie(m.naissance)) + '</span><br><span style="color:var(--muted);font-size:13px;">' +
-        esc(slotLabel(c1)) + (c2 ? '<br>+ ' + esc(c2.jour + ' ' + hm(c2.debut) + (c2.fin ? '-' + hm(c2.fin) : '')) : '') + '<br>' + detail + '</span></td><td class="num">' + euros(memberPrice(c1, i, t.ext, cat)) + '</td></tr>';
+        esc(slotLabel(c1)) + (c2 ? '<br>+ ' + esc(c2.jour + ' ' + hm(c2.debut) + (c2.fin ? '-' + hm(c2.fin) : '')) : '') + '<br>' + detail + '</span></td><td class="num">' + euros(memberPrice(c1, i, t.ext, cat, m)) + '</td></tr>';
     }).join('');
     var html = (full ? '<p style="margin-top:0;"><b>Responsable :</b> ' + esc(r.prenom + ' ' + r.nom.toUpperCase()) + ' · ' + esc(r.tel) + ' · ' + esc(r.email) + '<br>' + esc(r.adresse + ', ' + r.cp + ' ' + r.ville.toUpperCase()) + '</p>' : '') +
       '<table class="recap"><tr><th>Membre et activité</th><th class="num">Montant</th></tr>' + rows +
@@ -773,7 +778,7 @@
     var mem = d.membres.map(function (m) {
       var qs = m.qs ? (/requis/.test(m.qs) ? '<span class="chip warn">Certificat requis</span>' : '<span class="chip ok">✓</span>') : '<span class="chip err">À remplir</span>';
       var ri = m.reglement ? '<span class="chip ok">✓</span>' : '<span class="chip err">À accepter</span>';
-      return '<tr><td><b>' + esc(m.prenom + ' ' + m.nom) + '</b> <span class="cat">' + esc(m.categorie) + '</span>' + (m.statut === 'Annulé' ? ' <span class="chip err">Annulé</span>' : '') +
+      return '<tr><td><b>' + esc(m.prenom + ' ' + m.nom) + '</b> <span class="cat">' + esc(m.categorie) + '</span> <span style="font-size:13px;">' + esc(m.licence) + '</span>' + (m.statut === 'Annulé' ? ' <span class="chip err">Annulé</span>' : '') +
         '<br><span style="font-size:13px;color:var(--muted);">' + esc(m.creneau1) + (m.creneau2 ? '<br>+ ' + esc(m.creneau2) : '') + '</span></td>' +
         '<td>' + qs + '</td><td>' + ri + '</td><td class="num">' + euros(m.montant) + '</td></tr>';
     }).join('');

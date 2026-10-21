@@ -457,7 +457,9 @@ Mise en place :
   (2e ligne de chaque créneau : public Jeunes/Adultes/Tous, lieu, encadrant,
   tarif, *Lié* = Oui pour 2 séances par semaine : l'inscription vaut pour les
   deux créneaux du même niveau, places).
-- Licence FFTT : prix par catégorie d'âge (Poussin … V80) dans l'onglet
+- Licence FFTT : **facultative** (la famille choisit « sans licence » ou
+  « avec licence » pour chaque membre ; elle est nécessaire pour la
+  compétition). Prix par catégorie d'âge (Poussin … V80) dans l'onglet
   **Adhésions › Réglages**, ajouté au tarif du créneau selon la catégorie du
   joueur (calculée d'après sa date de naissance et la saison). Par défaut :
   37 € (poussins, benjamins, minimes), 52 € (cadets), 70 € (juniors, seniors,

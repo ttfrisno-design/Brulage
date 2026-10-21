@@ -3100,7 +3100,8 @@ function adhCompute_(d, st, crs) {
     const b = adhBirth_(m.naissance);
     const out = {
       nom: adhTxt_(m.nom, 60).toUpperCase(), prenom: adhTxt_(m.prenom, 60), naissance: b ? b.fr : '', sexe: normSexe_(m.sexe),
-      licence: m.licence === 'Renouvellement' ? 'Renouvellement' : 'Nouvelle', numLicence: adhTxt_(m.numLicence, 20),
+      // Licence FFTT facultative (nécessaire pour la compétition).
+      licence: m.licence === 'Renouvellement' || m.licence === 'Nouvelle' ? m.licence : 'Sans licence', numLicence: adhTxt_(m.numLicence, 20),
     };
     if (!out.nom || !out.prenom) throw new Error(label + ' : nom et prénom obligatoires.');
     if (!b || b.y < 1900 || b.y > new Date().getFullYear()) throw new Error(out.prenom + ' : date de naissance invalide.');
@@ -3114,7 +3115,7 @@ function adhCompute_(d, st, crs) {
     const c2 = adhPartner_(c1, crs);
     out.creneau1 = c1.id;
     out.creneau2 = c2 ? c2.id : '';
-    out.montant = Math.max(0, c1.tarif + adhLicence_(st, out.categorie, c1) + (exterieur ? st.supplement : 0) - (i > 0 ? st.reductionFamille : 0));
+    out.montant = Math.max(0, c1.tarif + (out.licence !== 'Sans licence' ? adhLicence_(st, out.categorie, c1) : 0) + (exterieur ? st.supplement : 0) - (i > 0 ? st.reductionFamille : 0));
     total += out.montant;
     return out;
   });
@@ -3150,7 +3151,7 @@ function adhRecap_(a, membres, crs, st) {
   const byId = {};
   crs.forEach(function (c) { byId[c.id] = c; });
   const lines = membres.map(function (m) {
-    return '- ' + m.prenom + ' ' + m.nom + ' (' + m.categorie + ') : ' + adhSlotLabel_(byId[m.creneau1]) +
+    return '- ' + m.prenom + ' ' + m.nom + ' (' + m.categorie + ', ' + m.licence.toLowerCase() + ') : ' + adhSlotLabel_(byId[m.creneau1]) +
       (m.creneau2 ? ' + ' + adhSlotLabel_(byId[m.creneau2]) : '') + ' — ' + m.montant + ' €';
   });
   let pay = 'Mode de règlement : ' + a.mode;
