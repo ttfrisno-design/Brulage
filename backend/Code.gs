@@ -898,6 +898,10 @@ function parseCreneaux_(raw) {
       lieu: String(c.lieu || ''), encadrant: String(c.encadrant || ''),
       tarif: Math.max(0, num(c.tarif)), seances: Number(c.seances) === 2 ? 2 : 1, licence: Math.max(0, num(c.licence)),
       places: Math.max(0, Math.floor(num(c.places))),
+      // Créneau de compétition (adultes : PPS au lieu du questionnaire
+      // « licence découverte »). Non renseigné : déduit du nom du niveau.
+      competition: c.competition === undefined || c.competition === null || c.competition === ''
+        ? /comp[ée]t/i.test(String(c.niveau || '')) : (c.competition === true || c.competition === 'oui' || c.competition === 'true'),
     };
   });
 }
@@ -2874,7 +2878,7 @@ const ADH_SHEETS_ = {
   AdhesionDocuments: ['Dossier', 'N', 'Type', 'Fichier', 'Lien', 'EnvoyeLe'],
   AdhesionMessages: ['Date', 'Dossier', 'Nom', 'Email', 'Téléphone', 'Objet', 'Message', 'Statut'],
 };
-const ADH_DOC_TYPES_ = ['Certificat médical', 'Justificatif', 'Autre'];
+const ADH_DOC_TYPES_ = ['Certificat médical', 'Attestation PPS', 'Justificatif', 'Autre'];
 const ADH_STATUTS_ = ['À régler', 'Partiellement réglé', 'Réglé', 'Annulé'];
 
 function adhSheet_(name) {
@@ -2959,6 +2963,7 @@ function adhSettings_() {
     reglementTexte: v('AdhReglementTexte', ''),
     contact: v('AdhContactEmail', ''),
     infos: v('AdhInfos', ''),
+    ppsUrl: v('AdhPpsUrl', ''),
     licences: adhLicences_(v('AdhLicences', JSON.stringify(ADH_LICENCES_DEFAUT_))),
     clubNom: v('ClubNom', ''),
     clubVille: v('ClubVille', ''),
@@ -3241,7 +3246,8 @@ function getAdhesion(dossier, tel) {
         creneau1: adhSlotLabel_(byId[m.Creneau1]) || m.Creneau1, creneau2: m.Creneau2 ? (adhSlotLabel_(byId[m.Creneau2]) || m.Creneau2) : '',
         licence: m.Licence, numLicence: m.NumLicence, montant: adhNum_(m.Montant), statut: m.Statut,
         qs: m.QS, qsLe: m.QSLe, reglement: m.Reglement, reglementLe: m.ReglementLe,
-        mineur: adhJeune_(m.Catégorie) || (function () { const b = adhBirth_(m.Naissance); return b ? (new Date().getFullYear() - b.y) < 18 : false; })(),
+        mineur: (adhAge_(m.Naissance) || 0) < 18,
+        sante: adhSanteForm_(m, crs, a.Saison),
       };
     }),
     documents: docs.map(function (x) { return { n: adhNum_(x.N), type: x.Type, fichier: x.Fichier, date: x.EnvoyeLe }; }),
@@ -3256,15 +3262,92 @@ function adhMembre_(a, n) {
   return m;
 }
 
-/** Questionnaire de santé : seule l'attestation est enregistrée. */
-function submitQS(dossier, tel, n, toutNon, signataire) {
+/** Âge exact aujourd'hui. */
+function adhAge_(naissance) {
+  const b = adhBirth_(naissance);
+  if (!b) return null;
+  const d = new Date();
+  return d.getFullYear() - b.y - ((d.getMonth() + 1 < b.m || (d.getMonth() + 1 === b.m && d.getDate() < b.d)) ? 1 : 0);
+}
+/** Certification médicale demandée par la FFTT (saison 2026/2027) :
+ * - mineur : questionnaire de santé pour mineur n° 26-10-2 ;
+ * - majeur en loisir : questionnaire pour majeur « licence Découverte »
+ *   n° 26-10-3 ;
+ * - majeur en compétition : PPS en ligne chaque année ; à 65 ans et plus,
+ *   certificat médical à l'entrée dans chaque catégorie vétéran (V65, V70,
+ *   V80, V85, V90).
+ * Un certificat médical en cours de validité remplace toujours le PPS ou le
+ * questionnaire. */
+function adhSanteForm_(m, crs, saison) {
+  const age = adhAge_(m.Naissance);
+  if (age !== null && age < 18) return 'mineur';
+  const byId = {};
+  (crs || []).forEach(function (c) { byId[c.id] = c; });
+  const c1 = byId[m.Creneau1], c2 = byId[m.Creneau2];
+  if (!((c1 && c1.competition) || (c2 && c2.competition))) return 'decouverte';
+  const b = adhBirth_(m.Naissance);
+  const catAge = b ? Number(String(saison || defaultSaison_()).slice(0, 4)) - b.y : 0;
+  return [65, 70, 80, 85, 90].indexOf(catAge) >= 0 ? 'certificat' : 'pps';
+}
+const ADH_FORMS_ = {
+  mineur: { num: '26-10-2', titre: 'Questionnaire de Santé pour Mineur' },
+  decouverte: { num: '26-10-3', titre: 'Questionnaire de Santé pour Majeur – Licence Découverte' },
+};
+function adhSigOk_(dataUrl) { return /^data:image\/png;base64,[A-Za-z0-9+/=]{200,}$/.test(String(dataUrl || '')) && String(dataUrl).length < 400000; }
+
+/** Questionnaire de santé FFTT : les réponses restent sur l'appareil. Si
+ * toutes sont NON, l'attestation (coupon du formulaire FFTT) est signée en
+ * ligne et enregistrée en PDF dans le Drive du club ; sinon un certificat
+ * médical est demandé. */
+function submitQS(dossier, tel, n, toutNon, att) {
   ensureSheets_();
   const a = adhAuth_(dossier, tel);
   const m = adhMembre_(a, n);
-  const sig = adhTxt_(signataire, 80);
-  if (!sig) throw new Error('Indiquez le nom du signataire.');
-  const qs = toutNon ? 'Attesté : NON à toutes les questions (' + sig + ')' : 'Certificat médical requis (' + sig + ')';
-  adhUpdate_('AdhesionMembres', function (x) { return x.Dossier === a.Dossier && adhNum_(x.N) === adhNum_(m.N); }, { QS: qs, QSLe: adhNow_() });
+  const form = adhSanteForm_(m, adhCreneaux_(), a.Saison);
+  if (!ADH_FORMS_[form]) throw new Error('Pour ce membre, la FFTT demande ' + (form === 'pps' ? 'l\'attestation PPS' : 'un certificat médical') + ' (pas de questionnaire).');
+  att = att || {};
+  const f = ADH_FORMS_[form];
+  const where = function (x) { return x.Dossier === a.Dossier && adhNum_(x.N) === adhNum_(m.N); };
+  if (!toutNon) {
+    adhUpdate_('AdhesionMembres', where, { QS: 'Certificat médical requis (questionnaire ' + f.num + ')', QSLe: adhNow_() });
+    return getAdhesion(dossier, tel);
+  }
+  const nom = adhTxt_(att.nom || m.Nom, 60).toUpperCase(), prenom = adhTxt_(att.prenom || m.Prénom, 60);
+  const lic = adhTxt_(att.licence, 20), lieu = adhTxt_(att.lieu, 60);
+  const sigs = form === 'mineur' ? [['Signature du joueur mineur', att.sigJoueur], ['Signature du représentant légal', att.sigParent]]
+    : [['Signature du titulaire ou du représentant légal', att.sigJoueur]];
+  sigs.forEach(function (x) { if (!adhSigOk_(x[1])) throw new Error('Signature manquante : ' + x[0].toLowerCase() + '.'); });
+  if (form === 'mineur' && !adhTxt_(att.parent, 80)) throw new Error('Indiquez le nom du représentant légal.');
+  const date = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  const esc = function (v) { return String(v || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); };
+  const decl = form === 'mineur'
+    ? 'déclare avoir répondu NON à toutes les questions du questionnaire de santé.'
+    : 'atteste avoir répondu NON à toutes les questions du questionnaire de santé nécessaire à ma prise de licence Découverte (uniquement)';
+  const html = '<html><body style="font-family:Arial,sans-serif;font-size:12pt;">' +
+    '<p style="font-size:10pt;color:#555;">' + esc(readConfigValue_('ClubNom', '')) + ' – dossier ' + esc(a.Dossier) + ' – saison ' + esc(a.Saison) + '</p>' +
+    '<h2 style="text-align:center;margin-bottom:0;">N° ' + f.num + ' — ATTESTATION</h2>' +
+    '<p style="text-align:center;margin-top:4px;">' + esc(f.titre) + '</p>' +
+    '<p>Je soussigné :</p><p>NOM : <b>' + esc(nom) + '</b> &nbsp; PRÉNOM : <b>' + esc(prenom) + '</b></p>' +
+    '<p>N° de licence : ' + esc(lic || '—') + (form === 'decouverte' ? ' &nbsp; Date de naissance : ' + esc(m.Naissance) : '') + '</p>' +
+    '<p>' + decl + '</p>' +
+    '<p>Je sais qu\'à travers cette attestation, et comme cela est précisé dans la circulaire administrative de la FFTT, j\'engage ma propre ' +
+    'responsabilité et qu\'en aucun cas celle de la FFTT ne pourra être recherchée.</p>' +
+    '<p>Fait' + (lieu ? ' à ' + esc(lieu) : '') + ' le ' + date + ' (signature électronique sur le site d\'inscription du club).</p>' +
+    '<table style="width:100%;margin-top:10px;"><tr>' + sigs.map(function (x, i) {
+      return '<td style="width:50%;vertical-align:top;"><p>' + esc(x[0]) + (form === 'mineur' && i === 1 ? ' : ' + esc(att.parent) : '') + '<br>Date : ' + date + '</p>' +
+        '<img src="' + x[1] + '" style="width:260px;border:1px solid #999;"></td>';
+    }).join('') + '</tr></table></body></html>';
+  const fname = a.Dossier + ' – ' + prenom + ' ' + nom + ' – Attestation QS ' + f.num;
+  let file;
+  try {
+    const pdf = HtmlService.createHtmlOutput(html).getBlob().getAs('application/pdf').setName(fname + '.pdf');
+    file = adhFolder_().createFile(pdf);
+  } catch (e) {
+    file = adhFolder_().createFile(Utilities.newBlob(html, 'text/html', fname + '.html'));
+  }
+  adhAppend_('AdhesionDocuments', [a.Dossier, adhNum_(m.N), 'Attestation QS ' + f.num, fname, file.getUrl(), adhNow_()]);
+  if (lic && !m.NumLicence) adhUpdate_('AdhesionMembres', where, { NumLicence: lic });
+  adhUpdate_('AdhesionMembres', where, { QS: 'Attestation ' + f.num + ' signée (NON à toutes les questions)', QSLe: adhNow_() });
   return getAdhesion(dossier, tel);
 }
 
@@ -3305,6 +3388,12 @@ function uploadAdhesionDocument(dossier, tel, n, type, filename, mime, base64) {
   const blob = Utilities.newBlob(Utilities.base64Decode(data), mime, a.Dossier + ' – ' + who + ' – ' + type + ' – ' + name);
   const file = adhFolder_().createFile(blob);
   adhAppend_('AdhesionDocuments', [a.Dossier, Number(n) || 0, type, name, file.getUrl(), adhNow_()]);
+  // Un certificat médical (toujours accepté) ou l'attestation PPS valent
+  // certification médicale pour le membre.
+  if (Number(n) > 0 && (type === 'Certificat médical' || type === 'Attestation PPS')) {
+    adhUpdate_('AdhesionMembres', function (x) { return x.Dossier === a.Dossier && adhNum_(x.N) === Number(n); },
+      { QS: type === 'Certificat médical' ? 'Certificat médical fourni' : 'Attestation PPS fournie', QSLe: adhNow_() });
+  }
   adhMail_(adhSettings_().contact, 'Document reçu – dossier ' + a.Dossier, type + ' pour ' + who + ' : ' + file.getUrl());
   return getAdhesion(dossier, tel);
 }
@@ -3391,7 +3480,7 @@ function getAdhesionsAdmin(token) {
   const m = configMap_();
   const raw = {};
   ['AdhSaison', 'AdhOuvert', 'AdhCommune', 'AdhSupplementExterieur', 'AdhReductionFamille', 'AdhModes', 'AdhChequesMax', 'AdhOrdreCheque',
-    'AdhIban', 'AdhAides', 'AdhReglementUrl', 'AdhReglementTexte', 'AdhContactEmail', 'AdhInfos', 'AdhLicences'].forEach(function (k) { raw[k] = m[k] || ''; });
+    'AdhIban', 'AdhAides', 'AdhReglementUrl', 'AdhReglementTexte', 'AdhContactEmail', 'AdhInfos', 'AdhLicences', 'AdhPpsUrl'].forEach(function (k) { raw[k] = m[k] || ''; });
   const crs = adhCreneaux_();
   const byId = {};
   crs.forEach(function (c) { byId[c.id] = c; });
@@ -3417,6 +3506,7 @@ function getAdhesionsAdmin(token) {
             n: adhNum_(x.N), nom: x.Nom, prenom: x.Prénom, naissance: x.Naissance, sexe: x.Sexe, categorie: x.Catégorie,
             creneau1: adhSlotLabel_(byId[x.Creneau1]) || x.Creneau1, creneau2: x.Creneau2 ? (adhSlotLabel_(byId[x.Creneau2]) || x.Creneau2) : '',
             licence: x.Licence, numLicence: x.NumLicence, montant: adhNum_(x.Montant), qs: x.QS, reglement: x.Reglement,
+            sante: adhSanteForm_(x, crs, a.Saison),
             statut: x.Statut, joueurId: x.JoueurID,
           };
         }),
@@ -3435,6 +3525,7 @@ function saveAdhesionSettings(token, s) {
     if (!/^Adh[A-Za-z]+$/.test(k)) throw new Error('Réglage inconnu : ' + k);
     const v = String(s[k] === undefined || s[k] === null ? '' : s[k]);
     if (k === 'AdhLicences') { writeConfig_(k, JSON.stringify(adhLicences_(v))); return; }
+    if (k === 'AdhPpsUrl' && v.trim() && !/^https?:\/\/\S+$/i.test(v.trim())) throw new Error('Lien PPS invalide (https://…).');
     if (k === 'AdhReglementUrl' && v.trim() && !/^https?:\/\/\S+$/i.test(v.trim())) throw new Error('Lien du règlement invalide (https://…).');
     writeConfig_(k, v);
   });

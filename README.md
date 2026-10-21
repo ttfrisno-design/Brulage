@@ -444,10 +444,17 @@ d'inscription* est vide).
    reçoit un **n° (ex. TT26-001)** envoyé par e-mail avec le récapitulatif.
 3. **Consulter votre compte**, 4. **Modifier vos activités** (demande au club),
    5. **Envoyer des documents** : n° de dossier + téléphone du responsable.
-   Questionnaire de santé (QS-SPORT adulte ou questionnaire du sportif
-   mineur) : **les réponses restent sur l'appareil**, seule l'attestation est
-   enregistrée (« NON à toutes les questions » ou « certificat médical
-   requis »). Acceptation du règlement intérieur, envoi du certificat médical et
+   Certification médicale selon la FFTT : **mineur** → questionnaire de santé
+   pour mineur n° 26-10-2 (attestation signée par le joueur et le
+   représentant légal) ; **majeur en créneau loisir** → questionnaire pour
+   majeur « licence Découverte » n° 26-10-3 (attestation signée) ; **majeur
+   en créneau compétition** → attestation PPS en ligne chaque année (à 65 ans
+   et plus : certificat médical à l'entrée en V65, V70, V80, V85, V90). Un
+   certificat médical en cours de validité remplace toujours le PPS ou le
+   questionnaire. Les réponses restent sur l'appareil ; si tout est NON,
+   l'attestation (coupon FFTT) est signée au doigt / à la souris et
+   enregistrée en PDF dans le Drive du club. Type Loisir / Compétition de
+   chaque créneau et lien du PPS : réglages de l'admin. Acceptation du règlement intérieur, envoi du certificat médical et
    des justificatifs (photo ou PDF, 5 Mo max) dans un dossier **privé** du
    Drive du club (« RebonTT – Documents des adhésions »).
 6. **Envoyer un message** au club.
