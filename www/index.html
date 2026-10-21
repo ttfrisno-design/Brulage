@@ -212,7 +212,9 @@
     .slot-editor { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
     .slot-row { display: grid; grid-template-columns: 120px 110px 110px minmax(0, 1fr) auto; gap: 6px; align-items: center; }
     .slot-item { border: 1px solid var(--border); border-radius: 8px; padding: 6px; background: #fafbfc; }
-    .slot-more { display: grid; grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr) 80px 90px 80px 70px; gap: 6px; margin-top: 6px; }
+    .slot-more { display: grid; grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr) 80px 110px 70px; gap: 6px; margin-top: 6px; }
+    .lic-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; }
+    .lic-grid label { margin: 0; font-size: 12px; }
     .slot-more label { margin: 0; font-size: 11px; }
     .slot-more select, .slot-more input { width: 100%; padding: 5px 6px; border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: 13px; }
     @media (max-width: 760px) { .slot-more { grid-template-columns: 1fr 1fr 1fr; } }
@@ -715,6 +717,8 @@
             <div><label for="adhSupp">Supplément hors commune (€ par membre)</label><input type="number" id="adhSupp" min="0" step="1"></div>
             <div><label for="adhRed">Réduction famille (€ par membre supplémentaire)</label><input type="number" id="adhRed" min="0" step="1"></div>
             <div><label for="adhCheques">Nombre maximal de chèques</label><input type="number" id="adhCheques" min="1" max="10" step="1"></div>
+            <div class="full"><label>Prix de la licence FFTT par catégorie d'âge (€, ajouté au tarif du créneau)</label>
+              <div id="adhLic" class="lic-grid"></div></div>
             <div class="full"><label>Modes de règlement proposés</label>
               <div id="adhModes" style="display:flex;gap:14px;flex-wrap:wrap;font-size:14px;"></div></div>
             <div><label for="adhOrdre">Ordre des chèques</label><input type="text" id="adhOrdre"></div>
@@ -3845,13 +3849,13 @@
       '<input type="time" aria-label="Fin" data-f="fin" value="' + escAttr(c.fin || '') + '">' +
       '<input type="text" aria-label="Niveau" data-f="niveau" placeholder="Niveau (ex. jeunes débutants)" value="' + escAttr(c.niveau || '') + '">' +
       '<button type="button" class="small" title="Supprimer ce créneau" onclick="this.closest(\'.slot-item\').remove()">✕</button></div>' +
+      '<input type="hidden" data-f="licence" value="' + num(c.licence) + '">' + // ancien prix (repli)
       '<div class="slot-more">' +
       f('public', 'Public', '<select data-f="public">' + ['Tous', 'Jeunes', 'Adultes'].map(function (p) { return '<option' + ((c.public || 'Tous') === p ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>') +
       f('lieu', 'Lieu', '<input type="text" data-f="lieu" placeholder="Salle" value="' + escAttr(c.lieu || '') + '">') +
       f('encadrant', 'Encadrant', '<input type="text" data-f="encadrant" value="' + escAttr(c.encadrant || '') + '">') +
       f('tarif', 'Tarif €', '<input type="number" min="0" data-f="tarif" value="' + num(c.tarif) + '">') +
       f('seances', 'Lié (même niv.)', '<select data-f="seances" title="Oui : 2 séances par semaine, inscription aux deux créneaux du même niveau"><option value="1"' + (c.seances === 2 ? '' : ' selected') + '>Non</option><option value="2"' + (c.seances === 2 ? ' selected' : '') + '>Oui</option></select>') +
-      f('licence', 'Licence €', '<input type="number" min="0" data-f="licence" value="' + num(c.licence) + '">') +
       f('places', 'Places', '<input type="number" min="0" data-f="places" placeholder="∞" value="' + num(c.places) + '">') +
       '</div></div>';
   }
@@ -3875,6 +3879,7 @@
   // ADHÉSIONS (site d'inscription au club) — onglet administrateur
   // ---------------------------------------------------------------------------
   var ADH_MODES = ['Chèque', 'Espèces', 'Virement', 'HelloAsso'];
+  var LIC_CATS = ['Poussin', 'Benjamin', 'Minime', 'Cadet', 'Junior', 'Senior', 'V40', 'V50', 'V60', 'V70', 'V80'];
   function inscriptionUrl() {
     var base = (window.APP_CONFIG && window.APP_CONFIG.INSCRIPTION_URL) ||
       (/github\.io$|^localhost$|^127\./.test(location.hostname) ? 'inscription.html' : 'https://ttfrisno-design.github.io/Brulage/inscription.html');
@@ -3919,6 +3924,20 @@
       set('adhSupp', r.AdhSupplementExterieur || ''); set('adhRed', r.AdhReductionFamille || ''); set('adhCheques', s.chequesMax);
       set('adhOrdre', r.AdhOrdreCheque || s.ordreCheque); set('adhIban', r.AdhIban); set('adhAides', s.aides.map(function (a) { return a.nom + (a.montant ? '|' + a.montant : ''); }).join('\n'));
       set('adhRiUrl', r.AdhReglementUrl); set('adhRiTxt', r.AdhReglementTexte); set('adhContact', r.AdhContactEmail); set('adhInfos', r.AdhInfos);
+      // Licence par catégorie ; à défaut, reprise des anciens montants saisis
+      // sur les créneaux jeunes / adultes.
+      var lic = s.licences || {}, fallback = {};
+      d.creneaux.forEach(function (c) {
+        if (!c.licence) return;
+        LIC_CATS.forEach(function (k) {
+          var young = ['Poussin', 'Benjamin', 'Minime', 'Cadet', 'Junior'].indexOf(k) >= 0;
+          if (c.public === 'Tous' || (c.public === 'Jeunes') === young) fallback[k] = fallback[k] || c.licence;
+        });
+      });
+      document.getElementById('adhLic').innerHTML = LIC_CATS.map(function (k) {
+        var v = lic[k] || fallback[k] || '';
+        return '<div><label>' + k + '</label><input type="number" min="0" step="0.5" data-cat="' + k + '" value="' + escAttr(v) + '"></div>';
+      }).join('');
       var modes = (r.AdhModes || 'Chèque,Espèces,HelloAsso').split(',').map(function (x) { return x.trim(); });
       document.getElementById('adhModes').innerHTML = ADH_MODES.map(function (m) {
         return '<label style="display:flex;gap:6px;align-items:center;margin:0;color:var(--ink);"><input type="checkbox" value="' + m + '"' + (modes.indexOf(m) >= 0 ? ' checked' : '') + '> ' +
@@ -3984,7 +4003,8 @@
       AdhSaison: v('adhSaison'), AdhOuvert: v('adhOuvert'), AdhCommune: v('adhCommune'), AdhSupplementExterieur: v('adhSupp'),
       AdhReductionFamille: v('adhRed'), AdhChequesMax: v('adhCheques'), AdhModes: modes.join(','), AdhOrdreCheque: v('adhOrdre'),
       AdhIban: v('adhIban'), AdhAides: document.getElementById('adhAides').value.trim(), AdhReglementUrl: v('adhRiUrl'),
-      AdhReglementTexte: document.getElementById('adhRiTxt').value.trim(), AdhContactEmail: v('adhContact'), AdhInfos: document.getElementById('adhInfos').value.trim(),
+      AdhReglementTexte: document.getElementById('adhRiTxt').value.trim(),
+      AdhLicences: JSON.stringify(Array.prototype.reduce.call(document.querySelectorAll('#adhLic input'), function (o, i) { if (Number(i.value) > 0) o[i.dataset.cat] = Number(i.value); return o; }, {})), AdhContactEmail: v('adhContact'), AdhInfos: document.getElementById('adhInfos').value.trim(),
     }]).then(function (res) { STATE.adh = res; renderAdhAdmin(true); st.textContent = '✓ Enregistré'; })
       .catch(function (err) { st.textContent = ''; onGsError(err); });
   }
