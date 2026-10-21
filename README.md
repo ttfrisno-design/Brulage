@@ -237,6 +237,17 @@ changement de phase), chaque tableau défile automatiquement jusqu'à la
 **prochaine date de match** (aujourd'hui compris ; la dernière date si la
 phase est terminée). Ensuite, la position choisie est conservée.
 
+## Brûlage non rétroactif et matchs passés
+
+Une case n'est orange (brûlé) que si le joueur était **déjà brûlé à cette
+date** : seuls les matchs joués avant la date comptent. Les journées
+disputées avant le brûlage ne sont donc pas marquées.
+
+Deux jours après une date de match, l'équipe jouée n'est plus modifiable
+(case affichée avec 🔒) pour éviter une modification involontaire.
+L'administrateur peut cliquer sur 🔒 pour déverrouiller la case et corriger
+une erreur.
+
 ## Indisponibilités saisies par l'administrateur
 
 Dans le tableau de brûlage, chaque case comporte un petit bouton
