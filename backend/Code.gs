@@ -884,8 +884,9 @@ const JOURS_ = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Di
 
 /** Créneaux d'entraînement (JSON dans Config) : jour, horaires, niveau
  * (= activité, ex. « Jeunes confirmés »), et pour le site d'inscription :
- * public (Jeunes / Adultes / Tous), lieu, encadrant, tarif, nombre de
- * séances par semaine comprises (1 ou 2), part licence FFTT et places. */
+ * public (Jeunes / Adultes / Tous), lieu, encadrant, tarif, séances par
+ * semaine (2 = créneau lié à l'autre créneau du même niveau : on s'inscrit
+ * aux deux), part licence FFTT et places. */
 function parseCreneaux_(raw) {
   let list = [];
   try { list = JSON.parse(String(raw || '[]')); } catch (e) { list = []; }
@@ -2991,6 +2992,11 @@ function adhEligible_(c, cat) {
   if (c.public === 'Adultes') return !adhJeune_(cat);
   return true;
 }
+/** Créneau lié à c (même niveau, 2 séances par semaine), ou null. */
+function adhPartner_(c, crs) {
+  if (!c || c.seances !== 2) return null;
+  return crs.find(function (x) { return x.id !== c.id && x.seances === 2 && adhNorm_(x.niveau) === adhNorm_(c.niveau); }) || null;
+}
 function adhSlotLabel_(c) {
   return c ? (c.niveau || 'Entraînement') + ' – ' + c.jour + ' ' + c.debut + (c.fin ? '-' + c.fin : '') : '';
 }
@@ -3083,11 +3089,9 @@ function adhCompute_(d, st, crs) {
     const c1 = byId[m.creneau1];
     if (!c1) throw new Error(out.prenom + ' : choisissez un créneau.');
     if (!adhEligible_(c1, out.categorie)) throw new Error(out.prenom + ' (' + out.categorie + ') : le créneau « ' + adhSlotLabel_(c1) + ' » ne correspond pas à son âge.');
-    let c2 = null;
-    if (m.creneau2) {
-      c2 = byId[m.creneau2];
-      if (!c2 || c2.id === c1.id || c1.seances !== 2 || adhNorm_(c2.niveau) !== adhNorm_(c1.niveau)) throw new Error(out.prenom + ' : 2e séance invalide.');
-    }
+    // Créneaux liés (2 séances par semaine) : l'inscription vaut pour les
+    // deux créneaux du même niveau.
+    const c2 = adhPartner_(c1, crs);
     out.creneau1 = c1.id;
     out.creneau2 = c2 ? c2.id : '';
     out.montant = Math.max(0, c1.tarif + c1.licence + (exterieur ? st.supplement : 0) - (i > 0 ? st.reductionFamille : 0));

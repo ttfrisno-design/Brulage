@@ -435,7 +435,7 @@ table, organisée comme le site d'inscription du FRI :
 d'inscription* est vide).
 
 1. **Consulter les activités** : semainier des créneaux (horaires, lieu,
-   encadrant, tarif, part licence FFTT, 2e séance au choix, places restantes).
+   encadrant, tarif, part licence FFTT, créneaux liés, places restantes).
 2. **Créer un compte** : responsable légal (« Déjà adhérent ? » retrouve les
    informations par téléphone + 3 lettres du nom, dans les dossiers ou
    l'effectif), membres (date de naissance → catégorie FFTT de la saison, seuls
@@ -455,7 +455,8 @@ d'inscription* est vide).
 Mise en place :
 - Créneaux, tarifs et places : *Dates & Réglages › Présentation du club*
   (2e ligne de chaque créneau : public Jeunes/Adultes/Tous, lieu, encadrant,
-  tarif, 1 ou 2 séances par semaine comprises, part licence FFTT, places).
+  tarif, *Lié* = Oui pour 2 séances par semaine : l'inscription vaut pour les
+  deux créneaux du même niveau, part licence FFTT, places).
 - Réglages (saison, ouverture, commune et supplément extérieur, réduction
   famille, modes de règlement, ordre des chèques, IBAN, aides, règlement
   intérieur, e-mail du club) : onglet **Adhésions** de l'admin, qui liste aussi
