@@ -142,6 +142,8 @@ const API_FUNCTIONS_ = {
   setAdhesionAdmin: setAdhesionAdmin,
   setAdhesionMessageStatut: setAdhesionMessageStatut,
   createPlayerFromAdhesion: createPlayerFromAdhesion,
+  // Comité départemental
+  getComiteExport: getComiteExport,
 };
 
 // Fonctions en lecture seule : toutes les autres modifient les données et
@@ -150,7 +152,7 @@ const READ_ONLY_FUNCTIONS_ = {
   login: true, getStaticConfig: true, getPlayerData: true, getAdminData: true, listPlayers: true,
   getCompetitions: true, getCompetitionsAdmin: true, getDataVersion: true, getProfile: true,
   getPushStatus: true, getHelloAssoStatus: true, getClubInfo: true,
-  getAdhesionInfo: true, findAdherent: true, getAdhesionsAdmin: true,
+  getAdhesionInfo: true, findAdherent: true, getAdhesionsAdmin: true, getComiteExport: true,
 };
 
 /** Numéro de version des données, changé à chaque modification faite via
@@ -3666,4 +3668,57 @@ function createPlayerFromAdhesion(token, dossier, n) {
 function autoriserInscriptions() {
   adhFolder_();
   Logger.log('Autorisations OK. Quota d\'e-mails restant aujourd\'hui : ' + MailApp.getRemainingDailyQuota());
+}
+
+// ----------------------------------------------------------------------------------
+// COMITÉ DÉPARTEMENTAL (CD76TT) — inscriptions validées de tous les clubs
+// ----------------------------------------------------------------------------------
+// Le comité (www/comite.html, ou son propre script backend/Comite.gs) interroge
+// le script de chaque club avec un code secret. Ce code est rangé dans les
+// propriétés du script du club (COMITE_CODE, 12 caractères minimum) : il
+// n'apparaît ni dans le code, ni dans l'application. Après 10 codes erronés,
+// l'accès est bloqué 15 minutes.
+
+function comiteCheck_(code) {
+  const expected = String(PropertiesService.getScriptProperties().getProperty('COMITE_CODE') || '');
+  if (expected.length < 12) throw new Error('Accès comité non configuré pour ce club.');
+  const cache = CacheService.getScriptCache();
+  const fails = Number(cache.get('COMITE_FAILS') || 0);
+  if (fails >= 10) throw new Error('Trop de tentatives : réessayez dans 15 minutes.');
+  const given = String(code || '');
+  let diff = given.length ^ expected.length;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ given.charCodeAt(i % Math.max(given.length, 1));
+  if (diff !== 0) {
+    cache.put('COMITE_FAILS', String(fails + 1), 900);
+    throw new Error('Code comité incorrect.');
+  }
+}
+
+/** Comité : inscriptions VALIDÉES par le club aux compétitions individuelles
+ * (jeunes, adultes, stages…), hors participations annulées. */
+function getComiteExport(code) {
+  ensureSheets_();
+  comiteCheck_(code);
+  const settings = competitionSettings_();
+  const comps = {};
+  readCompetitions_(settings).forEach(function (c) { comps[c.id] = c; });
+  const players = {};
+  readTable_('Joueurs').forEach(function (p) { players[String(p.ID)] = p; });
+  const rows = readInscriptions_().filter(function (i) {
+    return i.statut === 'Validée' && i.participation !== 'Annulée' && comps[i.competitionId];
+  }).map(function (i) {
+    const c = comps[i.competitionId], p = players[String(i.playerId)] || {};
+    return {
+      type: c.type, competition: c.nom, epreuve: c.epreuve, date: c.date, lieu: c.lieu,
+      nom: String(p.Nom || ''), prenom: String(p.Prénom || ''), categorie: String(p.Catégorie || ''),
+      sexe: String(p.Sexe || '').toUpperCase(), licence: String(p.Licence || ''),
+      points: p.Points === '' || p.Points === undefined ? '' : Number(p.Points) || '',
+      equipe: i.equipe, participation: i.participation, reglement: i.reglement,
+    };
+  });
+  return {
+    club: { nom: String(readConfigValue_('ClubNom', '') || ''), ville: String(readConfigValue_('ClubVille', '') || '') },
+    generatedAt: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'),
+    inscriptions: rows,
+  };
 }

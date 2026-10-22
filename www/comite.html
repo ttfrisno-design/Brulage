@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0f2f57">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/icon-32.png">
+  <title>Comité – inscriptions aux compétitions</title>
+  <style>
+    :root {
+      --navy: #17457d; --navy-dark: #0f2f57; --orange: #f2731d;
+      --ink: #1c2530; --muted: #6b7684; --border: #dfe3e8; --bg: #f4f6f8; --card: #fff;
+      --ok: #2e7d32; --ok-bg: #e3f4e4; --warn: #8a5a00; --warn-bg: #fff3d6; --err: #c62828; --err-bg: #fde3e3;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+    header { background: var(--navy-dark); color: #fff; padding: calc(12px + env(safe-area-inset-top)) 18px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    header h1 { margin: 0; font-size: 18px; }
+    header small { display: block; color: #9ec3ee; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+    header button { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.35); color: #fff; border-radius: 6px; padding: 6px 12px; cursor: pointer; font: inherit; }
+    main { max-width: 1250px; margin: 0 auto; padding: 16px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+    .login { max-width: 420px; margin: 40px auto; }
+    .login h2 { margin: 0 0 6px; }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+    input, select { padding: 9px 10px; border: 1px solid var(--border); border-radius: 6px; font: inherit; font-size: 15px; }
+    .login input { width: 100%; letter-spacing: 2px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; border-radius: 7px; padding: 9px 14px; font: inherit; font-weight: 600; cursor: pointer; border: 1px solid var(--navy); background: #fff; color: var(--navy); text-decoration: none; }
+    .btn.primary { background: var(--navy); color: #fff; }
+    .btn.orange { background: var(--orange); border-color: var(--orange); color: #fff; }
+    .btn:disabled { opacity: .5; cursor: wait; }
+    .error { color: var(--err); margin-top: 10px; }
+    .hidden { display: none !important; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+    .toolbar .grow { flex: 1; min-width: 180px; }
+    .toolbar .grow input { width: 100%; }
+    .seg { display: inline-flex; border: 1px solid var(--navy); border-radius: 7px; overflow: hidden; }
+    .seg button { border: 0; background: #fff; color: var(--navy); padding: 8px 12px; font: inherit; cursor: pointer; }
+    .seg button.on { background: var(--navy); color: #fff; }
+    .clubs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .chip { display: inline-block; border-radius: 12px; padding: 2px 10px; font-size: 12px; font-weight: 600; background: #eef0f2; }
+    .chip.ok { background: var(--ok-bg); color: var(--ok); }
+    .chip.warn { background: var(--warn-bg); color: var(--warn); }
+    .chip.err { background: var(--err-bg); color: var(--err); }
+    .stats { color: var(--muted); font-size: 13px; margin-top: 8px; }
+    .group { background: var(--card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+    .group > h3 { margin: 0; padding: 10px 14px; background: #e8f1fb; color: var(--navy-dark); font-size: 15px; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+    .group > h3 span { font-weight: 400; color: var(--muted); font-size: 13px; }
+    .group > h3 b.count { margin-left: auto; color: var(--navy); font-size: 13px; }
+    .sub { padding: 8px 14px 4px; font-weight: 700; color: var(--navy); border-top: 1px solid var(--border); }
+    .sub span { font-weight: 400; color: var(--muted); }
+    .tbl { overflow-x: auto; padding: 0 14px 10px; }
+    table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 13px; table-layout: fixed; }
+    th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #eef0f2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    th:nth-child(1) { width: 20%; } th:nth-child(2) { width: 15%; } th:nth-child(3) { width: 10%; } th:nth-child(4) { width: 6%; }
+    th:nth-child(5) { width: 12%; } th:nth-child(6) { width: 8%; } th:nth-child(7) { width: 12%; } th:nth-child(8) { width: 17%; }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; }
+    .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 8px; background: #eef0f2; }
+    .tag.Jeunes { background: #e3f4e4; color: var(--ok); }
+    .tag.Adultes { background: #e8f1fb; color: var(--navy); }
+    .tag.Stages { background: #fff3d6; color: var(--warn); }
+    .empty { text-align: center; color: var(--muted); padding: 30px; }
+    footer { text-align: center; color: var(--muted); font-size: 12px; padding: 20px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div><small>Espace comité départemental</small><h1 id="title">Inscriptions aux compétitions</h1></div>
+    <button id="logoutBtn" class="hidden" onclick="logout()">Déconnexion</button>
+  </header>
+  <main>
+    <div id="loginBox" class="card login">
+      <h2>🔒 Accès comité</h2>
+      <p style="color:var(--muted);margin:0;">Inscriptions validées par les clubs, classées par compétition et par club.</p>
+      <label for="code">Code d'accès du comité</label>
+      <input type="password" id="code" autocomplete="current-password" onkeydown="if (event.key === 'Enter') login()">
+      <button class="btn primary" style="margin-top:12px;width:100%;justify-content:center;" id="loginBtn" onclick="login()">Se connecter</button>
+      <div id="loginError" class="error hidden"></div>
+    </div>
+
+    <div id="app" class="hidden">
+      <div class="card">
+        <div class="toolbar">
+          <div class="seg"><button id="vComp" class="on" onclick="setView('comp')">Par compétition</button><button id="vClub" onclick="setView('club')">Par club</button></div>
+          <select id="fType" onchange="render()"><option value="">Toutes les compétitions</option><option>Jeunes</option><option>Adultes</option><option>Stages</option><option value="autre">Autres</option></select>
+          <select id="fClub" onchange="render()"><option value="">Tous les clubs</option></select>
+          <label style="display:flex;gap:6px;align-items:center;margin:0;color:var(--ink);"><input type="checkbox" id="fFutur" checked onchange="render()"> Épreuves à venir</label>
+          <div class="grow"><input type="search" id="fSearch" placeholder="Rechercher (joueur, compétition, lieu, licence…)" oninput="render()"></div>
+        </div>
+        <div class="toolbar" style="margin-top:10px;">
+          <button class="btn orange" onclick="downloadXlsx(this)">⬇ Télécharger (.xlsx)</button>
+          <a class="btn hidden" id="sheetLink" target="_blank" rel="noopener">📄 Google Sheet du comité ↗</a>
+          <button class="btn" onclick="loadAll()">↻ Actualiser</button>
+        </div>
+        <div class="clubs" id="clubStatus"></div>
+        <div class="stats" id="stats"></div>
+      </div>
+      <div id="list"></div>
+    </div>
+  </main>
+  <footer>RebonTT · espace comité (accès réservé)</footer>
+
+<script src="config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+  // ---------------------------------------------------------------------------
+  // Espace comité départemental : interroge le script de chaque club de
+  // l'annuaire (config.js › CLUBS) avec le code comité, et rassemble les
+  // inscriptions validées. Le code n'est gardé que le temps de la session.
+  // ---------------------------------------------------------------------------
+  var CFG = window.APP_CONFIG || {};
+  var CLUBS = (CFG.CLUBS && CFG.CLUBS.length ? CFG.CLUBS : [{ id: 'club', nom: 'Club' }]).map(function (c) {
+    return { id: c.id, nom: c.nom, ville: c.ville || '', url: c.serverUrl || CFG.SERVER_URL };
+  });
+  var COMITE = CFG.COMITE || {};
+  var DATA = [], STATUS = {}, VIEW = 'comp', CODE = '';
+
+  function $(id) { return document.getElementById(id); }
+  function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function dateKey(d) { var m = String(d || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + m[2] + m[1] : '99999999'; }
+  function today() { var d = new Date(); return '' + d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2); }
+  function compLabel(r) { return r.competition + (r.epreuve ? ' – ' + r.epreuve : ''); }
+
+  if (COMITE.nom) { $('title').textContent = 'Inscriptions aux compétitions – ' + COMITE.nom; document.title = COMITE.nom + ' – inscriptions'; }
+  if (COMITE.sheetUrl) { $('sheetLink').href = COMITE.sheetUrl; $('sheetLink').classList.remove('hidden'); }
+
+  function call(url, fn, args) {
+    return fetch(url, { method: 'POST', mode: 'cors', credentials: 'omit', cache: 'no-store', body: JSON.stringify({ fn: fn, args: args || [] }) })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (p) { if (!p || !p.ok) throw new Error((p && p.error) || 'Réponse invalide'); return p.result; });
+  }
+
+  function login() {
+    var code = $('code').value.trim();
+    if (!code) return;
+    CODE = code;
+    $('loginBtn').disabled = true; $('loginBtn').textContent = 'Connexion…';
+    loadAll().then(function (okCount) {
+      $('loginBtn').disabled = false; $('loginBtn').textContent = 'Se connecter';
+      if (!okCount) {
+        var msgs = Object.keys(STATUS).map(function (k) { return STATUS[k].error; }).filter(Boolean);
+        $('loginError').textContent = msgs[0] || 'Accès refusé.';
+        $('loginError').classList.remove('hidden');
+        CODE = '';
+        return;
+      }
+      try { sessionStorage.setItem('rebontt_comite', code); } catch (e) { /* navigation privée */ }
+      $('loginBox').classList.add('hidden'); $('app').classList.remove('hidden'); $('logoutBtn').classList.remove('hidden');
+      $('code').value = '';
+    });
+  }
+  function logout() {
+    CODE = ''; DATA = [];
+    try { sessionStorage.removeItem('rebontt_comite'); } catch (e) { /* rien */ }
+    $('app').classList.add('hidden'); $('logoutBtn').classList.add('hidden'); $('loginBox').classList.remove('hidden'); $('loginError').classList.add('hidden');
+  }
+
+  // Tous les clubs en parallèle ; un club en erreur n'empêche pas les autres.
+  function loadAll() {
+    $('clubStatus').innerHTML = CLUBS.map(function (c) { return '<span class="chip">⏳ ' + esc(c.nom) + '</span>'; }).join('');
+    return Promise.all(CLUBS.map(function (c) {
+      return call(c.url, 'getComiteExport', [CODE]).then(function (res) {
+        var nom = (res.club && res.club.nom) || c.nom;
+        STATUS[c.id] = { nom: nom, n: res.inscriptions.length, at: res.generatedAt };
+        return res.inscriptions.map(function (r) { r.club = nom; return r; });
+      }).catch(function (e) {
+        STATUS[c.id] = { nom: c.nom, error: e.message };
+        return [];
+      });
+    })).then(function (lists) {
+      DATA = [].concat.apply([], lists);
+      var clubs = CLUBS.map(function (c) { return STATUS[c.id].nom; });
+      $('fClub').innerHTML = '<option value="">Tous les clubs</option>' + clubs.map(function (n) { return '<option>' + esc(n) + '</option>'; }).join('');
+      $('clubStatus').innerHTML = CLUBS.map(function (c) {
+        var s = STATUS[c.id];
+        return s.error ? '<span class="chip ' + (/non configuré/.test(s.error) ? 'warn' : 'err') + '" title="' + esc(s.error) + '">⚠ ' + esc(s.nom) + ' : ' + esc(s.error) + '</span>'
+          : '<span class="chip ok">✓ ' + esc(s.nom) + ' : ' + s.n + ' inscription' + (s.n > 1 ? 's' : '') + '</span>';
+      }).join('');
+      render();
+      return CLUBS.filter(function (c) { return !STATUS[c.id].error; }).length;
+    });
+  }
+
+  function filtered() {
+    var t = $('fType').value, club = $('fClub').value, fut = $('fFutur').checked, q = $('fSearch').value.toLowerCase().trim(), now = today();
+    return DATA.filter(function (r) {
+      if (t === 'autre' ? ['Jeunes', 'Adultes', 'Stages'].indexOf(r.type) >= 0 : (t && r.type !== t)) return false;
+      if (club && r.club !== club) return false;
+      if (fut && dateKey(r.date) < now) return false;
+      if (q && [r.competition, r.epreuve, r.lieu, r.club, r.nom, r.prenom, r.licence, r.categorie].join(' ').toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    }).sort(function (a, b) {
+      return VIEW === 'club'
+        ? a.club.localeCompare(b.club) || dateKey(a.date).localeCompare(dateKey(b.date)) || compLabel(a).localeCompare(compLabel(b)) || a.nom.localeCompare(b.nom)
+        : dateKey(a.date).localeCompare(dateKey(b.date)) || compLabel(a).localeCompare(compLabel(b)) || a.club.localeCompare(b.club) || a.nom.localeCompare(b.nom) || a.prenom.localeCompare(b.prenom);
+    });
+  }
+  function setView(v) { VIEW = v; $('vComp').classList.toggle('on', v === 'comp'); $('vClub').classList.toggle('on', v === 'club'); render(); }
+
+  function playersTable(rows) {
+    return '<div class="tbl"><table><tr><th>Nom</th><th>Prénom</th><th>Catégorie</th><th>Sexe</th><th>Licence</th><th>Points</th><th>Équipe</th><th>Participation</th></tr>' +
+      rows.map(function (r) {
+        return '<tr><td><b>' + esc(r.nom) + '</b></td><td>' + esc(r.prenom) + '</td><td>' + esc(r.categorie) + '</td><td>' + esc(r.sexe) + '</td><td>' + esc(r.licence) + '</td><td>' + esc(r.points) + '</td><td>' + esc(r.equipe) + '</td><td>' + esc(r.participation || '—') + '</td></tr>';
+      }).join('') + '</table></div>';
+  }
+  function groupBy(rows, keyFn) {
+    var out = [], idx = {};
+    rows.forEach(function (r) { var k = keyFn(r); if (!(k in idx)) { idx[k] = out.length; out.push({ key: k, rows: [] }); } out[idx[k]].rows.push(r); });
+    return out;
+  }
+  function render() {
+    var rows = filtered();
+    var comps = groupBy(rows, function (r) { return r.date + '|' + compLabel(r); });
+    $('stats').textContent = rows.length + ' inscription' + (rows.length > 1 ? 's' : '') + ' · ' + comps.length + ' épreuve' + (comps.length > 1 ? 's' : '') +
+      ' · ' + groupBy(rows, function (r) { return r.club; }).length + ' club(s)';
+    if (!rows.length) { $('list').innerHTML = '<div class="card empty">Aucune inscription validée pour ces critères.</div>'; return; }
+    var html;
+    if (VIEW === 'comp') {
+      html = comps.map(function (g) {
+        var r0 = g.rows[0];
+        return '<div class="group"><h3><span class="tag ' + esc(r0.type) + '">' + esc(r0.type) + '</span>' + esc(compLabel(r0)) + '<span>' + esc(r0.date) + (r0.lieu ? ' · ' + esc(r0.lieu) : '') + '</span><b class="count">' + g.rows.length + ' inscrit' + (g.rows.length > 1 ? 's' : '') + '</b></h3>' +
+          groupBy(g.rows, function (r) { return r.club; }).map(function (c) {
+            return '<div class="sub">' + esc(c.key) + ' <span>(' + c.rows.length + ')</span></div>' + playersTable(c.rows);
+          }).join('') + '</div>';
+      }).join('');
+    } else {
+      html = groupBy(rows, function (r) { return r.club; }).map(function (c) {
+        return '<div class="group"><h3>' + esc(c.key) + '<b class="count">' + c.rows.length + ' inscription' + (c.rows.length > 1 ? 's' : '') + '</b></h3>' +
+          groupBy(c.rows, function (r) { return r.date + '|' + compLabel(r); }).map(function (g) {
+            var r0 = g.rows[0];
+            return '<div class="sub"><span class="tag ' + esc(r0.type) + '">' + esc(r0.type) + '</span> ' + esc(compLabel(r0)) + ' <span>· ' + esc(r0.date) + (r0.lieu ? ' · ' + esc(r0.lieu) : '') + ' (' + g.rows.length + ')</span></div>' + playersTable(g.rows);
+          }).join('') + '</div>';
+      }).join('');
+    }
+    $('list').innerHTML = html;
+  }
+
+  // Classeur : « Par compétition », « Par club » et « Résumé » (nombre
+  // d'inscrits par épreuve et par club), selon les filtres affichés.
+  function downloadXlsx(btn) {
+    if (!window.XLSX) { alert('Bibliothèque Excel indisponible (connexion ?).'); return; }
+    var view = VIEW, cols = ['Date', 'Type', 'Compétition', 'Épreuve', 'Lieu', 'Club', 'Nom', 'Prénom', 'Catégorie', 'Sexe', 'Licence', 'Points', 'Équipe', 'Participation'];
+    var line = function (r) { return [r.date, r.type, r.competition, r.epreuve, r.lieu, r.club, r.nom, r.prenom, r.categorie, r.sexe, r.licence, r.points, r.equipe, r.participation]; };
+    VIEW = 'comp'; var byComp = filtered(); VIEW = 'club'; var byClub = filtered(); VIEW = view;
+    var wb = XLSX.utils.book_new();
+    var add = function (name, aoa, widths) {
+      var ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = widths.map(function (w) { return { wch: w }; });
+      ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(aoa.length - 1, 0), c: aoa[0].length - 1 } }) };
+      XLSX.utils.book_append_sheet(wb, ws, name);
+    };
+    var W = [11, 9, 26, 22, 22, 26, 18, 14, 10, 6, 11, 7, 8, 13];
+    add('Par compétition', [cols].concat(byComp.map(line)), W);
+    var clubCols = ['Club', 'Date', 'Type', 'Compétition', 'Épreuve', 'Lieu', 'Nom', 'Prénom', 'Catégorie', 'Sexe', 'Licence', 'Points', 'Équipe', 'Participation'];
+    add('Par club', [clubCols].concat(byClub.map(function (r) { var l = line(r); return [l[5]].concat(l.slice(0, 5), l.slice(6)); })), [26, 11, 9, 26, 22, 22, 18, 14, 10, 6, 11, 7, 8, 13]);
+    var clubs = groupBy(byComp, function (r) { return r.club; }).map(function (g) { return g.key; }).sort();
+    var summary = [['Date', 'Type', 'Épreuve'].concat(clubs, ['Total'])];
+    groupBy(byComp, function (r) { return r.date + '|' + compLabel(r); }).forEach(function (g) {
+      var r0 = g.rows[0];
+      summary.push([r0.date, r0.type, compLabel(r0)].concat(clubs.map(function (c) { return g.rows.filter(function (r) { return r.club === c; }).length; }), [g.rows.length]));
+    });
+    add('Résumé', summary, [11, 9, 34].concat(clubs.map(function () { return 14; }), [8]));
+    var d = new Date();
+    XLSX.writeFile(wb, 'inscriptions-' + (COMITE.nom || 'comite').replace(/\W+/g, '') + '-' + d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2) + '.xlsx');
+  }
+
+  // Reconnexion automatique dans le même onglet.
+  (function () {
+    var saved = null;
+    try { saved = sessionStorage.getItem('rebontt_comite'); } catch (e) { saved = null; }
+    if (saved) { $('code').value = saved; login(); }
+  })();
+</script>
+</body>
+</html>
