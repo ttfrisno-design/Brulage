@@ -806,6 +806,7 @@
 
   <footer class="hint" id="clubFooter">FRI — Foyer Rural d'Isneauville · Gestion des brûlages</footer>
 
+<script src="clubs.js"></script>
 <script src="config.js"></script>
 <script>
   // URL du déploiement Apps Script (se termine par /exec), utilisée pour les
@@ -839,6 +840,20 @@
   };
 
   var GROUP_LABEL = { A: 'Régional 3 (Dim.)', B: 'Départemental 1/2 (Ven. 20h)', C: 'Départemental 3/4 (Ven. 20h)' };
+  // Libellé d'un groupe de dates, déduit des équipes du club (onglet
+  // « Equipes ») : divisions (« Départemental 1/2 »), jour et heure.
+  function groupLabel(g, court) {
+    var teams = ((STATE.config && STATE.config.teams) || []).filter(function (t) { return t.group === g && isFriTeam(t); });
+    if (!teams.length) return court ? GROUP_LABEL[g].replace(/\s*\(.*\)$/, '') : GROUP_LABEL[g];
+    var divs = [];
+    teams.forEach(function (t) { if (t.division && divs.indexOf(t.division) < 0) divs.push(t.division); });
+    var m = divs.map(function (d) { return d.match(/^(.*?)\s*(\d+)$/); });
+    var div = divs.length > 1 && m.every(function (x) { return x && x[1] === m[0][1]; })
+      ? m[0][1] + ' ' + m.map(function (x) { return x[2]; }).sort().join('/') : divs.join(' / ');
+    if (court) return div || ('Groupe ' + g);
+    var t0 = teams[0], when = (t0.day ? t0.day.slice(0, 3) + '.' : '') + (t0.time ? ' ' + t0.time.replace(/^(\d+):00$/, '$1h').replace(/^(\d+):(\d+)$/, '$1h$2') : '');
+    return (div || ('Groupe ' + g)) + (when ? ' (' + when + ')' : '');
+  }
   var GROUP_COLORS = { A: '#1565c0', B: '#ef6c00', C: '#2e7d32' };
   // Groupes de dates du championnat FRI. La Coupe de Rouen et le
   // Championnat Jeunes se gèrent dans les compétitions individuelles (équipe
@@ -1035,11 +1050,41 @@
   // connexion par code. Version servie par le script d'un club (sans
   // annuaire) : directement la présentation de ce club.
   var DEFAULT_SERVER_URL = SERVER_URL;
-  var CLUBS = (window.APP_CONFIG && window.APP_CONFIG.CLUBS) || null;
   var CLUB_KEY = 'rebontt_club';
   var CLUB_FIXED_KEY = 'rebontt_club_memorise';
   function storeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function storeSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* pas bloquant */ } }
+  // Annuaire des clubs (clubs.js) : clubs d'essai sans adresse de script
+  // écartés ; clubs d'essai masqués de la liste sauf en mode essai
+  // (?essai=1, mémorisé ; ?essai=0 pour en sortir).
+  (function () {
+    var m = location.search.match(/[?&]essai=([01])/);
+    if (m) storeSet('rebontt_essai', m[1] === '1' ? '1' : null);
+  })();
+  var ESSAI = storeGet('rebontt_essai') === '1';
+  function usableClubs(list) { return (list || []).filter(function (c) { return c && c.id && c.nom && (!c.essai || c.serverUrl); }); }
+  var CLUBS = (window.APP_CONFIG && window.APP_CONFIG.CLUBS) ? usableClubs(window.APP_CONFIG.CLUBS) : null;
+  // Annuaire relu en ligne (appli installée : nouveaux clubs sans mise à
+  // jour de l'appli) ; la version la plus récente (REBONTT_CLUBS_MAJ) gagne.
+  (function () {
+    if (!CLUBS) return;
+    var bundledMaj = window.REBONTT_CLUBS_MAJ || '';
+    try {
+      var c = JSON.parse(storeGet('rebontt_clubs') || 'null');
+      if (c && c.maj > bundledMaj && Array.isArray(c.clubs)) CLUBS = usableClubs(c.clubs);
+    } catch (e) { /* cache illisible */ }
+    var url = window.APP_CONFIG.CLUBS_URL;
+    if (!url || !window.fetch) return;
+    fetch(url, { cache: 'no-store' }).then(function (r) { return r.ok ? r.text() : ''; }).then(function (txt) {
+      var maj = (txt.match(/REBONTT_CLUBS_MAJ\s*=\s*['"]([^'"]+)['"]/) || [])[1] || '';
+      var list = JSON.parse(txt.slice(txt.indexOf('['), txt.lastIndexOf(']') + 1));
+      if (!Array.isArray(list) || !list.length || maj < bundledMaj) return;
+      storeSet('rebontt_clubs', JSON.stringify({ maj: maj, clubs: list }));
+      CLUBS = usableClubs(list);
+      var pick = document.getElementById('clubPickView');
+      if (pick && !pick.classList.contains('hidden')) renderClubList();
+    }).catch(function () { /* hors-ligne : annuaire intégré */ });
+  })();
   function findClub(id) { return (CLUBS || []).filter(function (c) { return c.id === id; })[0] || null; }
   function defaultClub() { return CLUBS ? CLUBS[0] : { id: 'club', nom: '' }; }
   function applyClub(club) {
@@ -1066,7 +1111,7 @@
   function renderClubList() {
     var q = normTxt(document.getElementById('clubSearch').value).trim();
     var lastId = storeGet(CLUB_KEY);
-    var list = (CLUBS || []).filter(function (c) { return !q || normTxt(c.nom + ' ' + c.ville + ' ' + (c.cp || '') + ' ' + c.id).indexOf(q) >= 0; })
+    var list = (CLUBS || []).filter(function (c) { return (!c.essai || ESSAI || c.id === lastId) && (!q || normTxt(c.nom + ' ' + c.ville + ' ' + (c.cp || '') + ' ' + c.id).indexOf(q) >= 0); })
       .sort(function (a, b) { return (b.id === lastId) - (a.id === lastId) || normTxt(a.nom).localeCompare(normTxt(b.nom)); });
     document.getElementById('clubList').innerHTML = list.length ? list.map(function (c) {
       return '<button type="button" class="club-item" onclick="pickClub(' + escAttr(JSON.stringify(c.id)) + ')">' +
@@ -1623,7 +1668,7 @@
   function hiddenGroupsNote(data) {
     var groups = burnedGroups(data.burned);
     var hidden = ['B', 'C'].filter(function (g) { return groups[g]; })
-      .map(function (g) { return g === 'B' ? 'D1/D2' : 'D3/D4'; });
+      .map(function (g) { return groupLabel(g, true); });
     return hidden.length ? '<br>Les dates ' + hidden.join(' et ') + ' ne vous sont plus proposées.' : '';
   }
 
@@ -1687,7 +1732,7 @@
       byJ[j][r.group] = r;
     });
     var html = '<div class="avail-grid" style="grid-template-columns:auto repeat(' + groups.length + ', minmax(0, 1fr));">' +
-      '<div class="ag-head"></div>' + groups.map(function (g) { return '<div class="ag-head">' + GROUP_LABEL[g] + '</div>'; }).join('');
+      '<div class="ag-head"></div>' + groups.map(function (g) { return '<div class="ag-head">' + groupLabel(g) + '</div>'; }).join('');
     journees.forEach(function (j) {
       html += '<div class="ag-j">' + (jb[(byJ[j][groups[0]] || byJ[j][Object.keys(byJ[j])[0]]).date] ? escHtml(j) : '') + '</div>';
       groups.forEach(function (g) {
@@ -1800,7 +1845,7 @@
     var el = document.getElementById('groupColorLegend');
     if (!el) return;
     el.innerHTML = GROUPS.map(function (g) {
-      return '<span><span class="swatch" style="background:#fff;border:2px solid ' + GROUP_COLORS[g] + ';"></span>' + GROUP_LABEL[g] + '</span>';
+      return '<span><span class="swatch" style="background:#fff;border:2px solid ' + GROUP_COLORS[g] + ';"></span>' + groupLabel(g) + '</span>';
     }).join('');
   }
 
@@ -1917,7 +1962,7 @@
       var gc = GROUP_COLORS[d.group] || '#999';
       if (journeeGapBefore(dates, i)) html += '<th class="jr-gap"></th>';
       html += '<th data-date="' + d.date + '" class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';' + journeeFrameCss(dates, i) + '">' +
-        '<div class="date-head">' + d.date + '</div><div class="grp-head">' + GROUP_LABEL[d.group] + '</div>' +
+        '<div class="date-head">' + d.date + '</div><div class="grp-head">' + groupLabel(d.group) + '</div>' +
         (teamId ? opponentHeadHtml(teamId, d.date, d.group) : '') + '</th>';
     });
     if (!hasFrames) html += teamHeaderCells(lastTeamId, '');
@@ -2190,7 +2235,7 @@
         html += '</tbody></table></div>';
       } else {
         html += '<p style="color:var(--muted);font-size:13px;margin:0;">' + (isFriTeam(t) ? 'Aucun joueur dans cette équipe.'
-          : 'Aucun joueur affecté pour l\'instant : choisissez ' + t.name + ' dans la colonne « ' + GROUP_LABEL[t.group] + ' » du cadre FRI du joueur.') + '</p>';
+          : 'Aucun joueur affecté pour l\'instant : choisissez ' + t.name + ' dans la colonne « ' + groupLabel(t.group) + ' » du cadre FRI du joueur.') + '</p>';
       }
       html += '</div>';
     });
@@ -2300,7 +2345,7 @@
     var el = document.getElementById('captainGroupColorLegend');
     if (!el) return;
     el.innerHTML = GROUPS.map(function (g) {
-      return '<span><span class="swatch" style="background:#fff;border:2px solid ' + GROUP_COLORS[g] + ';"></span>' + GROUP_LABEL[g] + '</span>';
+      return '<span><span class="swatch" style="background:#fff;border:2px solid ' + GROUP_COLORS[g] + ';"></span>' + groupLabel(g) + '</span>';
     }).join('');
   }
 
@@ -2350,7 +2395,7 @@
         html += '</tbody></table></div>';
       } else {
         html += '<p style="color:var(--muted);font-size:13px;margin:0;">' + (isFriTeam(t) ? 'Aucun joueur dans cette équipe.'
-          : 'Aucun joueur affecté pour l\'instant : choisissez ' + t.name + ' dans la colonne « ' + GROUP_LABEL[t.group] + ' » du cadre FRI du joueur.') + '</p>';
+          : 'Aucun joueur affecté pour l\'instant : choisissez ' + t.name + ' dans la colonne « ' + groupLabel(t.group) + ' » du cadre FRI du joueur.') + '</p>';
       }
       html += '</div>';
     });
@@ -4183,7 +4228,7 @@
     [1, 2].forEach(function (phase) {
       html += '<h3>Phase ' + phase + '</h3>';
       GROUPS.forEach(function (grp) {
-        html += '<label>' + GROUP_LABEL[grp] + '</label><div class="dates-grid" id="dates-' + phase + '-' + grp + '">';
+        html += '<label>' + groupLabel(grp) + '</label><div class="dates-grid" id="dates-' + phase + '-' + grp + '">';
         var dates = STATE.config.dates[phase][grp] || [];
         for (var i = 0; i < 7; i++) {
           html += '<input type="text" placeholder="jj/mm/aaaa" value="' + escAttr(dates[i] || '') + '">';

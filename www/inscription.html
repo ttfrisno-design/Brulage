@@ -315,6 +315,7 @@
   </main>
   <footer id="footer">RebonTT · Inscriptions tennis de table</footer>
 
+<script src="clubs.js"></script>
 <script src="config.js"></script>
 <script>
   // ---------------------------------------------------------------------------
@@ -323,7 +324,10 @@
   // ---------------------------------------------------------------------------
   var CFG = window.APP_CONFIG || {};
   var PARAMS = new URLSearchParams(location.search);
-  var CLUB = (CFG.CLUBS || []).find(function (c) { return c.id === PARAMS.get('club'); }) || (CFG.CLUBS || [])[0] || {};
+  // Club d'essai sans adresse de script : ignoré (sinon il utiliserait le
+  // script par défaut, celui d'un vrai club).
+  var CLUBS_OK = (CFG.CLUBS || []).filter(function (c) { return !c.essai || c.serverUrl; });
+  var CLUB = CLUBS_OK.find(function (c) { return c.id === PARAMS.get('club'); }) || CLUBS_OK[0] || {};
   var SERVER_URL = CLUB.serverUrl || CFG.SERVER_URL || '';
   var JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   var YOUTH = ['Poussin', 'Benjamin', 'Minime', 'Cadet', 'Junior'];

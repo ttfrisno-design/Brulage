@@ -1,10 +1,11 @@
 // Service worker de la version web installable (PC, navigateur) : garde
 // l'interface en cache pour qu'elle s'ouvre même sans réseau. Les appels au
 // serveur Apps Script (autre domaine, POST) ne passent jamais par ce cache.
-var CACHE = 'rebontt-v2';
+var CACHE = 'rebontt-v3';
 var SHELL = [
   './',
   'index.html',
+  'clubs.js',
   'config.js',
   'manifest.json',
   'assets/logo-fri.png',
