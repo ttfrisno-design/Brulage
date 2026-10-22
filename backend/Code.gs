@@ -167,6 +167,7 @@ const API_FUNCTIONS_ = {
   setAdhesionAdmin: setAdhesionAdmin,
   setAdhesionMessageStatut: setAdhesionMessageStatut,
   createPlayerFromAdhesion: createPlayerFromAdhesion,
+  setChequesDeposes: setChequesDeposes,
   // Comité départemental
   getComiteExport: getComiteExport,
 };
@@ -2916,6 +2917,8 @@ const ADH_SHEETS_ = {
     'Montant', 'QS', 'QSLe', 'Reglement', 'ReglementLe', 'Statut', 'JoueurID'],
   AdhesionDocuments: ['Dossier', 'N', 'Type', 'Fichier', 'Lien', 'EnvoyeLe'],
   AdhesionMessages: ['Date', 'Dossier', 'Nom', 'Email', 'Téléphone', 'Objet', 'Message', 'Statut'],
+  // Chèques remis par la famille (bordereau de remise en banque).
+  AdhesionCheques: ['Dossier', 'N', 'Titulaire', 'Banque', 'Numero', 'Montant', 'DeposeLe'],
 };
 const ADH_DOC_TYPES_ = ['Certificat médical', 'Attestation PPS', 'Justificatif', 'Autre'];
 const ADH_STATUTS_ = ['À régler', 'Partiellement réglé', 'Réglé', 'Annulé'];
@@ -2985,8 +2988,13 @@ function adhSettings_() {
       const p = l.split('|');
       return { nom: adhTxt_(p[0], 60), montant: adhNum_(p[1]) };
     }).filter(function (a) { return a.nom; });
-  const helloasso = !!helloAssoConfig_();
+  // HelloAsso : paiement intégré (clés API) ou simple lien vers la page de
+  // paiement HelloAsso du club.
+  const helloassoLien = v('AdhHelloAssoLien', '');
+  const helloasso = !!helloAssoConfig_() || !!helloassoLien;
   return {
+    helloassoLien: helloassoLien,
+    helloassoApi: !!helloAssoConfig_(),
     saison: v('AdhSaison', defaultSaison_()),
     ouvert: !/^(non|0|false|fermé|ferme)$/i.test(v('AdhOuvert', 'oui')),
     commune: v('AdhCommune', v('ClubVille', '')),
@@ -2997,6 +3005,9 @@ function adhSettings_() {
     chequesMax: Math.max(1, Math.min(10, adhNum_(v('AdhChequesMax', '3')) || 3)),
     ordreCheque: v('AdhOrdreCheque', v('ClubNom', '')),
     iban: v('AdhIban', ''),
+    // Coordonnées bancaires du club (virements, bordereau de remise de chèques).
+    banque: { titulaire: v('AdhBanqueTitulaire', v('AdhOrdreCheque', v('ClubNom', ''))), nom: v('AdhBanqueNom', ''),
+      agence: v('AdhBanqueAgence', ''), iban: v('AdhIban', ''), bic: v('AdhBic', '') },
     aides: aides,
     reglementUrl: v('AdhReglementUrl', ''),
     reglementTexte: v('AdhReglementTexte', ''),
@@ -3171,9 +3182,25 @@ function adhCompute_(d, st, crs) {
   const mode = String(d.mode || '');
   if (st.modes.indexOf(mode) < 0) throw new Error('Choisissez un mode de règlement.');
   const echeances = mode === 'Chèque' ? Math.max(1, Math.min(st.chequesMax, Math.floor(adhNum_(d.echeances)) || 1)) : 1;
+  // Chèques : titulaire, banque, numéro et montant de chacun ; la somme doit
+  // faire le reste à régler.
+  let cheques = [];
+  if (mode === 'Chèque') {
+    const list = (d.cheques || []).slice(0, echeances);
+    if (list.length !== echeances) throw new Error('Renseignez les ' + echeances + ' chèque(s).');
+    cheques = list.map(function (c, i) {
+      const x = { titulaire: adhTxt_(c.titulaire, 80), banque: adhTxt_(c.banque, 60), numero: adhTxt_(c.numero, 20), montant: Math.round(adhNum_(c.montant) * 100) / 100 };
+      if (!x.titulaire || !x.banque || !x.numero) throw new Error('Chèque ' + (i + 1) + ' : titulaire, banque et numéro obligatoires.');
+      if (!(x.montant > 0)) throw new Error('Chèque ' + (i + 1) + ' : montant invalide.');
+      return x;
+    });
+    const somme = cheques.reduce(function (t, c) { return t + c.montant; }, 0);
+    const du = Math.max(0, total - aidesMontant);
+    if (Math.abs(somme - du) > 0.01) throw new Error('Le total des chèques (' + somme + ' €) doit être égal au reste à régler (' + du + ' €).');
+  }
   return {
     responsable: resp, exterieur: exterieur, membres: membres, total: total,
-    aides: aides.map(function (a) { return a.nom; }), aidesMontant: aidesMontant, mode: mode, echeances: echeances,
+    aides: aides.map(function (a) { return a.nom; }), aidesMontant: aidesMontant, mode: mode, echeances: echeances, cheques: cheques,
   };
 }
 
@@ -3181,6 +3208,14 @@ function adhPublicUrl_() {
   const p = PropertiesService.getScriptProperties();
   const app = p.getProperty('APP_URL') || 'https://ttfrisno-design.github.io/Brulage/';
   return app.replace(/[?#].*$/, '').replace(/[^/]*$/, '') + 'inscription.html';
+}
+
+/** Consignes de virement : coordonnées bancaires du club + libellé. */
+function adhVirementTexte_(st, dossier) {
+  const b = st.banque || {};
+  if (!b.iban) return ' (coordonnées bancaires communiquées par le club)';
+  return ' — titulaire : ' + b.titulaire + ', IBAN : ' + b.iban + (b.bic ? ', BIC : ' + b.bic : '') + (b.nom ? ' (' + b.nom + ')' : '') +
+    (dossier ? ', libellé : « Adhésion ' + dossier + ' »' : '');
 }
 
 function adhMail_(to, subject, body, replyTo) {
@@ -3204,8 +3239,12 @@ function adhRecap_(a, membres, crs, st) {
       (m.creneau2 ? ' + ' + adhSlotLabel_(byId[m.creneau2]) : '') + ' — ' + m.montant + ' €';
   });
   let pay = 'Mode de règlement : ' + a.mode;
-  if (a.mode === 'Chèque') pay += ' en ' + a.echeances + ' fois, à l\'ordre de « ' + st.ordreCheque + ' »';
-  if (a.mode === 'Virement' && st.iban) pay += ' (IBAN : ' + st.iban + ')';
+  if (a.mode === 'Chèque') {
+    pay += ' en ' + a.echeances + ' fois, à l\'ordre de « ' + st.ordreCheque + ' »' + (a.cheques || []).map(function (c, i) {
+      return '\n  Chèque ' + (i + 1) + ' : ' + c.montant + ' € – n° ' + c.numero + ' – ' + c.banque + ' – ' + c.titulaire;
+    }).join('');
+  }
+  if (a.mode === 'Virement') pay += adhVirementTexte_(st, a.dossier);
   return lines.join('\n') + '\n\nTotal : ' + a.total + ' €' +
     (a.aidesMontant ? '\nAides déclarées (' + a.aides.join(', ') + ') : -' + a.aidesMontant + ' € (justificatif à envoyer)' : '') +
     '\nReste à régler : ' + Math.max(0, a.total - a.aidesMontant) + ' €\n' + pay;
@@ -3244,9 +3283,13 @@ function adhFamilyMail_(dossier, sujet, evenement) {
       if (a.Aides && !docs.some(function (x) { return x.Type === 'Justificatif'; })) todo.push('Envoyer le justificatif des aides déclarées (' + a.Aides + ').');
       const reste = adhReste_(a);
       if (reste > 0) {
-        todo.push('Régler ' + reste + ' € : ' + (a.Mode === 'Chèque' ? 'chèque(s) à l\'ordre de « ' + st.ordreCheque + ' » (' + a.Echeances + ' fois), à remettre au club'
+        const ch = adhRows_('AdhesionCheques').filter(function (x) { return x.Dossier === a.Dossier && !x.DeposeLe; });
+        todo.push(a.Mode === 'Chèque' && ch.length
+          ? 'Remettre au club (si ce n\'est pas déjà fait) vos chèques à l\'ordre de « ' + st.ordreCheque + ' » : ' +
+            ch.map(function (x) { return 'chèque ' + x.N + ' n° ' + x.Numero + ' de ' + adhNum_(x.Montant) + ' €'; }).join(', ') + '. Ils sont encaissés un par un.'
+          : 'Régler ' + reste + ' € : ' + (a.Mode === 'Chèque' ? 'chèque(s) à l\'ordre de « ' + st.ordreCheque + ' » (' + a.Echeances + ' fois), à remettre au club'
           : a.Mode === 'HelloAsso' ? 'paiement en ligne depuis votre compte (bouton « Payer en ligne »)'
-          : a.Mode === 'Virement' ? 'virement' + (st.iban ? ' (IBAN ' + st.iban + ')' : '') : 'en espèces, au club') + '.');
+          : a.Mode === 'Virement' ? 'virement' + adhVirementTexte_(st, a.Dossier) : 'en espèces, au club') + '.');
       }
     }
     const lic = membres.some(function (m) { return m.Licence === 'Nouvelle' || m.Licence === 'Renouvellement'; });
@@ -3303,10 +3346,14 @@ function createAdhesion(d) {
   adhAppend_('Adhesions', [dossier, adhNow_(), st.saison, r.nom, r.prenom, r.adresse, r.cp, r.ville, r.tel, r.email, r.tel2, r.email2,
     a.exterieur ? 'Extérieur' : 'Commune', a.total, a.aidesMontant ? a.aides.join(', ') + ' (' + a.aidesMontant + ' €)' : '',
     a.mode, a.echeances, 'À régler', 0, '']);
+  a.cheques.forEach(function (c, i) {
+    adhAppend_('AdhesionCheques', [dossier, i + 1, c.titulaire, c.banque, c.numero, c.montant, '']);
+  });
   a.membres.forEach(function (m, i) {
     adhAppend_('AdhesionMembres', [dossier, i + 1, m.nom, m.prenom, m.naissance, m.sexe, m.categorie, m.creneau1, m.creneau2,
       m.licence, m.numLicence, m.montant, '', '', '', '', 'Inscrit', '']);
   });
+  a.dossier = dossier;
   const recap = adhRecap_(a, a.membres, crs, st);
   adhFamilyMail_(dossier, 'Inscription enregistrée', 'Votre inscription au tennis de table pour la saison ' + st.saison +
     ' est bien enregistrée sous le n° de dossier ' + dossier + ' : notez-le, il vous sera demandé avec votre téléphone.\n\n' + recap);
@@ -3358,6 +3405,9 @@ function getAdhesion(dossier, tel) {
       };
     }),
     documents: docs.map(function (x) { return { n: adhNum_(x.N), type: x.Type, fichier: x.Fichier, date: x.EnvoyeLe }; }),
+    cheques: adhRows_('AdhesionCheques').filter(function (x) { return x.Dossier === a.Dossier; }).map(function (x) {
+      return { n: adhNum_(x.N), titulaire: x.Titulaire, banque: x.Banque, numero: x.Numero, montant: adhNum_(x.Montant), deposeLe: x.DeposeLe };
+    }),
     helloasso: adhSettings_().modes.indexOf('HelloAsso') >= 0,
   };
 }
@@ -3540,10 +3590,16 @@ function sendAdhesionMessage(d) {
 function createAdhesionCheckout(dossier, tel) {
   ensureSheets_();
   const cfg = helloAssoConfig_();
-  if (!cfg) throw new Error('Le paiement en ligne n\'est pas configuré par le club.');
   const a = adhAuth_(dossier, tel);
   const reste = adhReste_(a);
   if (!reste) throw new Error('Rien à régler pour ce dossier.');
+  // Sans clés API : page de paiement HelloAsso du club (montant à saisir par
+  // la famille ; le club valide le règlement à réception).
+  if (!cfg) {
+    const lien = adhSettings_().helloassoLien;
+    if (!lien) throw new Error('Le paiement en ligne n\'est pas configuré par le club.');
+    return { redirectUrl: lien, lien: true, montant: reste };
+  }
   const label = ('Adhésion tennis de table ' + a.Saison + ' – dossier ' + a.Dossier + ' – ' + a.Prénom + ' ' + a.Nom).slice(0, 250);
   const page = adhPublicUrl_() + '?dossier=' + encodeURIComponent(a.Dossier) + '&helloasso=';
   const cents = Math.round(reste * 100);
@@ -3593,12 +3649,13 @@ function getAdhesionsAdmin(token) {
   const m = configMap_();
   const raw = {};
   ['AdhSaison', 'AdhOuvert', 'AdhCommune', 'AdhSupplementExterieur', 'AdhReductionFamille', 'AdhModes', 'AdhChequesMax', 'AdhOrdreCheque',
-    'AdhIban', 'AdhAides', 'AdhReglementUrl', 'AdhReglementTexte', 'AdhContactEmail', 'AdhInfos', 'AdhLicences', 'AdhPpsUrl', 'AdhLicenceUrl'].forEach(function (k) { raw[k] = m[k] || ''; });
+    'AdhIban', 'AdhAides', 'AdhReglementUrl', 'AdhReglementTexte', 'AdhContactEmail', 'AdhInfos', 'AdhLicences', 'AdhPpsUrl', 'AdhLicenceUrl', 'AdhHelloAssoLien', 'AdhBanqueTitulaire', 'AdhBanqueNom', 'AdhBanqueAgence', 'AdhBic'].forEach(function (k) { raw[k] = m[k] || ''; });
   const crs = adhCreneaux_();
   const byId = {};
   crs.forEach(function (c) { byId[c.id] = c; });
   const membres = adhRows_('AdhesionMembres');
   const docs = adhRows_('AdhesionDocuments');
+  const cheques = adhRows_('AdhesionCheques');
   const msgSheet = adhSheet_('AdhesionMessages').getDataRange().getValues();
   const msgs = [];
   for (let i = 1; i < msgSheet.length; i++) {
@@ -3625,6 +3682,9 @@ function getAdhesionsAdmin(token) {
         }),
         documents: docs.filter(function (x) { return x.Dossier === a.Dossier; })
           .map(function (x) { return { n: adhNum_(x.N), type: x.Type, fichier: x.Fichier, lien: x.Lien, date: x.EnvoyeLe }; }),
+        cheques: cheques.filter(function (x) { return x.Dossier === a.Dossier; }).map(function (x) {
+          return { n: adhNum_(x.N), titulaire: x.Titulaire, banque: x.Banque, numero: x.Numero, montant: adhNum_(x.Montant), deposeLe: x.DeposeLe };
+        }),
       };
     }).reverse(),
     messages: msgs.reverse(),
@@ -3638,6 +3698,9 @@ function saveAdhesionSettings(token, s) {
     if (!/^Adh[A-Za-z]+$/.test(k)) throw new Error('Réglage inconnu : ' + k);
     const v = String(s[k] === undefined || s[k] === null ? '' : s[k]);
     if (k === 'AdhLicences') { writeConfig_(k, JSON.stringify(adhLicences_(v))); return; }
+    if (k === 'AdhIban' && v.trim() && !/^[A-Z]{2}\d{2}[A-Z0-9 ]{10,40}$/i.test(v.trim())) throw new Error('IBAN invalide (ex. FR76 1234 5678 9012 3456 7890 123).');
+    if (k === 'AdhBic' && v.trim() && !/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/i.test(v.trim().replace(/\s/g, ''))) throw new Error('BIC invalide (8 ou 11 caractères, ex. AGRIFRPP866).');
+    if (k === 'AdhHelloAssoLien' && v.trim() && !/^https:\/\/(www\.)?helloasso\.com\/\S+$/i.test(v.trim())) throw new Error('Lien HelloAsso invalide (https://www.helloasso.com/…).');
     if (k === 'AdhLicenceUrl' && v.trim() && !/^https?:\/\/\S+$/i.test(v.trim())) throw new Error('Lien du formulaire de licence invalide (https://…).');
     if (k === 'AdhPpsUrl' && v.trim() && !/^https?:\/\/\S+$/i.test(v.trim())) throw new Error('Lien PPS invalide (https://…).');
     if (k === 'AdhReglementUrl' && v.trim() && !/^https?:\/\/\S+$/i.test(v.trim())) throw new Error('Lien du règlement invalide (https://…).');
@@ -3841,4 +3904,33 @@ function initialiserClubEssai() {
   const msg = 'Club d\'essai prêt.\nCode administrateur : ' + admin + '\nCodes joueurs :\n' + codes.join('\n');
   Logger.log(msg);
   return msg;
+}
+
+/** Admin : chèques remis en banque (bordereau). refs = [{dossier, n}] ;
+ * chaque chèque reçoit la date de dépôt, son montant s'ajoute au « réglé »
+ * du dossier et la famille est prévenue. */
+function setChequesDeposes(token, refs, date) {
+  requireAdmin_(token);
+  const d = adhTxt_(date, 10) || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy');
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(d)) throw new Error('Date de dépôt invalide (JJ/MM/AAAA).');
+  const parDossier = {};
+  (refs || []).forEach(function (r) {
+    let montant = 0;
+    adhUpdate_('AdhesionCheques', function (x) { return String(x.Dossier) === String(r.dossier) && adhNum_(x.N) === Number(r.n) && !x.DeposeLe; }, function (x) {
+      montant = adhNum_(x.Montant);
+      return { DeposeLe: d };
+    });
+    if (montant) (parDossier[r.dossier] = parDossier[r.dossier] || []).push({ n: Number(r.n), montant: montant });
+  });
+  Object.keys(parDossier).forEach(function (dos) {
+    const list = parDossier[dos], somme = list.reduce(function (t, c) { return t + c.montant; }, 0);
+    adhUpdate_('Adhesions', function (x) { return String(x.Dossier) === dos; }, function (x) {
+      const regle = adhNum_(x.Réglé) + somme, du = adhNum_(x.Total) - adhAidesMontant_(x);
+      return { Réglé: regle, Statut: x.Statut === 'Annulé' ? 'Annulé' : (regle >= du ? 'Réglé' : 'Partiellement réglé'),
+        Note: (x.Note ? x.Note + ' ; ' : '') + 'chèque(s) ' + list.map(function (c) { return c.n; }).join(', ') + ' déposé(s) le ' + d };
+    });
+    adhFamilyMail_(dos, 'Chèque encaissé', list.map(function (c) { return 'Le chèque n° ' + c.n + ' de ' + c.montant + ' €'; }).join(', ') +
+      (list.length > 1 ? ' ont été remis' : ' a été remis') + ' en banque le ' + d + '.');
+  });
+  return getAdhesionsAdmin(token);
 }

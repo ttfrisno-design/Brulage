@@ -707,6 +707,21 @@
           <input type="search" id="adhSearch" placeholder="Rechercher (n° de dossier, nom, téléphone…)" oninput="renderAdhDossiers()">
           <div id="adhDossiers" style="margin-top:10px;">…</div>
         </div>
+        <div class="card">
+          <h2>Chèques — bordereau de remise en banque</h2>
+          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Cochez les chèques à déposer, imprimez le bordereau puis marquez-les déposés : leur montant s'ajoute au règlement du dossier et la famille est prévenue par e-mail.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <select id="chqFiltre" onchange="renderCheques()"><option value="">Tous les chèques</option><option value="1">Chèques n° 1</option><option value="2">Chèques n° 2</option><option value="3">Chèques n° 3</option></select>
+            <label style="display:flex;gap:6px;align-items:center;margin:0;color:var(--ink);"><input type="checkbox" id="chqNonDep" checked onchange="renderCheques()"> Non déposés uniquement</label>
+          </div>
+          <div class="table-scroll" id="chqList" style="margin-top:8px;">…</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">
+            <span id="chqSel" style="font-size:13px;"></span>
+            <button class="secondary" onclick="printBordereau()">🖨️ Imprimer le bordereau</button>
+            <label style="margin:0;">Déposés le</label><input type="text" id="chqDate" placeholder="JJ/MM/AAAA" style="max-width:120px;">
+            <button class="secondary" onclick="markDeposes()">✓ Marquer comme déposés</button>
+          </div>
+        </div>
         <div class="card"><h2>Messages et demandes</h2><div id="adhMessages">…</div></div>
         <div class="card">
           <h2>Réglages des inscriptions</h2>
@@ -722,7 +737,13 @@
             <div class="full"><label>Modes de règlement proposés</label>
               <div id="adhModes" style="display:flex;gap:14px;flex-wrap:wrap;font-size:14px;"></div></div>
             <div><label for="adhOrdre">Ordre des chèques</label><input type="text" id="adhOrdre"></div>
-            <div><label for="adhIban">IBAN (virement)</label><input type="text" id="adhIban"></div>
+            <div class="full"><label style="font-weight:600;color:var(--ink);">Coordonnées bancaires du club (virements et bordereau de remise de chèques)</label></div>
+            <div><label for="adhBqTit">Titulaire du compte</label><input type="text" id="adhBqTit" placeholder="Nom de l'association"></div>
+            <div><label for="adhBqNom">Banque</label><input type="text" id="adhBqNom" placeholder="Ex. Crédit Agricole Normandie-Seine"></div>
+            <div class="full"><label for="adhBqAg">Agence (nom, adresse)</label><input type="text" id="adhBqAg"></div>
+            <div><label for="adhIban">IBAN</label><input type="text" id="adhIban" placeholder="FR76 …"></div>
+            <div><label for="adhBic">BIC</label><input type="text" id="adhBic" placeholder="Ex. AGRIFRPP866"></div>
+            <div class="full"><label for="adhHaLien">Lien de paiement HelloAsso du club (si le paiement HelloAsso intégré n'est pas configuré)</label><input type="text" id="adhHaLien" placeholder="https://www.helloasso.com/associations/…"></div>
             <div class="full"><label for="adhAides">Aides acceptées (une par ligne ; « Nom|montant » pour déduire un montant fixe)</label><textarea id="adhAides" rows="4"></textarea></div>
             <div class="full"><label for="adhPps">Lien vers le PPS (espace licencié MaLicence FFTT ; vide = https://malicence.fftt.com/login)</label><input type="text" id="adhPps" placeholder="https://malicence.fftt.com/login"></div>
             <div class="full"><label for="adhLicUrl">Formulaire FFTT de demande de licence en ligne du club (vide = https://inscriptionenligne.fftt.com/club/09760374)</label><input type="text" id="adhLicUrl" placeholder="https://inscriptionenligne.fftt.com/club/…"></div>
@@ -3960,6 +3981,7 @@
         '<span class="adh-chip ' + (full ? 'err' : 'ok') + '">' + c.inscrits + (c.places ? ' / ' + c.places : '') + ' inscrit' + (c.inscrits > 1 ? 's' : '') + '</span></div>';
     }).join('') + '</div>' : '<p style="color:var(--muted);margin:0;">Aucun créneau : ajoutez-les dans Dates &amp; Réglages › Présentation du club.</p>';
     renderAdhDossiers();
+    renderCheques();
     document.getElementById('adhMessages').innerHTML = d.messages.length ? d.messages.map(function (m) {
       var done = m.statut === 'Traité';
       return '<div style="border-bottom:1px solid var(--border);padding:8px 0;' + (done ? 'opacity:.6;' : '') + '"><b>' + escHtml(m.objet) + '</b> · ' + escHtml(m.nom) + (m.dossier ? ' (' + escHtml(m.dossier) + ')' : '') +
@@ -3973,7 +3995,7 @@
       set('adhSaison', r.AdhSaison || s.saison); set('adhOuvert', s.ouvert ? 'oui' : 'non'); set('adhCommune', r.AdhCommune || s.commune);
       set('adhSupp', r.AdhSupplementExterieur || ''); set('adhRed', r.AdhReductionFamille || ''); set('adhCheques', s.chequesMax);
       set('adhOrdre', r.AdhOrdreCheque || s.ordreCheque); set('adhIban', r.AdhIban); set('adhAides', s.aides.map(function (a) { return a.nom + (a.montant ? '|' + a.montant : ''); }).join('\n'));
-      set('adhRiUrl', r.AdhReglementUrl); set('adhPps', r.AdhPpsUrl || ''); set('adhLicUrl', r.AdhLicenceUrl || ''); set('adhRiTxt', r.AdhReglementTexte); set('adhContact', r.AdhContactEmail); set('adhInfos', r.AdhInfos);
+      set('adhRiUrl', r.AdhReglementUrl); set('adhBqTit', r.AdhBanqueTitulaire || ''); set('adhBqNom', r.AdhBanqueNom || ''); set('adhBqAg', r.AdhBanqueAgence || ''); set('adhBic', r.AdhBic || ''); set('adhHaLien', r.AdhHelloAssoLien || ''); set('adhPps', r.AdhPpsUrl || ''); set('adhLicUrl', r.AdhLicenceUrl || ''); set('adhRiTxt', r.AdhReglementTexte); set('adhContact', r.AdhContactEmail); set('adhInfos', r.AdhInfos);
       // Licence par catégorie ; à défaut, reprise des anciens montants saisis
       // sur les créneaux jeunes / adultes.
       var lic = s.licences || {}, fallback = {};
@@ -3991,7 +4013,7 @@
       var modes = (r.AdhModes || 'Chèque,Espèces,HelloAsso').split(',').map(function (x) { return x.trim(); });
       document.getElementById('adhModes').innerHTML = ADH_MODES.map(function (m) {
         return '<label style="display:flex;gap:6px;align-items:center;margin:0;color:var(--ink);"><input type="checkbox" value="' + m + '"' + (modes.indexOf(m) >= 0 ? ' checked' : '') + '> ' +
-          (m === 'HelloAsso' ? 'Paiement en ligne HelloAsso' + (d.helloasso ? '' : ' (non configuré)') : m) + '</label>';
+          (m === 'HelloAsso' ? 'Paiement en ligne HelloAsso' + (d.helloasso ? ' (intégré)' : (r.AdhHelloAssoLien ? ' (lien du club)' : ' (clés API ou lien du club à renseigner)')) : m) + '</label>';
       }).join('');
     }
   }
@@ -4017,6 +4039,9 @@
             '<td>' + (m.reglement ? escHtml(m.reglement) : '<span class="adh-chip err">à accepter</span>') + '</td><td>' + m.montant + '</td>' +
             '<td>' + (m.joueurId ? '✓ n° ' + escHtml(m.joueurId) : '<button class="small" onclick="adhAddPlayer(\'' + escAttr(x.dossier) + '\',' + m.n + ')">+ Ajouter</button>') + '</td></tr>';
         }).join('') + '</table></div>' +
+        ((x.cheques || []).length ? '<p style="margin:8px 0 0;font-size:13px;">🧾 ' + x.cheques.map(function (c) {
+          return 'Chèque ' + c.n + ' : ' + c.montant + ' € – n° ' + escHtml(c.numero) + ' – ' + escHtml(c.banque) + ' – ' + escHtml(c.titulaire) + (c.deposeLe ? ' (déposé le ' + escHtml(c.deposeLe) + ')' : '');
+        }).join('<br>🧾 ') + '</p>' : '') +
         (x.documents.length ? '<p style="margin:8px 0 0;font-size:13px;">📎 ' + x.documents.map(function (doc) {
           var m = x.membres.find(function (y) { return y.n === doc.n; });
           return '<a href="' + escAttr(doc.lien) + '" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)">' + escHtml(doc.type + (m ? ' – ' + m.prenom : '') + ' (' + doc.fichier + ')') + '</a>';
@@ -4028,6 +4053,66 @@
         '<button class="secondary" onclick="saveAdhDossier(\'' + escAttr(x.dossier) + '\')">Enregistrer</button></div>' +
         '</div></details>';
     }).join('') : '<p style="color:var(--muted);margin:0;">' + (q ? 'Aucun dossier ne correspond.' : 'Aucune inscription pour le moment.') + '</p>';
+  }
+  // Chèques des familles : liste filtrable, bordereau imprimable, dépôt.
+  function allCheques() {
+    var out = [];
+    ((STATE.adh && STATE.adh.dossiers) || []).forEach(function (d) {
+      if (d.statut === 'Annulé') return;
+      (d.cheques || []).forEach(function (c) { out.push(Object.assign({ dossier: d.dossier, famille: d.nom + ' ' + d.prenom }, c)); });
+    });
+    return out;
+  }
+  function renderCheques() {
+    var el = document.getElementById('chqList'); if (!el || !STATE.adh) return;
+    var f = document.getElementById('chqFiltre').value, nd = document.getElementById('chqNonDep').checked;
+    var list = allCheques().filter(function (c) { return (!f || String(c.n) === f) && (!nd || !c.deposeLe); });
+    el.innerHTML = list.length ? '<table class="adh-t"><tr><th><input type="checkbox" onchange="document.querySelectorAll(\'.chq-cb\').forEach(function (x) { x.checked = this.checked; }, this); chqSelInfo()"></th><th>Dossier</th><th>Famille</th><th>Chèque</th><th>Titulaire</th><th>Banque</th><th>N°</th><th>Montant</th><th>Déposé</th></tr>' +
+      list.map(function (c) {
+        return '<tr><td>' + (c.deposeLe ? '' : '<input type="checkbox" class="chq-cb" data-d="' + escAttr(c.dossier) + '" data-n="' + c.n + '" onchange="chqSelInfo()">') + '</td><td>' + escHtml(c.dossier) + '</td><td>' + escHtml(c.famille) +
+          '</td><td>' + c.n + '</td><td>' + escHtml(c.titulaire) + '</td><td>' + escHtml(c.banque) + '</td><td>' + escHtml(c.numero) + '</td><td>' + c.montant + ' €</td><td>' + escHtml(c.deposeLe || '—') + '</td></tr>';
+      }).join('') + '</table>' : '<p style="color:var(--muted);margin:0;">Aucun chèque.</p>';
+    chqSelInfo();
+  }
+  function selectedCheques() {
+    var all = allCheques();
+    return Array.prototype.filter.call(document.querySelectorAll('.chq-cb'), function (x) { return x.checked; }).map(function (x) {
+      return all.find(function (c) { return c.dossier === x.dataset.d && String(c.n) === x.dataset.n; });
+    }).filter(Boolean);
+  }
+  function chqSelInfo() {
+    var sel = selectedCheques(), tot = sel.reduce(function (t, c) { return t + c.montant; }, 0);
+    document.getElementById('chqSel').textContent = sel.length ? sel.length + ' chèque(s) sélectionné(s) : ' + Math.round(tot * 100) / 100 + ' €' : 'Aucun chèque sélectionné';
+  }
+  function printBordereau() {
+    var sel = selectedCheques();
+    if (!sel.length) { alert('Cochez les chèques à mettre sur le bordereau.'); return; }
+    var tot = sel.reduce(function (t, c) { return t + c.montant; }, 0);
+    var club = (STATE.adh.settings && (STATE.adh.settings.clubNom || STATE.adh.settings.ordreCheque)) || '';
+    var w = window.open('', '_blank');
+    if (!w) { alert('Autorisez les fenêtres pop-up pour imprimer le bordereau.'); return; }
+    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bordereau de remise de chèques</title><style>body{font:13px Arial,sans-serif;margin:24px}h1{font-size:18px;margin:0 0 4px}table{border-collapse:collapse;width:100%;margin-top:12px}th,td{border:1px solid #999;padding:5px 7px;text-align:left}td.n{text-align:right}tfoot td{font-weight:bold}</style></head><body>' +
+      '<h1>Bordereau de remise de chèques</h1><div>' + escHtml(club) + ' — à l\'ordre de « ' + escHtml(STATE.adh.settings.ordreCheque || '') + ' » — ' + new Date().toLocaleDateString('fr-FR') + '</div>' +
+      (function () {
+        var bq = STATE.adh.settings.banque || {};
+        return '<table style="margin-top:10px;width:auto;"><tr><th>Compte à créditer</th><td>' + escHtml(bq.titulaire || '') + '</td></tr>' +
+          (bq.nom || bq.agence ? '<tr><th>Banque / agence</th><td>' + escHtml([bq.nom, bq.agence].filter(Boolean).join(' – ')) + '</td></tr>' : '') +
+          '<tr><th>IBAN</th><td>' + escHtml(bq.iban || '— (à renseigner dans Adhésions › Réglages)') + '</td></tr>' +
+          (bq.bic ? '<tr><th>BIC</th><td>' + escHtml(bq.bic) + '</td></tr>' : '') + '</table>';
+      })() +
+      '<table><thead><tr><th>#</th><th>Titulaire</th><th>Banque</th><th>N° de chèque</th><th>Dossier</th><th>Montant</th></tr></thead><tbody>' +
+      sel.map(function (c, i) { return '<tr><td>' + (i + 1) + '</td><td>' + escHtml(c.titulaire) + '</td><td>' + escHtml(c.banque) + '</td><td>' + escHtml(c.numero) + '</td><td>' + escHtml(c.dossier) + ' (chèque ' + c.n + ')</td><td class="n">' + c.montant.toFixed(2).replace('.', ',') + ' €</td></tr>'; }).join('') +
+      '</tbody><tfoot><tr><td colspan="5">' + sel.length + ' chèque(s) — total</td><td class="n">' + tot.toFixed(2).replace('.', ',') + ' €</td></tr></tfoot></table>' +
+      '<p style="margin-top:30px;">Date et signature du déposant :</p></body></html>');
+    w.document.close(); w.focus(); w.print();
+  }
+  function markDeposes() {
+    var sel = selectedCheques();
+    if (!sel.length) { alert('Cochez les chèques déposés.'); return; }
+    var date = document.getElementById('chqDate').value.trim();
+    if (!confirm(sel.length + ' chèque(s) marqué(s) déposé(s)' + (date ? ' le ' + date : ' aujourd\'hui') + ' : leur montant est ajouté au règlement des dossiers et les familles sont prévenues. Continuer ?')) return;
+    adhCall('setChequesDeposes', [sel.map(function (c) { return { dossier: c.dossier, n: c.n }; }), date])
+      .then(function (res) { STATE.adh = res; renderAdhAdmin(false); }).catch(onGsError);
   }
   function saveAdhDossier(dos) {
     var g = function (p) { return document.getElementById(p + dos).value; };
@@ -4052,7 +4137,7 @@
     adhCall('saveAdhesionSettings', [{
       AdhSaison: v('adhSaison'), AdhOuvert: v('adhOuvert'), AdhCommune: v('adhCommune'), AdhSupplementExterieur: v('adhSupp'),
       AdhReductionFamille: v('adhRed'), AdhChequesMax: v('adhCheques'), AdhModes: modes.join(','), AdhOrdreCheque: v('adhOrdre'),
-      AdhIban: v('adhIban'), AdhPpsUrl: v('adhPps'), AdhLicenceUrl: v('adhLicUrl'), AdhAides: document.getElementById('adhAides').value.trim(), AdhReglementUrl: v('adhRiUrl'),
+      AdhIban: v('adhIban'), AdhBanqueTitulaire: v('adhBqTit'), AdhBanqueNom: v('adhBqNom'), AdhBanqueAgence: v('adhBqAg'), AdhBic: v('adhBic'), AdhHelloAssoLien: v('adhHaLien'), AdhPpsUrl: v('adhPps'), AdhLicenceUrl: v('adhLicUrl'), AdhAides: document.getElementById('adhAides').value.trim(), AdhReglementUrl: v('adhRiUrl'),
       AdhReglementTexte: document.getElementById('adhRiTxt').value.trim(),
       AdhLicences: JSON.stringify(Array.prototype.reduce.call(document.querySelectorAll('#adhLic input'), function (o, i) { if (Number(i.value) > 0) o[i.dataset.cat] = Number(i.value); return o; }, {})), AdhContactEmail: v('adhContact'), AdhInfos: document.getElementById('adhInfos').value.trim(),
     }]).then(function (res) { STATE.adh = res; renderAdhAdmin(true); st.textContent = '✓ Enregistré'; })
