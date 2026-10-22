@@ -6,8 +6,8 @@
 //      comité, puis Extensions › Apps Script, et coller ce fichier.
 //   2. ⚙️ Paramètres du projet › Propriétés du script :
 //        COMITE_CODE  = le code comité (le même que dans chaque club) ;
-//        COMITE_CLUBS = la liste des clubs, en JSON :
-//          [{"nom":"FR Isneauville TT","url":"https://script.google.com/macros/s/…/exec"}]
+//        COMITE_CLUBS = les adresses /exec des clubs, séparées par des espaces
+//          (ou en JSON : [{"nom":"FR Isneauville TT","url":"https://script.google.com/macros/s/…/exec"}]) ;
 //   3. Recharger le classeur : menu « Comité » › « Mettre à jour les
 //      inscriptions » (Google demande l'autorisation la première fois), puis
 //      « Mise à jour automatique (toutes les heures) ».
@@ -23,12 +23,26 @@ function onOpen() {
     .addToUi();
 }
 
+/** Liste des clubs (propriété COMITE_CLUBS). Formats acceptés :
+ *  - JSON : [{"nom":"FR Isneauville TT","url":"https://script.google.com/…/exec"}]
+ *    (guillemets typographiques “ ” « » tolérés) ;
+ *  - ou simplement les adresses /exec, séparées par des espaces, virgules ou
+ *    points-virgules (le nom de chaque club est alors lu dans son script). */
 function comiteClubs_() {
-  const raw = PropertiesService.getScriptProperties().getProperty('COMITE_CLUBS') || '[]';
-  let list;
-  try { list = JSON.parse(raw); } catch (e) { throw new Error('Propriété COMITE_CLUBS : JSON invalide.'); }
-  return (list || []).filter(function (c) { return c && c.url; }).map(function (c) {
-    return { nom: String(c.nom || c.url), url: String(c.url), ok: /^https:\/\/script\.google\.com\/\S+\/exec$/.test(String(c.url)) };
+  const raw = String(PropertiesService.getScriptProperties().getProperty('COMITE_CLUBS') || '').trim();
+  if (!raw) return [];
+  const fixed = raw.replace(/[\u201C\u201D\u201E\u00AB\u00BB]/g, '"').replace(/[\u2018\u2019]/g, "'").replace(/\u00A0/g, ' ');
+  let list = null;
+  try { list = JSON.parse(fixed); } catch (e) { list = null; }
+  if (list && !Array.isArray(list)) list = [list];
+  if (!list) {
+    const urls = fixed.match(/https?:\/\/[^\s,;"'\]\[{}]+/g) || [];
+    if (!urls.length) throw new Error('Propriété COMITE_CLUBS : aucune adresse de club trouvée. Collez l\'adresse /exec du script de chaque club (https://script.google.com/macros/s/…/exec).');
+    list = urls.map(function (u, i) { return { nom: 'Club ' + (i + 1), url: u }; });
+  }
+  return list.filter(function (c) { return c && c.url; }).map(function (c) {
+    const url = String(c.url).trim();
+    return { nom: String(c.nom || url), url: url, ok: /^https:\/\/script\.google\.com\/\S+\/exec$/.test(url) };
   });
 }
 
