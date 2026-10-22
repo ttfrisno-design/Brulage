@@ -499,6 +499,30 @@ Mise en place :
 - Les textes des questionnaires de santé sont ceux du Code du sport : à
   vérifier par le club avec les versions officielles en vigueur.
 
+## Espace comité départemental (CD76TT)
+
+Page **`comite.html`** (https://ttfrisno-design.github.io/Brulage/comite.html),
+affichée nulle part dans l'appli : le comité y voit les **inscriptions validées
+par les clubs** (jeunes, adultes, stages… hors participations annulées), par
+**compétition** (puis par club) ou par **club**, avec filtres, recherche et
+**téléchargement .xlsx** (onglets « Par compétition », « Par club », « Résumé »).
+
+Sécurité : accès par un **code comité** saisi à la connexion, jamais écrit dans
+le code ni dans l'appli. Chaque club le range dans les propriétés de SON
+script : Apps Script › ⚙️ *Paramètres du projet › Propriétés du script* ›
+`COMITE_CODE` = le code fourni par le comité (12 caractères minimum, ex.
+`Cd76-xxxxxxxx-2026`). Sans cette propriété, le club n'est pas visible par le
+comité. Après 10 codes erronés, l'accès est bloqué 15 minutes. La page
+interroge tous les clubs de l'annuaire (`config.js › CLUBS`) et indique l'état
+de chacun.
+
+**Google Sheet sur le Drive du comité** : le comité crée un Google Sheet, colle
+`backend/Comite.gs` dans *Extensions › Apps Script*, renseigne les propriétés
+`COMITE_CODE` et `COMITE_CLUBS` (`[{"nom":"FR Isneauville TT","url":"https://script.google.com/macros/s/…/exec"}]`),
+puis menu **Comité › Mettre à jour les inscriptions** et **Mise à jour
+automatique (toutes les heures)**. Mettre le lien de ce classeur dans
+`config.js › COMITE.sheetUrl` pour l'afficher sur la page du comité.
+
 ## Rassemblements féminins
 
 Réservés aux joueuses : colonne **L « Sexe »** (F / M) de la feuille Joueurs

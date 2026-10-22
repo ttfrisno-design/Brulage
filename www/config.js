@@ -6,6 +6,10 @@
 // sans serverUrl, c'est SERVER_URL qui est utilisé.
 window.APP_CONFIG = {
   SERVER_URL: 'https://script.google.com/macros/s/AKfycbzcCd1pZkHyZkY7KH704kZ3pzr2Hl5blMRL4SUdzAQeGgzS9DeKI1UR1vt459gBVw4Jog/exec',
+  // Espace comité départemental (comite.html, non affiché dans l'appli) :
+  // nom et lien du Google Sheet du comité (backend/Comite.gs). Aucun secret
+  // ici : le code comité est saisi à la connexion.
+  COMITE: { nom: 'CD76TT', sheetUrl: '' },
   CLUBS: [
     { id: 'fri', nom: 'FR Isneauville Tennis de Table', ville: 'Isneauville', cp: '76230', logo: 'assets/logo-fri.png' },
   ],
