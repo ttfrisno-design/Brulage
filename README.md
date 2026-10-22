@@ -518,7 +518,8 @@ de chacun.
 
 **Google Sheet sur le Drive du comité** : le comité crée un Google Sheet, colle
 `backend/Comite.gs` dans *Extensions › Apps Script*, renseigne les propriétés
-`COMITE_CODE` et `COMITE_CLUBS` (`[{"nom":"FR Isneauville TT","url":"https://script.google.com/macros/s/…/exec"}]`),
+`COMITE_CODE` et `COMITE_CLUBS` (les adresses /exec des clubs, séparées par
+des espaces — ou en JSON `[{"nom":"FR Isneauville TT","url":"https://script.google.com/macros/s/…/exec"}]`),
 puis menu **Comité › Mettre à jour les inscriptions** et **Mise à jour
 automatique (toutes les heures)**. Mettre le lien de ce classeur dans
 `config.js › COMITE.sheetUrl` pour l'afficher sur la page du comité.
