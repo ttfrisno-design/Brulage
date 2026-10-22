@@ -622,6 +622,15 @@
     }
     if (s === 3) {
       if (!W.mode) return 'Choisissez un mode de règlement.';
+      if (W.mode === 'Chèque') {
+        syncCheques();
+        for (var c = 0; c < W.cheques.length; c++) {
+          var q = W.cheques[c];
+          if (!String(q.titulaire).trim() || !String(q.banque).trim() || !String(q.numero).trim()) return 'Chèque ' + (c + 1) + ' : titulaire, banque et numéro obligatoires.';
+          if (!(Number(String(q.montant).replace(',', '.')) > 0)) return 'Chèque ' + (c + 1) + ' : montant invalide.';
+        }
+        if ($('chqTotal') && /note err/.test(chequesTotal())) return 'Le total des chèques doit être égal au reste à régler (' + euros(totals().reste) + ').';
+      }
     }
     if (s === 4) {
       if (!$('cExact').checked || !$('cRgpd').checked) return 'Cochez les deux cases pour valider.';
@@ -729,16 +738,13 @@
   }
   function modeText() {
     var st = INFO.settings, t = totals();
-    if (W.mode === 'Chèque') return W.echeances + ' chèque' + (W.echeances > 1 ? 's' : '') + ' à l\'ordre de « ' + st.ordreCheque + ' »' + (W.echeances > 1 ? ' (' + echeancesText(t.reste, W.echeances) + ')' : '');
-    if (W.mode === 'HelloAsso') return 'paiement en ligne (carte bancaire, HelloAsso), juste après la validation';
+    if (W.mode === 'Chèque') return W.echeances + ' chèque' + (W.echeances > 1 ? 's' : '') + ' à l\'ordre de « ' + st.ordreCheque + ' »' +
+      ((W.cheques || []).length ? ' : ' + W.cheques.map(function (c, k) { return 'n° ' + c.numero + ' (' + c.banque + ') ' + euros(Number(String(c.montant).replace(',', '.'))); }).join(' + ') : '');
+    if (W.mode === 'HelloAsso') return st.helloassoApi ? 'paiement en ligne (carte bancaire, HelloAsso), juste après la validation' : 'paiement en ligne sur la page HelloAsso du club (' + euros(t.reste) + ' à saisir)';
     if (W.mode === 'Virement') return 'virement' + (st.iban ? ' (IBAN ' + st.iban + ')' : '');
     return W.mode.toLowerCase();
   }
-  function echeancesText(total, n) {
-    var part = Math.floor(total / n), first = total - part * (n - 1);
-    var a = [euros(first)]; for (var i = 1; i < n; i++) a.push(euros(part));
-    return a.join(' + ');
-  }
+  function echeancesText(total, n) { return chequeSplit(total, n).map(euros).join(' + '); }
   function renderPayment() {
     readMembers();
     var st = INFO.settings;
@@ -748,26 +754,95 @@
       var on = W.aides.indexOf(a.nom) >= 0;
       return '<label class="' + (on ? 'sel' : '') + '"><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="toggleAide(' + k + ')"><span><b>' + esc(a.nom) + '</b>' + (a.montant ? '<small>Déduit : ' + euros(a.montant) + '</small>' : '<small>Montant déduit après réception du justificatif</small>') + '</span></label>';
     }).join('');
-    var desc = { 'Chèque': 'En 1 à ' + st.chequesMax + ' fois, à l\'ordre de « ' + st.ordreCheque + ' », à remettre au club', 'Espèces': 'À remettre au club (reçu fourni)', 'HelloAsso': 'Carte bancaire, en ligne et sécurisé', 'Virement': st.iban ? 'IBAN : ' + st.iban : 'Coordonnées bancaires communiquées par le club' };
+    var desc = { 'Chèque': 'En 1 à ' + st.chequesMax + ' fois, à l\'ordre de « ' + st.ordreCheque + ' », à remettre au club', 'Espèces': 'À remettre au club (reçu fourni)',
+      'HelloAsso': st.helloassoApi ? 'Carte bancaire, en ligne et sécurisé' : 'Sur la page HelloAsso du club (vous y saisirez le montant)', 'Virement': st.iban ? 'IBAN : ' + st.iban : 'Coordonnées bancaires communiquées par le club' };
     var icon = { 'Chèque': '🧾', 'Espèces': '💶', 'HelloAsso': '💳', 'Virement': '🏦' };
     if (st.modes.indexOf(W.mode) < 0) W.mode = st.modes.length === 1 ? st.modes[0] : '';
     $('modes').innerHTML = st.modes.map(function (m) {
       return '<label class="' + (W.mode === m ? 'sel' : '') + '"><input type="radio" name="mode"' + (W.mode === m ? ' checked' : '') + ' onchange="setMode(\'' + m + '\')"><span><b>' + (icon[m] || '•') + ' ' + esc(m === 'HelloAsso' ? 'Paiement en ligne (HelloAsso)' : m) + '</b><small>' + esc(desc[m] || '') + '</small></span></label>';
     }).join('');
     var t = totals();
-    $('modeDetail').innerHTML = W.mode === 'Chèque' && st.chequesMax > 1
-      ? '<label>Nombre de chèques</label><select onchange="W.echeances=Number(this.value);renderPayment()">' +
-        Array.from({ length: st.chequesMax }, function (_, k) { return '<option value="' + (k + 1) + '"' + (W.echeances === k + 1 ? ' selected' : '') + '>' + (k + 1) + ' fois' + (k ? ' : ' + echeancesText(t.reste, k + 1) : ' : ' + euros(t.reste)) + '</option>'; }).join('') + '</select>'
+    $('modeDetail').innerHTML = W.mode === 'Chèque'
+      ? (st.chequesMax > 1 ? '<label>Nombre de chèques</label><select onchange="W.echeances=Number(this.value);renderPayment()">' +
+        Array.from({ length: st.chequesMax }, function (_, k) { return '<option value="' + (k + 1) + '"' + (W.echeances === k + 1 ? ' selected' : '') + '>' + (k + 1) + ' fois' + (k ? ' : ' + echeancesText(t.reste, k + 1) : ' : ' + euros(t.reste)) + '</option>'; }).join('') + '</select>' : '') +
+        chequesHtml()
       : '';
   }
+  // Chèques : titulaire, banque, n° et montant de chacun (servira de
+  // bordereau de remise en banque). Ce qui est saisi sur le chèque 1 est
+  // recopié sur les suivants tant qu'ils n'ont pas été modifiés ; montants
+  // proposés : 50 %, 25 %, le reste.
+  function chequeSplit(total, n) {
+    if (n <= 1) return [total];
+    var first = Math.round(total * 0.5), out = [first];
+    if (n === 2) return [first, Math.round((total - first) * 100) / 100];
+    var mid = Math.round(total * 0.25 / (n - 2)), used = first;
+    for (var i = 1; i < n - 1; i++) { out.push(mid); used += mid; }
+    out.push(Math.round((total - used) * 100) / 100);
+    return out;
+  }
+  function syncCheques() {
+    var n = W.echeances || 1, due = totals().reste, split = chequeSplit(due, n), r = responsable();
+    W.cheques = W.cheques || [];
+    while (W.cheques.length < n) W.cheques.push({ titulaire: '', banque: '', numero: '', montant: 0, touched: {} });
+    W.cheques.length = n;
+    W.cheques.forEach(function (c, k) {
+      if (!c.touched.titulaire) c.titulaire = k && W.cheques[0].titulaire ? W.cheques[0].titulaire : (r.prenom + ' ' + r.nom.toUpperCase()).trim();
+      if (k && !c.touched.banque) c.banque = W.cheques[0].banque;
+      if (k && !c.touched.numero) c.numero = nextNumero(W.cheques[0].numero, k);
+      if (!c.touched.montant) c.montant = split[k];
+    });
+  }
+  function nextNumero(num, k) {
+    var m = String(num || '').match(/^(.*?)(\d+)$/);
+    if (!m) return num || '';
+    var n = String(Number(m[2]) + k);
+    while (n.length < m[2].length) n = '0' + n;
+    return m[1] + n;
+  }
+  function chequesHtml() {
+    syncCheques();
+    var st = INFO.settings;
+    return '<p style="font-size:14px;margin:12px 0 6px;">À l\'ordre de <b>« ' + esc(st.ordreCheque) + ' »</b>. Ces informations servent au dépôt des chèques en banque : ' +
+      'ce qui est saisi sur le chèque 1 est recopié sur les suivants (modifiable chèque par chèque).</p>' +
+      W.cheques.map(function (c, k) {
+        var f = function (key, label, attrs) {
+          return '<div><label>' + label + ' <span class="req">*</span></label><input id="chq' + k + '_' + key + '" value="' + esc(c[key]) + '" ' + (attrs || '') +
+            ' oninput="chequeInput(' + k + ', \'' + key + '\', this.value)"></div>';
+        };
+        return '<div class="member" style="padding:12px;margin-bottom:10px;"><div class="member-h"><b>🧾 Chèque ' + (k + 1) + '</b>' +
+          (k ? '<small style="color:var(--muted);">' + (k === W.cheques.length - 1 ? 'reste' : '25 %') + '</small>' : (W.cheques.length > 1 ? '<small style="color:var(--muted);">50 %</small>' : '')) + '</div>' +
+          '<div class="grid2">' + f('titulaire', 'Titulaire du compte') + f('banque', 'Banque') + f('numero', 'N° du chèque', 'inputmode="numeric"') +
+          f('montant', 'Montant (€)', 'inputmode="decimal"') + '</div></div>';
+      }).join('') + '<div id="chqTotal">' + chequesTotal() + '</div>';
+  }
+  function chequesTotal() {
+    var due = totals().reste, sum = W.cheques.reduce(function (t, c) { return t + (Number(String(c.montant).replace(',', '.')) || 0); }, 0);
+    sum = Math.round(sum * 100) / 100;
+    return Math.abs(sum - due) < 0.01 ? '<div class="note ok">Total des chèques : <b>' + euros(sum) + '</b> = reste à régler ✓</div>'
+      : '<div class="note err">Total des chèques : ' + euros(sum) + ' — il doit faire <b>' + euros(due) + '</b>.</div>';
+  }
+  function chequeInput(k, key, v) {
+    var c = W.cheques[k];
+    c[key] = v; c.touched[key] = true;
+    if (k === 0 && key !== 'montant') {
+      W.cheques.forEach(function (o, j) {
+        if (!j || o.touched[key]) return;
+        o[key] = key === 'numero' ? nextNumero(v, j) : v;
+        var el = $('chq' + j + '_' + key); if (el) el.value = o[key];
+      });
+    }
+    $('chqTotal').innerHTML = chequesTotal();
+  }
   function toggleAide(k) { var a = INFO.settings.aides[k].nom, i = W.aides.indexOf(a); if (i >= 0) W.aides.splice(i, 1); else W.aides.push(a); renderPayment(); }
-  function setMode(m) { W.mode = m; if (m !== 'Chèque') W.echeances = 1; renderPayment(); }
+  function setMode(m) { W.mode = m; if (m !== 'Chèque') W.echeances = 1; else if (!W.cheques) W.cheques = []; renderPayment(); }
 
   function submitAdhesion() {
     var err = validateStep(4); if (err) { flash(err, 'err'); return; }
     var btn = $('btnSubmit');
     busy(btn, true, 'Enregistrement…');
-    var data = { responsable: responsable(), membres: W.membres, aides: W.aides, mode: W.mode, echeances: W.echeances, website: $('hp1').value };
+    var data = { responsable: responsable(), membres: W.membres, aides: W.aides, mode: W.mode, echeances: W.echeances, website: $('hp1').value,
+      cheques: W.mode === 'Chèque' ? W.cheques.map(function (c) { return { titulaire: c.titulaire, banque: c.banque, numero: c.numero, montant: Number(String(c.montant).replace(',', '.')) }; }) : [] };
     api('createAdhesion', [data]).then(function (res) {
       busy(btn, false);
       setAccess(res.dossier, data.responsable.tel);
@@ -838,6 +913,8 @@
       (d.aidesMontant ? '<tr><td>Aides : ' + esc(d.aides) + '</td><td class="num">− ' + euros(d.aidesMontant) + '</td></tr>' : '') +
       '<tr><td>Déjà réglé</td><td class="num">' + euros(d.regle) + '</td></tr><tr class="tot"><td>Reste à régler</td><td class="num">' + euros(d.reste) + '</td></tr></table>' +
       '<p style="margin-bottom:0;">' + pay + '</p>' +
+      ((d.cheques || []).length ? '<table class="recap" style="margin-top:8px;"><tr><th>Chèque</th><th>N°</th><th>Banque</th><th>Titulaire</th><th class="num">Montant</th><th>Encaissé</th></tr>' +
+        d.cheques.map(function (c) { return '<tr><td>' + c.n + '</td><td>' + esc(c.numero) + '</td><td>' + esc(c.banque) + '</td><td>' + esc(c.titulaire) + '</td><td class="num">' + euros(c.montant) + '</td><td>' + (c.deposeLe ? '✓ ' + esc(c.deposeLe) : '—') + '</td></tr>'; }).join('') + '</table>' : '') +
       (d.helloasso && d.reste > 0 ? '<div class="actions" style="justify-content:flex-start;"><button class="btn orange" onclick="payOnline(this)">💳 Payer ' + euros(d.reste) + ' en ligne</button></div>' : '') + '</div>' +
       (function () {
         var w = d.membres.filter(function (m) { return m.statut !== 'Annulé' && (m.licence === 'Nouvelle' || m.licence === 'Renouvellement'); }).map(function (m) { return m.licence; });
@@ -850,7 +927,10 @@
   function payOnline(btn) {
     if (!ACC) { go('vDossier'); return; }
     busy(btn, true, 'Ouverture de HelloAsso…');
-    api('createAdhesionCheckout', [ACC.dossier, ACC.tel]).then(function (res) { location.href = res.redirectUrl; })
+    api('createAdhesionCheckout', [ACC.dossier, ACC.tel]).then(function (res) {
+      if (res.lien) alert('Vous allez sur la page de paiement HelloAsso du club : saisissez le montant de ' + euros(res.montant) + ' et indiquez votre n° de dossier ' + ACC.dossier + '.');
+      location.href = res.redirectUrl;
+    })
       .catch(function (e) { busy(btn, false); flash(esc(e.message), 'err'); });
   }
 
