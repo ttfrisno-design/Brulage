@@ -3768,32 +3768,48 @@ function getComiteExport(code) {
  * présentation, créneaux). Refuse de s'exécuter si l'effectif contient déjà
  * des joueurs : ne jamais lancer sur le classeur d'un vrai club. */
 function initialiserClubEssai() {
-  ensureSheets_();
+  // Chaque étape est notée dans le journal : en cas d'erreur Google
+  // (« erreur inconnue »…), on voit où elle s'est arrêtée, et on peut relancer.
+  const etape = function (n, nom, fn) {
+    Logger.log(n + '/6 ' + nom + '…');
+    try { return fn(); } catch (e) { throw new Error('Étape ' + n + '/6 (' + nom + ') : ' + (e && e.message || e)); }
+  };
+  etape(1, 'Feuilles du classeur', function () { forceSheetsCheck(); });
+  // Relance possible : seuls des joueurs d'essai (licence ESSAI…) déjà créés
+  // par cette fonction sont acceptés ; le classeur d'un vrai club est refusé.
   const players = readTable_('Joueurs').filter(function (p) { return String(p.Nom || p.Prénom || '').trim(); });
-  if (players.length) throw new Error('Ce classeur contient déjà ' + players.length + ' joueur(s) : initialisation d\'essai refusée.');
-  // Équipes d'essai
-  const eq = ss_().getSheetByName('Equipes');
-  const teams = [[1, 'ESSAI1', 'Régional 3', 'Dimanche', '', 'A'], [2, 'ESSAI2', 'Départemental 1', 'Vendredi', '20:00', 'B'],
-    [3, 'ESSAI3', 'Départemental 2', 'Vendredi', '20:00', 'B'], [4, 'ESSAI4', 'Départemental 3', 'Vendredi', '20:00', 'C']];
-  eq.getRange(2, 1, Math.max(eq.getLastRow() - 1, 1), 6).clearContent();
-  eq.getRange(2, 1, teams.length, 6).setNumberFormat('@').setValues(teams.map(function (r) { return r.map(String); }));
-  teamsLoaded_ = false; loadTeams_();
+  const reels = players.filter(function (p) { return String(p.Licence || '').indexOf('ESSAI') !== 0; });
+  if (reels.length) throw new Error('Ce classeur contient déjà ' + reels.length + ' joueur(s) réel(s) : initialisation d\'essai refusée.');
+  etape(2, 'Équipes', function () {
+    const eq = ss_().getSheetByName('Equipes');
+    const teams = [[1, 'ESSAI1', 'Régional 3', 'Dimanche', '', 'A'], [2, 'ESSAI2', 'Départemental 1', 'Vendredi', '20:00', 'B'],
+      [3, 'ESSAI3', 'Départemental 2', 'Vendredi', '20:00', 'B'], [4, 'ESSAI4', 'Départemental 3', 'Vendredi', '20:00', 'C']];
+    if (eq.getLastRow() > 1) eq.getRange(2, 1, eq.getLastRow() - 1, 6).clearContent();
+    eq.getRange(2, 1, teams.length, 6).setNumberFormat('@').setValues(teams.map(function (r) { return r.map(String); }));
+    teamsLoaded_ = false; loadTeams_();
+  });
   // Joueurs fictifs (codes 6 chiffres affichés dans le journal d'exécution)
   const noms = [['MARTIN', 'Lucas', 'Senior', 'M', 1], ['BERNARD', 'Emma', 'Senior', 'F', 1], ['DUBOIS', 'Hugo', 'V40', 'M', 1], ['THOMAS', 'Léa', 'Senior', 'F', 1],
     ['ROBERT', 'Louis', 'V50', 'M', 2], ['RICHARD', 'Chloé', 'Junior', 'F', 2], ['PETIT', 'Jules', 'Senior', 'M', 2], ['DURAND', 'Inès', 'V40', 'F', 3],
     ['LEROY', 'Nathan', 'Cadet', 'M', 3], ['MOREAU', 'Manon', 'Senior', 'F', 3], ['SIMON', 'Tom', 'V60', 'M', 4], ['LAURENT', 'Zoé', 'Minime', 'F', 4],
     ['LEFEBVRE', 'Théo', 'Benjamin', 'M', 0], ['MICHEL', 'Jade', 'Poussin', 'F', 0]];
   const used = {};
+  players.forEach(function (p) { used[String(p.PIN)] = true; });
   const codes = [];
-  noms.forEach(function (n, i) {
-    let pin;
-    do { pin = String(Math.floor(100000 + Math.random() * 900000)); } while (used[pin]);
-    used[pin] = true;
-    addPlayer(n[0], n[1], n[4], pin, i % 4 === 0, '06000000' + ('0' + i).slice(-2), n[2], n[3], 'ESSAI' + (1000 + i));
-    codes.push(n[1] + ' ' + n[0] + ' : ' + pin + (i % 4 === 0 ? ' (capitaine)' : ''));
+  etape(3, 'Joueurs fictifs', function () {
+    noms.forEach(function (n, i) {
+      const deja = players.find(function (p) { return String(p.Nom) === n[0] && String(p.Prénom) === n[1]; });
+      if (deja) { codes.push(n[1] + ' ' + n[0] + ' : ' + deja.PIN + ' (déjà créé)'); return; }
+      let pin;
+      do { pin = String(Math.floor(100000 + Math.random() * 900000)); } while (used[pin]);
+      used[pin] = true;
+      addPlayer(n[0], n[1], n[4], pin, i % 4 === 0, '06000000' + ('0' + i).slice(-2), n[2], n[3], 'ESSAI' + (1000 + i));
+      codes.push(n[1] + ' ' + n[0] + ' : ' + pin + (i % 4 === 0 ? ' (capitaine)' : ''));
+    });
   });
   // Dates de phase 1 autour d'aujourd'hui (une journée tous les 14 jours,
   // vendredi pour les groupes B et C, dimanche pour le groupe A).
+  etape(4, 'Dates', function () {
   const ds = ss_().getSheetByName('Dates');
   const dv = ds.getDataRange().getValues();
   const start = new Date(); start.setHours(12, 0, 0, 0); start.setDate(start.getDate() - 28 - start.getDay() + 5); // un vendredi
@@ -3804,9 +3820,11 @@ function initialiserClubEssai() {
     ds.getRange(i + 1, 4).setNumberFormat('@').setValue(formatFrDate_(d));
     ds.getRange(i + 1, 6).setValue('J' + (k + 1));
   }
+  });
   let admin;
   do { admin = String(Math.floor(100000 + Math.random() * 900000)); } while (used[admin]);
-  setAdminPin(admin);
+  etape(5, 'Code administrateur', function () { setAdminPin(admin); });
+  etape(6, 'Présentation du club', function () {
   setClubInfo({
     nom: 'Club d\'essai RebonTT', ville: 'Rouen', adresse: 'Salle fictive, 76000 Rouen',
     entrainements: 'Club fictif pour tester RebonTT : les données ne sont pas réelles.', tarifs: 'Jeunes : 130 €\nAdultes : 150 €',
@@ -3818,7 +3836,7 @@ function initialiserClubEssai() {
       { jour: 'Jeudi', debut: '20:00', fin: '22:00', niveau: 'Adultes compétiteurs', public: 'Adultes', tarif: 150, places: 16, competition: 'oui' },
     ],
   });
-  writeConfig_('AdhContactEmail', Session.getEffectiveUser().getEmail() || '');
+  });
   bumpDataVersion_();
   const msg = 'Club d\'essai prêt.\nCode administrateur : ' + admin + '\nCodes joueurs :\n' + codes.join('\n');
   Logger.log(msg);
