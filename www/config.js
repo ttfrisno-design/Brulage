@@ -9,7 +9,7 @@ window.APP_CONFIG = {
   // Espace comité départemental (comite.html, non affiché dans l'appli) :
   // nom et lien du Google Sheet du comité (backend/Comite.gs). Aucun secret
   // ici : le code comité est saisi à la connexion.
-  COMITE: { nom: 'CD76TT', sheetUrl: '' },
+  COMITE: { nom: 'CD76TT', sheetUrl: 'https://docs.google.com/spreadsheets/d/11Q5sF76it4w4TWKHgh2wfHrnfriDhzo_NIt_kGMEdzQ/edit' },
   CLUBS: [
     { id: 'fri', nom: 'FR Isneauville Tennis de Table', ville: 'Isneauville', cp: '76230', logo: 'assets/logo-fri.png' },
   ],
