@@ -388,6 +388,19 @@
     .chip { display: inline-block; padding: 2px 8px; border-radius: 12px; background: var(--gray-bg); margin: 2px 4px 2px 0; font-size: 12px; }
     .chip.red { background: var(--red-bg); color: var(--red); }
     /* Compétitions individuelles (admin) : une colonne par compétition */
+    /* Une compétition à la fois (onglets), sur toute la largeur. */
+    .compet-tabs { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 12px; align-items: center; }
+    .compet-tabs .ct-type { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .compet-tabs .ct-group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .compet-tab { border: 1px solid var(--border); background: #fff; color: var(--ink); border-radius: 18px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+    .compet-tab.on { background: var(--primary); border-color: var(--primary); color: #fff; font-weight: 600; }
+    .compet-tab .ct-badge { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 4px; border-radius: 9px; background: #ff9800; color: #fff; font-size: 11px; font-weight: 700; text-align: center; }
+    .compet-full { padding: 12px 16px; background: #fff; }
+    .compet-full .compet-col-head { font-size: 17px; }
+    .ep-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 10px; align-items: start; margin: 6px 0; }
+    .ep-grid > details { border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; background: #fafbfc; margin: 0; }
+    .ep-grid > details[open] { grid-column: 1 / -1; background: #fff; border-color: var(--primary); }
+    @media (max-width: 640px) { .ep-grid { grid-template-columns: 1fr; } }
     .compet-columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(300px, 1fr); gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: start; }
     .compet-col { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; background: #fafbfc; min-width: 0; }
     .compet-col-head { font-weight: 700; font-size: 14px; padding-bottom: 6px; border-bottom: 2px solid var(--primary); margin-bottom: 4px; }
@@ -3423,12 +3436,39 @@
     var inscByComp = {};
     data.inscriptions.forEach(function (i) { (inscByComp[i.competitionId] = inscByComp[i.competitionId] || []).push(i); });
 
-    var html = '';
-    ['Jeunes', 'Adultes', 'Tous', 'Stages'].forEach(function (type) {
+    // Onglets : une compétition (type + nom) à la fois, sur toute la largeur.
+    var TYPES = ['Jeunes', 'Adultes', 'Tous', 'Stages'];
+    var typeLabel = function (t) { return t === 'Tous' ? 'Jeunes et adultes' : t === 'Stages' ? 'Stages jeunes' : t; };
+    var tabs = [];
+    TYPES.forEach(function (type) {
+      var seen = {};
+      data.competitions.filter(function (c) { return c.type === type && (showPast || daysUntil(c.date) >= 0); })
+        .sort(function (a, b) { return frDateToTime(a.date) - frDateToTime(b.date); })
+        .forEach(function (c) {
+          if (seen[c.nom]) { seen[c.nom].ids.push(c.id); return; }
+          seen[c.nom] = { key: type + '|' + c.nom, type: type, nom: c.nom, ids: [c.id] };
+          tabs.push(seen[c.nom]);
+        });
+    });
+    tabs.forEach(function (t) {
+      t.dem = data.inscriptions.filter(function (i) { return t.ids.indexOf(i.competitionId) >= 0 && i.statut === 'Demandée'; }).length;
+    });
+    if (!tabs.some(function (t) { return t.key === STATE.competTab; })) {
+      STATE.competTab = ((tabs.find(function (t) { return t.dem; }) || tabs[0]) || {}).key;
+    }
+    var html = tabs.length ? '<div class="compet-tabs">' + TYPES.map(function (type) {
+      var ts = tabs.filter(function (t) { return t.type === type; });
+      return ts.length ? '<div class="ct-group"><span class="ct-type">' + typeLabel(type) + '</span>' + ts.map(function (t) {
+        return '<button type="button" class="compet-tab' + (t.key === STATE.competTab ? ' on' : '') + '" onclick="STATE.competTab=' + escAttr(JSON.stringify(t.key)) + ';renderAdminCompet()">' +
+          escHtml(t.nom) + (t.dem ? '<span class="ct-badge" title="Demandes à traiter">' + t.dem + '</span>' : '') + '</button>';
+      }).join('') + '</div>' : '';
+    }).join('') + '</div>' : '';
+    var selType = String(STATE.competTab || '').split('|')[0], selNom = String(STATE.competTab || '').split('|').slice(1).join('|');
+    TYPES.forEach(function (type) {
+      if (type !== selType) return;
       var list = data.competitions.filter(function (c) { return c.type === type && (showPast || daysUntil(c.date) >= 0); })
         .sort(function (a, b) { return frDateToTime(a.date) - frDateToTime(b.date); });
       if (!list.length) return;
-      html += '<h3>' + (type === 'Tous' ? 'Jeunes et adultes' : type === 'Stages' ? 'Stages jeunes (vacances scolaires)' : type) + '</h3>';
       // Une colonne par compétition (épreuves dans l'ordre des dates).
       var noms = [];
       var byNom = {};
@@ -3436,10 +3476,11 @@
         if (!byNom[c.nom]) { byNom[c.nom] = []; noms.push(c.nom); }
         byNom[c.nom].push(c);
       });
-      html += '<div class="compet-columns">';
+      html += '<div>';
       noms.forEach(function (nom) {
+      if (nom !== selNom) return;
       var mail = (data.settings.mails || {})[nom];
-      html += '<div class="compet-col"><div class="compet-col-head">' + escHtml(nom) +
+      html += '<div class="compet-col compet-full"><div class="compet-col-head">' + escHtml(nom) + ' <span style="font-weight:400;color:var(--muted);font-size:13px;">· ' + typeLabel(type) + ' · ' + byNom[nom].length + ' épreuve' + (byNom[nom].length > 1 ? 's' : '') + '</span>' +
         (mail ? '<span class="mail">✉️ ' + escHtml(mail) + '</span>' : '') + '</div>';
       var serie = (data.settings.deadlines || {})[nom] || '';
       html += '<div class="pay-link-box">📅 Date limite d\'inscription ' + (singleInscription(nom) ? '(début de saison)' : '(toutes les épreuves)') +
@@ -3450,7 +3491,8 @@
       // Coupe de Rouen / SERANO : inscription pour la saison, gérée en une
       // seule liste (pas de gestion tour par tour).
       if (singleInscription(nom)) html += seasonAdminHtml(nom, byNom[nom], data, inscByComp, playersById);
-      else byNom[nom].forEach(function (c) {
+      else html += '<div class="ep-grid">';
+      if (!singleInscription(nom)) byNom[nom].forEach(function (c) {
         var ins = inscByComp[c.id] || [];
         var nDem = ins.filter(function (i) { return i.statut === 'Demandée'; }).length;
         var nVal = ins.filter(function (i) { return i.statut === 'Validée'; }).length;
@@ -3525,6 +3567,7 @@
         }
         html += '</div></details>';
       });
+      if (!singleInscription(nom)) html += '</div>';
       // Sous les dates : lien de règlement de la compétition (règlement
       // unique, ou lien par défaut des épreuves pour Challenge 500 /
       // Circuit Jeunes).
