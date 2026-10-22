@@ -446,7 +446,10 @@ d'inscription* est vide).
    l'onglet Adhésions, **bordereau de remise** imprimable et « marquer comme
    déposés » (montant ajouté au règlement du dossier, e-mail à la famille).
    **HelloAsso** : paiement intégré (clés API) ou simple **lien de paiement
-   HelloAsso du club** (réglage de l'onglet Adhésions). Le dossier
+   HelloAsso du club** (réglage de l'onglet Adhésions). **Coordonnées
+   bancaires du club** (titulaire, banque, agence, IBAN, BIC) paramétrables
+   dans Adhésions › Réglages : reprises sur le bordereau de remise, dans les
+   consignes de virement (libellé « Adhésion n° de dossier ») et les e-mails. Le dossier
    reçoit un **n° TT26-XXXX** (4 caractères tirés au hasard, ex. TT26-K7QM) envoyé par e-mail avec le récapitulatif.
    **E-mails de suivi** à la famille (e-mail et e-mail 2, réponse adressée à
    l'e-mail du club) : inscription enregistrée, attestation de santé,

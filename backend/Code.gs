@@ -3005,6 +3005,9 @@ function adhSettings_() {
     chequesMax: Math.max(1, Math.min(10, adhNum_(v('AdhChequesMax', '3')) || 3)),
     ordreCheque: v('AdhOrdreCheque', v('ClubNom', '')),
     iban: v('AdhIban', ''),
+    // Coordonnées bancaires du club (virements, bordereau de remise de chèques).
+    banque: { titulaire: v('AdhBanqueTitulaire', v('AdhOrdreCheque', v('ClubNom', ''))), nom: v('AdhBanqueNom', ''),
+      agence: v('AdhBanqueAgence', ''), iban: v('AdhIban', ''), bic: v('AdhBic', '') },
     aides: aides,
     reglementUrl: v('AdhReglementUrl', ''),
     reglementTexte: v('AdhReglementTexte', ''),
@@ -3207,6 +3210,14 @@ function adhPublicUrl_() {
   return app.replace(/[?#].*$/, '').replace(/[^/]*$/, '') + 'inscription.html';
 }
 
+/** Consignes de virement : coordonnées bancaires du club + libellé. */
+function adhVirementTexte_(st, dossier) {
+  const b = st.banque || {};
+  if (!b.iban) return ' (coordonnées bancaires communiquées par le club)';
+  return ' — titulaire : ' + b.titulaire + ', IBAN : ' + b.iban + (b.bic ? ', BIC : ' + b.bic : '') + (b.nom ? ' (' + b.nom + ')' : '') +
+    (dossier ? ', libellé : « Adhésion ' + dossier + ' »' : '');
+}
+
 function adhMail_(to, subject, body, replyTo) {
   if (!to) return false;
   try {
@@ -3233,7 +3244,7 @@ function adhRecap_(a, membres, crs, st) {
       return '\n  Chèque ' + (i + 1) + ' : ' + c.montant + ' € – n° ' + c.numero + ' – ' + c.banque + ' – ' + c.titulaire;
     }).join('');
   }
-  if (a.mode === 'Virement' && st.iban) pay += ' (IBAN : ' + st.iban + ')';
+  if (a.mode === 'Virement') pay += adhVirementTexte_(st, a.dossier);
   return lines.join('\n') + '\n\nTotal : ' + a.total + ' €' +
     (a.aidesMontant ? '\nAides déclarées (' + a.aides.join(', ') + ') : -' + a.aidesMontant + ' € (justificatif à envoyer)' : '') +
     '\nReste à régler : ' + Math.max(0, a.total - a.aidesMontant) + ' €\n' + pay;
@@ -3278,7 +3289,7 @@ function adhFamilyMail_(dossier, sujet, evenement) {
             ch.map(function (x) { return 'chèque ' + x.N + ' n° ' + x.Numero + ' de ' + adhNum_(x.Montant) + ' €'; }).join(', ') + '. Ils sont encaissés un par un.'
           : 'Régler ' + reste + ' € : ' + (a.Mode === 'Chèque' ? 'chèque(s) à l\'ordre de « ' + st.ordreCheque + ' » (' + a.Echeances + ' fois), à remettre au club'
           : a.Mode === 'HelloAsso' ? 'paiement en ligne depuis votre compte (bouton « Payer en ligne »)'
-          : a.Mode === 'Virement' ? 'virement' + (st.iban ? ' (IBAN ' + st.iban + ')' : '') : 'en espèces, au club') + '.');
+          : a.Mode === 'Virement' ? 'virement' + adhVirementTexte_(st, a.Dossier) : 'en espèces, au club') + '.');
       }
     }
     const lic = membres.some(function (m) { return m.Licence === 'Nouvelle' || m.Licence === 'Renouvellement'; });
@@ -3342,6 +3353,7 @@ function createAdhesion(d) {
     adhAppend_('AdhesionMembres', [dossier, i + 1, m.nom, m.prenom, m.naissance, m.sexe, m.categorie, m.creneau1, m.creneau2,
       m.licence, m.numLicence, m.montant, '', '', '', '', 'Inscrit', '']);
   });
+  a.dossier = dossier;
   const recap = adhRecap_(a, a.membres, crs, st);
   adhFamilyMail_(dossier, 'Inscription enregistrée', 'Votre inscription au tennis de table pour la saison ' + st.saison +
     ' est bien enregistrée sous le n° de dossier ' + dossier + ' : notez-le, il vous sera demandé avec votre téléphone.\n\n' + recap);
@@ -3637,7 +3649,7 @@ function getAdhesionsAdmin(token) {
   const m = configMap_();
   const raw = {};
   ['AdhSaison', 'AdhOuvert', 'AdhCommune', 'AdhSupplementExterieur', 'AdhReductionFamille', 'AdhModes', 'AdhChequesMax', 'AdhOrdreCheque',
-    'AdhIban', 'AdhAides', 'AdhReglementUrl', 'AdhReglementTexte', 'AdhContactEmail', 'AdhInfos', 'AdhLicences', 'AdhPpsUrl', 'AdhLicenceUrl', 'AdhHelloAssoLien'].forEach(function (k) { raw[k] = m[k] || ''; });
+    'AdhIban', 'AdhAides', 'AdhReglementUrl', 'AdhReglementTexte', 'AdhContactEmail', 'AdhInfos', 'AdhLicences', 'AdhPpsUrl', 'AdhLicenceUrl', 'AdhHelloAssoLien', 'AdhBanqueTitulaire', 'AdhBanqueNom', 'AdhBanqueAgence', 'AdhBic'].forEach(function (k) { raw[k] = m[k] || ''; });
   const crs = adhCreneaux_();
   const byId = {};
   crs.forEach(function (c) { byId[c.id] = c; });
@@ -3686,6 +3698,8 @@ function saveAdhesionSettings(token, s) {
     if (!/^Adh[A-Za-z]+$/.test(k)) throw new Error('Réglage inconnu : ' + k);
     const v = String(s[k] === undefined || s[k] === null ? '' : s[k]);
     if (k === 'AdhLicences') { writeConfig_(k, JSON.stringify(adhLicences_(v))); return; }
+    if (k === 'AdhIban' && v.trim() && !/^[A-Z]{2}\d{2}[A-Z0-9 ]{10,40}$/i.test(v.trim())) throw new Error('IBAN invalide (ex. FR76 1234 5678 9012 3456 7890 123).');
+    if (k === 'AdhBic' && v.trim() && !/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/i.test(v.trim().replace(/\s/g, ''))) throw new Error('BIC invalide (8 ou 11 caractères, ex. AGRIFRPP866).');
     if (k === 'AdhHelloAssoLien' && v.trim() && !/^https:\/\/(www\.)?helloasso\.com\/\S+$/i.test(v.trim())) throw new Error('Lien HelloAsso invalide (https://www.helloasso.com/…).');
     if (k === 'AdhLicenceUrl' && v.trim() && !/^https?:\/\/\S+$/i.test(v.trim())) throw new Error('Lien du formulaire de licence invalide (https://…).');
     if (k === 'AdhPpsUrl' && v.trim() && !/^https?:\/\/\S+$/i.test(v.trim())) throw new Error('Lien PPS invalide (https://…).');

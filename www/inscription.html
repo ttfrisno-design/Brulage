@@ -741,8 +741,15 @@
     if (W.mode === 'Chèque') return W.echeances + ' chèque' + (W.echeances > 1 ? 's' : '') + ' à l\'ordre de « ' + st.ordreCheque + ' »' +
       ((W.cheques || []).length ? ' : ' + W.cheques.map(function (c, k) { return 'n° ' + c.numero + ' (' + c.banque + ') ' + euros(Number(String(c.montant).replace(',', '.'))); }).join(' + ') : '');
     if (W.mode === 'HelloAsso') return st.helloassoApi ? 'paiement en ligne (carte bancaire, HelloAsso), juste après la validation' : 'paiement en ligne sur la page HelloAsso du club (' + euros(t.reste) + ' à saisir)';
-    if (W.mode === 'Virement') return 'virement' + (st.iban ? ' (IBAN ' + st.iban + ')' : '');
+    if (W.mode === 'Virement') return 'virement' + virementTexte(st, '');
     return W.mode.toLowerCase();
+  }
+  // Coordonnées bancaires du club pour un virement (libellé = n° de dossier).
+  function virementTexte(st, dossier) {
+    var b = st.banque || {};
+    if (!b.iban) return ' (coordonnées bancaires communiquées par le club)';
+    return ' — titulaire : ' + b.titulaire + ', IBAN : ' + b.iban + (b.bic ? ', BIC : ' + b.bic : '') + (b.nom ? ' (' + b.nom + ')' : '') +
+      ', libellé : « Adhésion ' + (dossier || 'n° de dossier') + ' »';
   }
   function echeancesText(total, n) { return chequeSplit(total, n).map(euros).join(' + '); }
   function renderPayment() {
@@ -755,7 +762,7 @@
       return '<label class="' + (on ? 'sel' : '') + '"><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="toggleAide(' + k + ')"><span><b>' + esc(a.nom) + '</b>' + (a.montant ? '<small>Déduit : ' + euros(a.montant) + '</small>' : '<small>Montant déduit après réception du justificatif</small>') + '</span></label>';
     }).join('');
     var desc = { 'Chèque': 'En 1 à ' + st.chequesMax + ' fois, à l\'ordre de « ' + st.ordreCheque + ' », à remettre au club', 'Espèces': 'À remettre au club (reçu fourni)',
-      'HelloAsso': st.helloassoApi ? 'Carte bancaire, en ligne et sécurisé' : 'Sur la page HelloAsso du club (vous y saisirez le montant)', 'Virement': st.iban ? 'IBAN : ' + st.iban : 'Coordonnées bancaires communiquées par le club' };
+      'HelloAsso': st.helloassoApi ? 'Carte bancaire, en ligne et sécurisé' : 'Sur la page HelloAsso du club (vous y saisirez le montant)', 'Virement': st.banque && st.banque.iban ? 'Au compte du club' + virementTexte(st, '') : 'Coordonnées bancaires communiquées par le club' };
     var icon = { 'Chèque': '🧾', 'Espèces': '💶', 'HelloAsso': '💳', 'Virement': '🏦' };
     if (st.modes.indexOf(W.mode) < 0) W.mode = st.modes.length === 1 ? st.modes[0] : '';
     $('modes').innerHTML = st.modes.map(function (m) {
@@ -900,7 +907,7 @@
         '<br><span style="font-size:13px;color:var(--muted);">' + esc(m.creneau1) + (m.creneau2 ? '<br>+ ' + esc(m.creneau2) : '') + '</span></td>' +
         '<td>' + qs + '</td><td>' + ri + '</td><td class="num">' + euros(m.montant) + '</td></tr>';
     }).join('');
-    var pay = 'Mode : ' + esc(d.mode) + (d.mode === 'Chèque' ? ' en ' + d.echeances + ' fois, à l\'ordre de « ' + esc(st.ordreCheque || '') + ' »' : '') + (d.mode === 'Virement' && st.iban ? ' — IBAN ' + esc(st.iban) : '');
+    var pay = 'Mode : ' + esc(d.mode) + (d.mode === 'Chèque' ? ' en ' + d.echeances + ' fois, à l\'ordre de « ' + esc(st.ordreCheque || '') + ' »' : '') + (d.mode === 'Virement' ? esc(virementTexte(st, d.dossier)) : '');
     var docs = d.documents.length ? '<ul style="margin:0;padding-left:20px;">' + d.documents.map(function (x) {
       var m = d.membres.find(function (y) { return y.n === x.n; });
       return '<li>' + esc(x.type) + (m ? ' – ' + esc(m.prenom) : '') + ' : ' + esc(x.fichier) + ' <span style="color:var(--muted);font-size:13px;">(' + esc(x.date) + ')</span></li>';
