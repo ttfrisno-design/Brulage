@@ -441,7 +441,7 @@ d'inscription* est vide).
    l'effectif), membres (date de naissance → catégorie FFTT de la saison, seuls
    les créneaux de son âge sont proposés), aides (Pass'Sport…), mode de
    règlement (chèque en 1 à n fois, espèces, virement, HelloAsso). Le dossier
-   reçoit un **n° (ex. TT26-001)** envoyé par e-mail avec le récapitulatif.
+   reçoit un **n° TT26-XXXX** (4 caractères tirés au hasard, ex. TT26-K7QM) envoyé par e-mail avec le récapitulatif.
    **E-mails de suivi** à la famille (e-mail et e-mail 2, réponse adressée à
    l'e-mail du club) : inscription enregistrée, attestation de santé,
    règlement intérieur, document reçu, demande de modification, paiement
