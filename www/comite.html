@@ -89,7 +89,9 @@
           <div class="grow"><input type="search" id="fSearch" placeholder="Rechercher (joueur, compétition, lieu, licence…)" oninput="render()"></div>
         </div>
         <div class="toolbar" style="margin-top:10px;">
-          <button class="btn orange" onclick="downloadXlsx(this)">⬇ Télécharger (.xlsx)</button>
+          <button class="btn orange" onclick="downloadXlsx(this)">⬇ Tout télécharger (.xlsx)</button>
+          <select id="fComp"></select>
+          <button class="btn" onclick="if ($('fComp').value) downloadComp($('fComp').value)">⬇ Classeur de la compétition</button>
           <a class="btn hidden" id="sheetLink" target="_blank" rel="noopener">📄 Google Sheet du comité ↗</a>
           <button class="btn" onclick="loadAll()">↻ Actualiser</button>
         </div>
@@ -120,6 +122,7 @@
   function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
   function dateKey(d) { var m = String(d || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + m[2] + m[1] : '99999999'; }
   function today() { var d = new Date(); return '' + d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2); }
+  function compKey(r) { return r.type + '|' + r.competition; }
   function compLabel(r) { return r.competition + (r.epreuve ? ' – ' + r.epreuve : ''); }
 
   if (COMITE.nom) { $('title').textContent = 'Inscriptions aux compétitions – ' + COMITE.nom; document.title = COMITE.nom + ' – inscriptions'; }
@@ -211,6 +214,11 @@
   }
   function render() {
     var rows = filtered();
+    var keys = groupBy(rows.slice().sort(function (a, b) { return compKey(a).localeCompare(compKey(b)); }), compKey);
+    var cur = $('fComp').value;
+    $('fComp').innerHTML = '<option value="">Choisir une compétition…</option>' + keys.map(function (g) {
+      return '<option value="' + esc(g.key) + '"' + (g.key === cur ? ' selected' : '') + '>' + esc(g.rows[0].competition + ' (' + g.rows[0].type + ')') + ' – ' + g.rows.length + '</option>';
+    }).join('');
     var comps = groupBy(rows, function (r) { return r.date + '|' + compLabel(r); });
     $('stats').textContent = rows.length + ' inscription' + (rows.length > 1 ? 's' : '') + ' · ' + comps.length + ' épreuve' + (comps.length > 1 ? 's' : '') +
       ' · ' + groupBy(rows, function (r) { return r.club; }).length + ' club(s)';
@@ -219,7 +227,8 @@
     if (VIEW === 'comp') {
       html = comps.map(function (g) {
         var r0 = g.rows[0];
-        return '<div class="group"><h3><span class="tag ' + esc(r0.type) + '">' + esc(r0.type) + '</span>' + esc(compLabel(r0)) + '<span>' + esc(r0.date) + (r0.lieu ? ' · ' + esc(r0.lieu) : '') + '</span><b class="count">' + g.rows.length + ' inscrit' + (g.rows.length > 1 ? 's' : '') + '</b></h3>' +
+        return '<div class="group"><h3><span class="tag ' + esc(r0.type) + '">' + esc(r0.type) + '</span>' + esc(compLabel(r0)) + '<span>' + esc(r0.date) + (r0.lieu ? ' · ' + esc(r0.lieu) : '') + '</span><b class="count">' + g.rows.length + ' inscrit' + (g.rows.length > 1 ? 's' : '') + '</b>' +
+          '<button class="btn" style="padding:3px 8px;font-size:12px;" title="Classeur de la compétition : tous les inscrits + un onglet par club" onclick="downloadComp(\'' + esc(compKey(r0)).replace(/'/g, '\\\'') + '\')">⬇ Classeur</button></h3>' +
           groupBy(g.rows, function (r) { return r.club; }).map(function (c) {
             return '<div class="sub">' + esc(c.key) + ' <span>(' + c.rows.length + ')</span></div>' + playersTable(c.rows);
           }).join('') + '</div>';
@@ -234,6 +243,38 @@
       }).join('');
     }
     $('list').innerHTML = html;
+  }
+
+  // Classeur d'UNE compétition (toutes ses épreuves, selon les filtres
+  // affichés) : onglet « Tous les inscrits » puis un onglet par club.
+  function sheetName(n, used) {
+    var base = String(n || 'Club').replace(/[\[\]*?:\/\\]/g, ' ').trim().slice(0, 31) || 'Club', x = base, k = 2;
+    while (used[x.toLowerCase()]) { var suf = ' (' + (k++) + ')'; x = base.slice(0, 31 - suf.length) + suf; }
+    used[x.toLowerCase()] = true;
+    return x;
+  }
+  function downloadComp(key) {
+    if (!window.XLSX) { alert('Bibliothèque Excel indisponible (connexion ?).'); return; }
+    var rows = filtered().filter(function (r) { return compKey(r) === key; }).sort(function (a, b) {
+      return dateKey(a.date).localeCompare(dateKey(b.date)) || a.club.localeCompare(b.club) || a.nom.localeCompare(b.nom) || a.prenom.localeCompare(b.prenom);
+    });
+    if (!rows.length) { alert('Aucun inscrit pour cette compétition avec les filtres actuels.'); return; }
+    var cols = ['Date', 'Épreuve', 'Lieu', 'Club', 'Nom', 'Prénom', 'Catégorie', 'Sexe', 'Licence', 'Points', 'Équipe', 'Participation'];
+    var line = function (r) { return [r.date, r.epreuve, r.lieu, r.club, r.nom, r.prenom, r.categorie, r.sexe, r.licence, r.points, r.equipe, r.participation]; };
+    var wb = XLSX.utils.book_new(), used = {};
+    var add = function (name, aoa, widths) {
+      var ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = widths.map(function (w) { return { wch: w }; });
+      ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(aoa.length - 1, 0), c: aoa[0].length - 1 } }) };
+      XLSX.utils.book_append_sheet(wb, ws, sheetName(name, used));
+    };
+    add('Tous les inscrits', [cols].concat(rows.map(line)), [11, 22, 22, 26, 18, 14, 10, 6, 11, 7, 8, 13]);
+    groupBy(rows.slice().sort(function (a, b) { return a.club.localeCompare(b.club); }), function (r) { return r.club; }).forEach(function (g) {
+      var c2 = cols.filter(function (c) { return c !== 'Club'; });
+      add(g.key, [c2].concat(g.rows.map(function (r) { var l = line(r); return l.slice(0, 3).concat(l.slice(4)); })), [11, 22, 22, 18, 14, 10, 6, 11, 7, 8, 13]);
+    });
+    var r0 = rows[0];
+    XLSX.writeFile(wb, ('inscriptions-' + r0.competition + '-' + r0.type).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/-+$/, '') + '.xlsx');
   }
 
   // Classeur : « Par compétition », « Par club » et « Résumé » (nombre

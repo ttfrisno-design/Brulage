@@ -521,7 +521,13 @@ de chacun.
 `COMITE_CODE` et `COMITE_CLUBS` (les adresses /exec des clubs, séparées par
 des espaces — ou en JSON `[{"nom":"FR Isneauville TT","url":"https://script.google.com/macros/s/…/exec"}]`),
 puis menu **Comité › Mettre à jour les inscriptions** et **Mise à jour
-automatique (toutes les heures)**. Mettre le lien de ce classeur dans
+automatique (toutes les heures)**. Le script crée aussi **un classeur par
+compétition** (ex. « Inscriptions – Critérium Fédéral (Adultes) », toutes ses
+épreuves) dans le dossier « Inscriptions par compétition » à côté du classeur :
+onglet **Tous les inscrits** + **un onglet par club** ; l'onglet « Classeurs »
+du classeur principal donne le lien de chacun. Sur la page du comité, le bouton
+« ⬇ Classeur » (ou « Classeur de la compétition ») télécharge ce même classeur
+en .xlsx. Mettre le lien de ce classeur dans
 `config.js › COMITE.sheetUrl` pour l'afficher sur la page du comité.
 
 ## Rassemblements féminins

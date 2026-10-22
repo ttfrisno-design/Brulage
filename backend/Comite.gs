@@ -12,9 +12,12 @@
 //      inscriptions » (Google demande l'autorisation la première fois), puis
 //      « Mise à jour automatique (toutes les heures) ».
 // Le classeur contient alors les onglets « Par compétition », « Par club »,
-// « Résumé » et « Clubs » (état de chaque club), à partager avec qui de droit.
+// « Résumé », « Clubs » (état de chaque club) et « Classeurs » (liens).
+// Un classeur par compétition (ex. « Inscriptions – Critérium Fédéral
+// (Adultes) ») est aussi créé dans le dossier « Inscriptions par compétition »
+// à côté de ce classeur : onglet « Tous les inscrits » + un onglet par club.
 
-const COMITE_ONGLETS_ = { comp: 'Par compétition', club: 'Par club', resume: 'Résumé', clubs: 'Clubs' };
+const COMITE_ONGLETS_ = { comp: 'Par compétition', club: 'Par club', resume: 'Résumé', clubs: 'Clubs', classeurs: 'Classeurs' };
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Comité')
@@ -102,11 +105,93 @@ function mettreAJourInscriptions() {
   ecrireOnglet_(COMITE_ONGLETS_.resume, resume);
   etat.push(['', '', '', ''], ['Mise à jour', Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'), rows.length, '']);
   ecrireOnglet_(COMITE_ONGLETS_.clubs, etat);
+  classeursParCompetition_(byComp);
   return rows.length;
 }
 
-function ecrireOnglet_(nom, data) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+// ---------------------------------------------------------------------------
+// Un classeur Google Sheets par compétition
+// ---------------------------------------------------------------------------
+function dossierClasseurs_() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty('COMITE_DOSSIER_ID');
+  if (id) { try { const f = DriveApp.getFolderById(id); if (!f.isTrashed()) return f; } catch (e) { /* recréé ci-dessous */ } }
+  const parents = DriveApp.getFileById(SpreadsheetApp.getActiveSpreadsheet().getId()).getParents();
+  const parent = parents.hasNext() ? parents.next() : DriveApp.getRootFolder();
+  const f = parent.createFolder('Inscriptions par compétition');
+  props.setProperty('COMITE_DOSSIER_ID', f.getId());
+  return f;
+}
+function nomOnglet_(n, pris) {
+  let base = String(n || 'Club').replace(/[\[\]*?:\/\\]/g, ' ').trim().slice(0, 90) || 'Club', x = base, k = 2;
+  while (pris[x.toLowerCase()]) x = base.slice(0, 85) + ' (' + (k++) + ')';
+  pris[x.toLowerCase()] = true;
+  return x;
+}
+/** Crée ou met à jour un classeur par compétition (type + nom) : onglet
+ * « Tous les inscrits » puis un onglet par club. Les classeurs déjà créés
+ * restent liés (propriété COMITE_CLASSEURS) et sont vidés s'ils n'ont plus
+ * d'inscrits. */
+function classeursParCompetition_(rows) {
+  const props = PropertiesService.getScriptProperties();
+  let map = {};
+  try { map = JSON.parse(props.getProperty('COMITE_CLASSEURS') || '{}') || {}; } catch (e) { map = {}; }
+  const groupes = {};
+  rows.forEach(function (r) {
+    const k = r.type + '|' + r.competition;
+    (groupes[k] = groupes[k] || { type: r.type, nom: r.competition, rows: [] }).rows.push(r);
+  });
+  Object.keys(map).forEach(function (k) {
+    if (!groupes[k]) { const p = k.split('|'); groupes[k] = { type: p[0], nom: p.slice(1).join('|'), rows: [] }; }
+  });
+  const dossier = dossierClasseurs_();
+  const cols = ['Date', 'Épreuve', 'Lieu', 'Club', 'Nom', 'Prénom', 'Catégorie', 'Sexe', 'Licence', 'Points', 'Équipe', 'Participation'];
+  const ligne = function (r) { return [r.date, r.epreuve, r.lieu, r.club, r.nom, r.prenom, r.categorie, r.sexe, r.licence, r.points, r.equipe, r.participation]; };
+  const index = [['Compétition', 'Type', 'Inscrits', 'Clubs', 'Classeur']];
+  const liens = [];
+  Object.keys(groupes).sort(function (a, b) { return a.localeCompare(b); }).forEach(function (k) {
+    const g = groupes[k];
+    const titre = 'Inscriptions – ' + g.nom + (g.type ? ' (' + g.type + ')' : '');
+    let ss = null;
+    if (map[k]) { try { const f = DriveApp.getFileById(map[k]); if (!f.isTrashed()) ss = SpreadsheetApp.openById(map[k]); } catch (e) { ss = null; } }
+    if (!ss) {
+      ss = SpreadsheetApp.create(titre);
+      DriveApp.getFileById(ss.getId()).moveTo(dossier);
+      map[k] = ss.getId();
+    }
+    const tri = g.rows.slice().sort(function (a, b) {
+      return dateKey_(a.date).localeCompare(dateKey_(b.date)) || a.club.localeCompare(b.club) || a.nom.localeCompare(b.nom) || a.prenom.localeCompare(b.prenom);
+    });
+    const pris = {};
+    const tous = nomOnglet_('Tous les inscrits', pris);
+    const garder = {};
+    garder[tous] = true;
+    ecrireOnglet_(tous, [cols].concat(tri.map(ligne)), ss);
+    const clubs = [];
+    tri.forEach(function (r) { if (clubs.indexOf(r.club) < 0) clubs.push(r.club); });
+    clubs.sort().forEach(function (club) {
+      const nom = nomOnglet_(club, pris);
+      garder[nom] = true;
+      ecrireOnglet_(nom, [cols.filter(function (c) { return c !== 'Club'; })].concat(tri.filter(function (r) { return r.club === club; })
+        .map(function (r) { const l = ligne(r); return l.slice(0, 3).concat(l.slice(4)); })), ss);
+    });
+    // Onglets en trop (club sans inscrit, « Feuille 1 » d'origine…) supprimés.
+    ss.getSheets().forEach(function (sh) { if (!garder[sh.getName()] && ss.getSheets().length > 1) ss.deleteSheet(sh); });
+    ss.setActiveSheet(ss.getSheetByName(tous));
+    ss.moveActiveSheet(1);
+    index.push([g.nom, g.type, g.rows.length, clubs.length, 'Ouvrir']);
+    liens.push(ss.getUrl());
+  });
+  props.setProperty('COMITE_CLASSEURS', JSON.stringify(map));
+  ecrireOnglet_(COMITE_ONGLETS_.classeurs, index);
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(COMITE_ONGLETS_.classeurs);
+  liens.forEach(function (url, i) {
+    sh.getRange(i + 2, 5).setRichTextValue(SpreadsheetApp.newRichTextValue().setText('Ouvrir le classeur').setLinkUrl(url).build());
+  });
+}
+
+function ecrireOnglet_(nom, data, classeur) {
+  const ss = classeur || SpreadsheetApp.getActiveSpreadsheet();
   const sh = ss.getSheetByName(nom) || ss.insertSheet(nom);
   if (sh.getFilter()) sh.getFilter().remove();
   sh.clearContents();
