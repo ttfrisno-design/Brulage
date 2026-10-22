@@ -826,6 +826,20 @@
   };
 
   var GROUP_LABEL = { A: 'Régional 3 (Dim.)', B: 'Départemental 1/2 (Ven. 20h)', C: 'Départemental 3/4 (Ven. 20h)' };
+  // Libellé d'un groupe de dates, déduit des équipes du club (onglet
+  // « Equipes ») : divisions (« Départemental 1/2 »), jour et heure.
+  function groupLabel(g, court) {
+    var teams = ((STATE.config && STATE.config.teams) || []).filter(function (t) { return t.group === g && isFriTeam(t); });
+    if (!teams.length) return court ? GROUP_LABEL[g].replace(/\s*\(.*\)$/, '') : GROUP_LABEL[g];
+    var divs = [];
+    teams.forEach(function (t) { if (t.division && divs.indexOf(t.division) < 0) divs.push(t.division); });
+    var m = divs.map(function (d) { return d.match(/^(.*?)\s*(\d+)$/); });
+    var div = divs.length > 1 && m.every(function (x) { return x && x[1] === m[0][1]; })
+      ? m[0][1] + ' ' + m.map(function (x) { return x[2]; }).sort().join('/') : divs.join(' / ');
+    if (court) return div || ('Groupe ' + g);
+    var t0 = teams[0], when = (t0.day ? t0.day.slice(0, 3) + '.' : '') + (t0.time ? ' ' + t0.time.replace(/^(\d+):00$/, '$1h').replace(/^(\d+):(\d+)$/, '$1h$2') : '');
+    return (div || ('Groupe ' + g)) + (when ? ' (' + when + ')' : '');
+  }
   var GROUP_COLORS = { A: '#1565c0', B: '#ef6c00', C: '#2e7d32' };
   // Groupes de dates du championnat FRI. La Coupe de Rouen et le
   // Championnat Jeunes se gèrent dans les compétitions individuelles (équipe
@@ -1585,7 +1599,7 @@
   function hiddenGroupsNote(data) {
     var groups = burnedGroups(data.burned);
     var hidden = ['B', 'C'].filter(function (g) { return groups[g]; })
-      .map(function (g) { return g === 'B' ? 'D1/D2' : 'D3/D4'; });
+      .map(function (g) { return groupLabel(g, true); });
     return hidden.length ? '<br>Les dates ' + hidden.join(' et ') + ' ne vous sont plus proposées.' : '';
   }
 
@@ -1649,7 +1663,7 @@
       byJ[j][r.group] = r;
     });
     var html = '<div class="avail-grid" style="grid-template-columns:auto repeat(' + groups.length + ', minmax(0, 1fr));">' +
-      '<div class="ag-head"></div>' + groups.map(function (g) { return '<div class="ag-head">' + GROUP_LABEL[g] + '</div>'; }).join('');
+      '<div class="ag-head"></div>' + groups.map(function (g) { return '<div class="ag-head">' + groupLabel(g) + '</div>'; }).join('');
     journees.forEach(function (j) {
       html += '<div class="ag-j">' + (jb[(byJ[j][groups[0]] || byJ[j][Object.keys(byJ[j])[0]]).date] ? escHtml(j) : '') + '</div>';
       groups.forEach(function (g) {
@@ -1762,7 +1776,7 @@
     var el = document.getElementById('groupColorLegend');
     if (!el) return;
     el.innerHTML = GROUPS.map(function (g) {
-      return '<span><span class="swatch" style="background:#fff;border:2px solid ' + GROUP_COLORS[g] + ';"></span>' + GROUP_LABEL[g] + '</span>';
+      return '<span><span class="swatch" style="background:#fff;border:2px solid ' + GROUP_COLORS[g] + ';"></span>' + groupLabel(g) + '</span>';
     }).join('');
   }
 
@@ -1879,7 +1893,7 @@
       var gc = GROUP_COLORS[d.group] || '#999';
       if (journeeGapBefore(dates, i)) html += '<th class="jr-gap"></th>';
       html += '<th data-date="' + d.date + '" class="group-' + d.group.toLowerCase() + '" style="border:2px solid ' + gc + ';' + journeeFrameCss(dates, i) + '">' +
-        '<div class="date-head">' + d.date + '</div><div class="grp-head">' + GROUP_LABEL[d.group] + '</div>' +
+        '<div class="date-head">' + d.date + '</div><div class="grp-head">' + groupLabel(d.group) + '</div>' +
         (teamId ? opponentHeadHtml(teamId, d.date, d.group) : '') + '</th>';
     });
     if (!hasFrames) html += teamHeaderCells(lastTeamId, '');
@@ -2152,7 +2166,7 @@
         html += '</tbody></table></div>';
       } else {
         html += '<p style="color:var(--muted);font-size:13px;margin:0;">' + (isFriTeam(t) ? 'Aucun joueur dans cette équipe.'
-          : 'Aucun joueur affecté pour l\'instant : choisissez ' + t.name + ' dans la colonne « ' + GROUP_LABEL[t.group] + ' » du cadre FRI du joueur.') + '</p>';
+          : 'Aucun joueur affecté pour l\'instant : choisissez ' + t.name + ' dans la colonne « ' + groupLabel(t.group) + ' » du cadre FRI du joueur.') + '</p>';
       }
       html += '</div>';
     });
@@ -2262,7 +2276,7 @@
     var el = document.getElementById('captainGroupColorLegend');
     if (!el) return;
     el.innerHTML = GROUPS.map(function (g) {
-      return '<span><span class="swatch" style="background:#fff;border:2px solid ' + GROUP_COLORS[g] + ';"></span>' + GROUP_LABEL[g] + '</span>';
+      return '<span><span class="swatch" style="background:#fff;border:2px solid ' + GROUP_COLORS[g] + ';"></span>' + groupLabel(g) + '</span>';
     }).join('');
   }
 
@@ -2312,7 +2326,7 @@
         html += '</tbody></table></div>';
       } else {
         html += '<p style="color:var(--muted);font-size:13px;margin:0;">' + (isFriTeam(t) ? 'Aucun joueur dans cette équipe.'
-          : 'Aucun joueur affecté pour l\'instant : choisissez ' + t.name + ' dans la colonne « ' + GROUP_LABEL[t.group] + ' » du cadre FRI du joueur.') + '</p>';
+          : 'Aucun joueur affecté pour l\'instant : choisissez ' + t.name + ' dans la colonne « ' + groupLabel(t.group) + ' » du cadre FRI du joueur.') + '</p>';
       }
       html += '</div>';
     });
@@ -4145,7 +4159,7 @@
     [1, 2].forEach(function (phase) {
       html += '<h3>Phase ' + phase + '</h3>';
       GROUPS.forEach(function (grp) {
-        html += '<label>' + GROUP_LABEL[grp] + '</label><div class="dates-grid" id="dates-' + phase + '-' + grp + '">';
+        html += '<label>' + groupLabel(grp) + '</label><div class="dates-grid" id="dates-' + phase + '-' + grp + '">';
         var dates = STATE.config.dates[phase][grp] || [];
         for (var i = 0; i < 7; i++) {
           html += '<input type="text" placeholder="jj/mm/aaaa" value="' + escAttr(dates[i] || '') + '">';

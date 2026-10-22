@@ -18,7 +18,14 @@
 
 // Ordre 1 -> 8 = ordre hiérarchique utilisé pour le calcul du brûlage.
 // "group" identifie l'ensemble de dates (jour de match) partagé par les équipes.
-const TEAMS = [
+// Version du script (affichée au comité et dans l'admin) : permet de savoir
+// quels clubs ont recollé la dernière version de Code.gs.
+const REBONTT_VERSION = '2026.10.22';
+
+// Équipes par défaut (celles du FRI). Chaque club règle les siennes dans
+// l'onglet « Equipes » de son classeur (créé avec ces valeurs) : ID, Nom,
+// Division, Jour, Heure, Groupe de dates (A, B ou C).
+const DEFAULT_TEAMS_ = [
   { id: 1, name: 'FRI1', division: 'Régional 3',      day: 'Dimanche', time: '',      group: 'A' },
   { id: 2, name: 'FRI2', division: 'Départemental 1',  day: 'Vendredi', time: '20:00', group: 'B' },
   { id: 3, name: 'FRI3', division: 'Départemental 2',  day: 'Vendredi', time: '20:00', group: 'B' },
@@ -32,7 +39,25 @@ const TEAMS = [
   // les compétitions individuelles, avec choix de l'équipe à la validation
   // de l'inscription — voir COMPETITION_TEAMS_.)
 ];
-TEAMS.forEach(function (t) { if (!t.kind) t.kind = 'FRI'; });
+const TEAMS = DEFAULT_TEAMS_.map(function (t) { return Object.assign({ kind: 'FRI' }, t); });
+const TEAMS_HEADERS_ = ['ID', 'Nom', 'Division', 'Jour', 'Heure', 'Groupe'];
+let teamsLoaded_ = false;
+/** Équipes du club lues dans l'onglet « Equipes » (une fois par exécution) ;
+ * à défaut, celles par défaut. */
+function loadTeams_() {
+  if (teamsLoaded_) return;
+  teamsLoaded_ = true;
+  const sh = ss_().getSheetByName('Equipes');
+  if (!sh || sh.getLastRow() < 2) return;
+  const list = sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues().map(function (r) {
+    return { id: Number(r[0]), name: String(r[1] || '').trim(), division: String(r[2] || '').trim(), day: String(r[3] || '').trim(),
+      time: r[4] instanceof Date ? Utilities.formatDate(r[4], Session.getScriptTimeZone(), 'HH:mm') : String(r[4] || '').trim(),
+      group: String(r[5] || '').trim().toUpperCase(), kind: 'FRI' };
+  }).filter(function (t) { return t.id > 0 && t.name && ['A', 'B', 'C'].indexOf(t.group) >= 0; });
+  if (!list.length) return;
+  TEAMS.length = 0;
+  list.sort(function (a, b) { return a.id - b.id; }).forEach(function (t) { TEAMS.push(t); });
+}
 const DATE_GROUPS_ = ['A', 'B', 'C'];
 
 // Dates de phase 1, par groupe (fournies par le club).
@@ -294,9 +319,10 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V20';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V21';
 
 function ensureSheets_() {
+  loadTeams_();
   if (sheetsChecked_) return;
   const cache = CacheService.getScriptCache();
   if (cache.get(SHEETS_CHECK_CACHE_KEY_)) {
@@ -319,6 +345,16 @@ function forceSheetsCheck() {
 
 function ensureSheetsNow_() {
   const ss = ss_();
+
+  // --- Equipes (ajout d'un onglet seulement, avec les équipes par défaut) ---
+  if (!ss.getSheetByName('Equipes')) {
+    const eq = ss.insertSheet('Equipes');
+    eq.getRange(1, 1, 30, 6).setNumberFormat('@');
+    eq.getRange(1, 1, DEFAULT_TEAMS_.length + 1, 6).setValues([TEAMS_HEADERS_].concat(DEFAULT_TEAMS_.map(function (t) {
+      return [String(t.id), t.name, t.division, t.day, t.time, t.group];
+    })));
+    eq.setFrozenRows(1);
+  }
 
   // --- Config ---
   let cfg = ss.getSheetByName('Config');
@@ -919,6 +955,7 @@ function getClubInfo() {
     entrainements: v('ClubEntrainements'), tarifs: v('ClubTarifs'), inscription: v('ClubInscription'),
     creneaux: parseCreneaux_(v('ClubCreneaux')), entrainementsPhoto: v('ClubEntrainementsPhoto'),
     site: v('SiteClub'),
+    version: REBONTT_VERSION,
     adhesion: { ouvert: !/^(non|0|false|fermé|ferme)$/i.test(v('AdhOuvert') || 'oui'), saison: v('AdhSaison') || defaultSaison_() },
     teams: TEAMS.filter(function (t) { return t.kind === 'FRI'; })
       .map(function (t) { return { name: t.name, division: t.division, day: t.day, time: t.time }; }),
@@ -3717,8 +3754,73 @@ function getComiteExport(code) {
     };
   });
   return {
-    club: { nom: String(readConfigValue_('ClubNom', '') || ''), ville: String(readConfigValue_('ClubVille', '') || '') },
+    club: { nom: String(readConfigValue_('ClubNom', '') || ''), ville: String(readConfigValue_('ClubVille', '') || ''), version: REBONTT_VERSION },
     generatedAt: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'),
     inscriptions: rows,
   };
+}
+
+// ----------------------------------------------------------------------------------
+// CLUB D'ESSAI — données fictives pour tester (nouveau classeur uniquement)
+// ----------------------------------------------------------------------------------
+/** À lancer UNE FOIS depuis l'éditeur Apps Script d'un classeur NEUF (copie
+ * vide pour les essais) : crée un club fictif (équipes, joueurs, codes,
+ * présentation, créneaux). Refuse de s'exécuter si l'effectif contient déjà
+ * des joueurs : ne jamais lancer sur le classeur d'un vrai club. */
+function initialiserClubEssai() {
+  ensureSheets_();
+  const players = readTable_('Joueurs').filter(function (p) { return String(p.Nom || p.Prénom || '').trim(); });
+  if (players.length) throw new Error('Ce classeur contient déjà ' + players.length + ' joueur(s) : initialisation d\'essai refusée.');
+  // Équipes d'essai
+  const eq = ss_().getSheetByName('Equipes');
+  const teams = [[1, 'ESSAI1', 'Régional 3', 'Dimanche', '', 'A'], [2, 'ESSAI2', 'Départemental 1', 'Vendredi', '20:00', 'B'],
+    [3, 'ESSAI3', 'Départemental 2', 'Vendredi', '20:00', 'B'], [4, 'ESSAI4', 'Départemental 3', 'Vendredi', '20:00', 'C']];
+  eq.getRange(2, 1, Math.max(eq.getLastRow() - 1, 1), 6).clearContent();
+  eq.getRange(2, 1, teams.length, 6).setNumberFormat('@').setValues(teams.map(function (r) { return r.map(String); }));
+  teamsLoaded_ = false; loadTeams_();
+  // Joueurs fictifs (codes 6 chiffres affichés dans le journal d'exécution)
+  const noms = [['MARTIN', 'Lucas', 'Senior', 'M', 1], ['BERNARD', 'Emma', 'Senior', 'F', 1], ['DUBOIS', 'Hugo', 'V40', 'M', 1], ['THOMAS', 'Léa', 'Senior', 'F', 1],
+    ['ROBERT', 'Louis', 'V50', 'M', 2], ['RICHARD', 'Chloé', 'Junior', 'F', 2], ['PETIT', 'Jules', 'Senior', 'M', 2], ['DURAND', 'Inès', 'V40', 'F', 3],
+    ['LEROY', 'Nathan', 'Cadet', 'M', 3], ['MOREAU', 'Manon', 'Senior', 'F', 3], ['SIMON', 'Tom', 'V60', 'M', 4], ['LAURENT', 'Zoé', 'Minime', 'F', 4],
+    ['LEFEBVRE', 'Théo', 'Benjamin', 'M', 0], ['MICHEL', 'Jade', 'Poussin', 'F', 0]];
+  const used = {};
+  const codes = [];
+  noms.forEach(function (n, i) {
+    let pin;
+    do { pin = String(Math.floor(100000 + Math.random() * 900000)); } while (used[pin]);
+    used[pin] = true;
+    addPlayer(n[0], n[1], n[4], pin, i % 4 === 0, '06000000' + ('0' + i).slice(-2), n[2], n[3], 'ESSAI' + (1000 + i));
+    codes.push(n[1] + ' ' + n[0] + ' : ' + pin + (i % 4 === 0 ? ' (capitaine)' : ''));
+  });
+  // Dates de phase 1 autour d'aujourd'hui (une journée tous les 14 jours,
+  // vendredi pour les groupes B et C, dimanche pour le groupe A).
+  const ds = ss_().getSheetByName('Dates');
+  const dv = ds.getDataRange().getValues();
+  const start = new Date(); start.setHours(12, 0, 0, 0); start.setDate(start.getDate() - 28 - start.getDay() + 5); // un vendredi
+  for (let i = 1; i < dv.length; i++) {
+    if (Number(dv[i][0]) !== 1 || ['A', 'B', 'C'].indexOf(String(dv[i][1])) < 0) continue;
+    const k = Number(dv[i][2]) - 1, d = new Date(start.getTime());
+    d.setDate(d.getDate() + 14 * k + (String(dv[i][1]) === 'A' ? 2 : 0));
+    ds.getRange(i + 1, 4).setNumberFormat('@').setValue(formatFrDate_(d));
+    ds.getRange(i + 1, 6).setValue('J' + (k + 1));
+  }
+  let admin;
+  do { admin = String(Math.floor(100000 + Math.random() * 900000)); } while (used[admin]);
+  setAdminPin(admin);
+  setClubInfo({
+    nom: 'Club d\'essai RebonTT', ville: 'Rouen', adresse: 'Salle fictive, 76000 Rouen',
+    entrainements: 'Club fictif pour tester RebonTT : les données ne sont pas réelles.', tarifs: 'Jeunes : 130 €\nAdultes : 150 €',
+    creneaux: [
+      { jour: 'Lundi', debut: '18:00', fin: '19:30', niveau: 'Jeunes débutants', public: 'Jeunes', tarif: 130, places: 12 },
+      { jour: 'Mercredi', debut: '17:30', fin: '19:00', niveau: 'Jeunes compétiteurs', public: 'Jeunes', tarif: 150, seances: 2, places: 10, competition: 'oui' },
+      { jour: 'Vendredi', debut: '17:30', fin: '19:00', niveau: 'Jeunes compétiteurs', public: 'Jeunes', tarif: 150, seances: 2, places: 10, competition: 'oui' },
+      { jour: 'Mardi', debut: '20:00', fin: '22:00', niveau: 'Loisirs', public: 'Adultes', tarif: 120, places: 20 },
+      { jour: 'Jeudi', debut: '20:00', fin: '22:00', niveau: 'Adultes compétiteurs', public: 'Adultes', tarif: 150, places: 16, competition: 'oui' },
+    ],
+  });
+  writeConfig_('AdhContactEmail', Session.getEffectiveUser().getEmail() || '');
+  bumpDataVersion_();
+  const msg = 'Club d\'essai prêt.\nCode administrateur : ' + admin + '\nCodes joueurs :\n' + codes.join('\n');
+  Logger.log(msg);
+  return msg;
 }

@@ -103,6 +103,7 @@
   </main>
   <footer>RebonTT · espace comité (accès réservé)</footer>
 
+<script src="clubs.js"></script>
 <script src="config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
@@ -112,8 +113,12 @@
   // inscriptions validées. Le code n'est gardé que le temps de la session.
   // ---------------------------------------------------------------------------
   var CFG = window.APP_CONFIG || {};
-  var CLUBS = (CFG.CLUBS && CFG.CLUBS.length ? CFG.CLUBS : [{ id: 'club', nom: 'Club' }]).map(function (c) {
-    return { id: c.id, nom: c.nom, ville: c.ville || '', url: c.serverUrl || CFG.SERVER_URL };
+  // Clubs d'essai : seulement avec ?essai=1 (et s'ils ont leur propre script).
+  var AVEC_ESSAI = /[?&]essai=1/.test(location.search);
+  var CLUBS = (CFG.CLUBS && CFG.CLUBS.length ? CFG.CLUBS : [{ id: 'club', nom: 'Club' }]).filter(function (c) {
+    return !c.essai || (AVEC_ESSAI && c.serverUrl);
+  }).map(function (c) {
+    return { id: c.id, nom: c.nom + (c.essai ? ' (essai)' : ''), ville: c.ville || '', url: c.serverUrl || CFG.SERVER_URL };
   });
   var COMITE = CFG.COMITE || {};
   var DATA = [], STATUS = {}, VIEW = 'comp', CODE = '';
@@ -165,7 +170,7 @@
     return Promise.all(CLUBS.map(function (c) {
       return call(c.url, 'getComiteExport', [CODE]).then(function (res) {
         var nom = (res.club && res.club.nom) || c.nom;
-        STATUS[c.id] = { nom: nom, n: res.inscriptions.length, at: res.generatedAt };
+        STATUS[c.id] = { nom: nom, n: res.inscriptions.length, at: res.generatedAt, version: (res.club && res.club.version) || '' };
         return res.inscriptions.map(function (r) { r.club = nom; return r; });
       }).catch(function (e) {
         STATUS[c.id] = { nom: c.nom, error: e.message };
@@ -178,7 +183,7 @@
       $('clubStatus').innerHTML = CLUBS.map(function (c) {
         var s = STATUS[c.id];
         return s.error ? '<span class="chip ' + (/non configuré/.test(s.error) ? 'warn' : 'err') + '" title="' + esc(s.error) + '">⚠ ' + esc(s.nom) + ' : ' + esc(s.error) + '</span>'
-          : '<span class="chip ok">✓ ' + esc(s.nom) + ' : ' + s.n + ' inscription' + (s.n > 1 ? 's' : '') + '</span>';
+          : '<span class="chip ok" title="Version du script du club : ' + esc(s.version || 'ancienne') + '">✓ ' + esc(s.nom) + ' : ' + s.n + ' inscription' + (s.n > 1 ? 's' : '') + '</span>';
       }).join('');
       render();
       return CLUBS.filter(function (c) { return !STATUS[c.id].error; }).length;

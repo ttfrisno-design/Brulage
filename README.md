@@ -499,6 +499,22 @@ Mise en place :
 - Les textes des questionnaires de santé sont ceux du Code du sport : à
   vérifier par le club avec les versions officielles en vigueur.
 
+## Plusieurs clubs, club d'essai, déploiement
+
+- **Annuaire des clubs** : `www/clubs.js` (une ligne par club : id, nom,
+  ville, cp, `serverUrl` = adresse /exec de son script, logo, `essai`).
+  L'appli installée le relit en ligne : un nouveau club apparaît sans mise à
+  jour de l'appli (changer aussi `REBONTT_CLUBS_MAJ`).
+- **Équipes propres à chaque club** : onglet **Equipes** du classeur (ID, Nom,
+  Division, Jour, Heure, Groupe A/B/C), créé avec les équipes du FRI ; les
+  libellés des groupes de dates en sont déduits.
+- **Club d'essai** : classeur vide + `Code.gs`, exécuter
+  `initialiserClubEssai` (équipes, joueurs fictifs et codes dans le journal),
+  déployer, mettre l'adresse /exec dans `clubs.js` (club `essai`). Visible
+  seulement avec `?essai=1`.
+- **Version du script** : `REBONTT_VERSION` (visible dans l'espace comité).
+- Méthode complète pour une centaine de clubs : [docs/DEPLOIEMENT_CLUBS.md](docs/DEPLOIEMENT_CLUBS.md).
+
 ## Espace comité départemental (CD76TT)
 
 Page **`comite.html`** (https://ttfrisno-design.github.io/Brulage/comite.html),

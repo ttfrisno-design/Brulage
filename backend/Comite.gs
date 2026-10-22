@@ -6,7 +6,8 @@
 //      comité, puis Extensions › Apps Script, et coller ce fichier.
 //   2. ⚙️ Paramètres du projet › Propriétés du script :
 //        COMITE_CODE  = le code comité (le même que dans chaque club) ;
-//        COMITE_CLUBS = les adresses /exec des clubs, séparées par des espaces
+//        COMITE_CLUBS = (facultatif : sinon l'annuaire RebonTT clubs.js est
+//          utilisé) les adresses /exec des clubs, séparées par des espaces
 //          (ou en JSON : [{"nom":"FR Isneauville TT","url":"https://script.google.com/macros/s/…/exec"}]) ;
 //   3. Recharger le classeur : menu « Comité » › « Mettre à jour les
 //      inscriptions » (Google demande l'autorisation la première fois), puis
@@ -33,7 +34,7 @@ function onOpen() {
  *    points-virgules (le nom de chaque club est alors lu dans son script). */
 function comiteClubs_() {
   const raw = String(PropertiesService.getScriptProperties().getProperty('COMITE_CLUBS') || '').trim();
-  if (!raw) return [];
+  if (!raw) return clubsAnnuaire_();
   const fixed = raw.replace(/[\u201C\u201D\u201E\u00AB\u00BB]/g, '"').replace(/[\u2018\u2019]/g, "'").replace(/\u00A0/g, ' ');
   let list = null;
   try { list = JSON.parse(fixed); } catch (e) { list = null; }
@@ -46,6 +47,19 @@ function comiteClubs_() {
   return list.filter(function (c) { return c && c.url; }).map(function (c) {
     const url = String(c.url).trim();
     return { nom: String(c.nom || url), url: url, ok: /^https:\/\/script\.google\.com\/\S+\/exec$/.test(url) };
+  });
+}
+
+/** Sans COMITE_CLUBS : clubs lus dans l'annuaire RebonTT (clubs.js publié
+ * sur GitHub Pages, ou propriété COMITE_ANNUAIRE_URL), hors clubs d'essai. */
+function clubsAnnuaire_() {
+  const url = PropertiesService.getScriptProperties().getProperty('COMITE_ANNUAIRE_URL') || 'https://ttfrisno-design.github.io/Brulage/clubs.js';
+  const txt = UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText();
+  let list = [];
+  try { list = JSON.parse(txt.slice(txt.indexOf('['), txt.lastIndexOf(']') + 1)); } catch (e) { throw new Error('Annuaire des clubs illisible : ' + url); }
+  return list.filter(function (c) { return c && !c.essai; }).map(function (c) {
+    const u = String(c.serverUrl || '').trim();
+    return { nom: String(c.nom || c.id), url: u, ok: /^https:\/\/script\.google\.com\/\S+\/exec$/.test(u) };
   });
 }
 
