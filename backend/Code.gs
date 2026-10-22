@@ -3250,9 +3250,16 @@ function createAdhesion(d) {
     }
   });
   const prefix = 'TT' + String(st.saison).slice(2, 4) + '-';
-  const nums = adhRows_('Adhesions').map(function (x) { return String(x.Dossier); })
-    .filter(function (x) { return x.indexOf(prefix) === 0; }).map(function (x) { return Number(x.slice(prefix.length)) || 0; });
-  const dossier = prefix + ('00' + (Math.max.apply(null, [0].concat(nums)) + 1)).slice(-3);
+  // N° de dossier : TT + année de saison + 4 caractères tirés au hasard (sans
+  // caractères ambigus 0/O, 1/I/L), unique.
+  const used = {};
+  adhRows_('Adhesions').forEach(function (x) { used[String(x.Dossier).toUpperCase()] = true; });
+  const ALPHA = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let dossier = '';
+  do {
+    dossier = prefix;
+    for (let k = 0; k < 4; k++) dossier += ALPHA.charAt(Math.floor(Math.random() * ALPHA.length));
+  } while (used[dossier]);
   const r = a.responsable;
   adhAppend_('Adhesions', [dossier, adhNow_(), st.saison, r.nom, r.prenom, r.adresse, r.cp, r.ville, r.tel, r.email, r.tel2, r.email2,
     a.exterieur ? 'Extérieur' : 'Commune', a.total, a.aidesMontant ? a.aides.join(', ') + ' (' + a.aidesMontant + ' €)' : '',
