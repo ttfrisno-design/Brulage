@@ -130,6 +130,7 @@ const API_FUNCTIONS_ = {
   getCompetitionsAdmin: getCompetitionsAdmin,
   setInscriptionStatus: setInscriptionStatus,
   setInscriptionEquipe: setInscriptionEquipe,
+  setInscriptionTableau: setInscriptionTableau,
   setSeasonInscription: setSeasonInscription,
   saveCompetition: saveCompetition,
   setSeriesDeadline: setSeriesDeadline,
@@ -320,7 +321,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V21';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V22';
 
 function ensureSheets_() {
   loadTeams_();
@@ -547,6 +548,11 @@ function ensureSheetsNow_() {
   // automatique). En-tête seulement.
   if (insc.getLastColumn() < 8) {
     insc.getRange(1, 8).setValue('Reglement');
+  }
+  // Colonne I "Tableau" (ex. -1300 pour la Coupe de Rouen), choisi par le
+  // joueur à la demande d'inscription. En-tête seulement.
+  if (insc.getLastColumn() < 9) {
+    insc.getRange(1, 9).setValue('Tableau');
   }
 
   // --- Rencontres ---
@@ -2051,12 +2057,22 @@ function readCompetitions_(settings) {
       categories: String(r.Categories || '').split(',').map(function (c) { return c.trim(); }).filter(Boolean),
       tarif: String(r.Tarif || ''), infos: String(r.Infos || ''),
       teams: competitionTeams_(String(r.Nom)),
+      tableaux: competitionTableaux_(String(r.Nom)),
     };
   });
 }
 
 // Compétitions individuelles jouées par équipes : l'administrateur choisit
 // l'équipe de chaque inscrit validé.
+// Tableaux par points choisis à l'inscription (ex. Coupe de Rouen : -1700
+// = moins de 1700 points…), du plus fort au plus faible.
+const COMPETITION_TABLEAUX_ = {
+  'Coupe de Rouen': ['-1700', '-1300', '-900'],
+};
+function competitionTableaux_(nom) {
+  return COMPETITION_TABLEAUX_[nom] || [];
+}
+
 const COMPETITION_TEAMS_ = {
   'Coupe de Rouen': ['CDR1', 'CDR2', 'CDR3', 'CDR4'],
   'Championnat Jeunes (équipe de 2)': ['CJ1', 'CJ2', 'CJ3', 'CJ4'],
@@ -2092,6 +2108,28 @@ function setInscriptionEquipe(competitionId, playerId, equipe) {
   return getCompetitionsAdmin();
 }
 
+/** Admin : tableau d'un inscrit (ex. -1300), reporté sur toutes ses
+ * inscriptions aux tours à venir de la compétition. */
+function setInscriptionTableau(competitionId, playerId, tableau) {
+  ensureSheets_();
+  const all = readCompetitions_(competitionSettings_());
+  const c = all.find(function (x) { return Number(x.id) === Number(competitionId); });
+  if (!c) throw new Error('Épreuve introuvable.');
+  tableau = String(tableau || '');
+  if (tableau && c.tableaux.indexOf(tableau) < 0) throw new Error('Tableau invalide.');
+  const today = todayStart_();
+  const series = all.filter(function (x) { const d = parseFrDate_(x.date); return x.nom === c.nom && x.type === c.type && (!d || d >= today); })
+    .map(function (x) { return Number(x.id); });
+  withInscriptionsSheet_(function (rows) {
+    rows.forEach(function (r) {
+      if (String(r[1]) !== String(playerId) || series.indexOf(Number(r[0])) < 0) return;
+      while (r.length < 9) r.push('');
+      r[8] = tableau;
+    });
+  });
+  return getCompetitionsAdmin();
+}
+
 /** Admin, compétitions à inscription pour la saison (Coupe de Rouen,
  * Challenge SERANO) : valide / refuse / retire un joueur pour tous les
  * tours à venir (les tours passés ne sont pas modifiés). */
@@ -2107,11 +2145,12 @@ function setSeasonInscription(competitionId, playerId, statut) {
   const future = series.filter(function (x) { const d = parseFrDate_(x.date); return d && d >= today; });
   withInscriptionsSheet_(function (rows) {
     const team = seriesTeam_(rows, seriesIds, playerId);
+    const tab = seriesTableau_(rows, seriesIds, playerId);
     future.forEach(function (x) {
       const idx = rows.findIndex(function (r) { return Number(r[0]) === Number(x.id) && String(r[1]) === String(playerId); });
       if (!statut) { if (idx >= 0) rows.splice(idx, 1); return; }
       if (idx >= 0) rows[idx][2] = statut;
-      else rows.push([Number(x.id), playerId, statut, new Date(), '', '', team]);
+      else rows.push([Number(x.id), playerId, statut, new Date(), '', '', team, '', tab]);
     });
   });
   if (statut === 'Validée' || statut === 'Refusée') {
@@ -2135,6 +2174,11 @@ function seriesTeam_(rows, series, playerId) {
   return r ? String(r[6]) : '';
 }
 
+function seriesTableau_(rows, series, playerId) {
+  const r = rows.find(function (x) { return String(x[1]) === String(playerId) && series.indexOf(Number(x[0])) >= 0 && x[8]; });
+  return r ? String(r[8]) : '';
+}
+
 function readInscriptions_() {
   return readTable_('Inscriptions').map(function (r) {
     return {
@@ -2143,6 +2187,7 @@ function readInscriptions_() {
       participation: String(r.Participation || ''),
       equipe: String(r.Equipe || ''),
       reglement: r.Reglement instanceof Date ? formatFrDate_(r.Reglement) : String(r.Reglement || ''),
+      tableau: String(r.Tableau || ''),
     };
   });
 }
@@ -2178,6 +2223,7 @@ function getCompetitions(playerId) {
   return {
     settings: settings,
     categorie: categorie,
+    points: player.Points === '' || player.Points === undefined ? null : Number(player.Points) || null,
     competitions: readCompetitions_(settings).map(function (c) {
       c.eligible = isEligible_(c, categorie, sexe);
       return c;
@@ -2219,11 +2265,16 @@ function findInscriptionRow_(rows, competitionId, playerId) {
 
 /** Demande d'inscription du joueur à une ou plusieurs épreuves (avant la
  * date limite de chacune). */
-function requestInscriptions(playerId, competitionIds) {
+function requestInscriptions(playerId, competitionIds, tableau) {
   ensureSheets_();
   const data = getCompetitions(playerId);
   const byId = {};
   data.competitions.forEach(function (c) { byId[c.id] = c; });
+  // Compétition à tableaux (Coupe de Rouen) : tableau obligatoire.
+  const c0 = byId[Number((competitionIds || [])[0])];
+  const tabs = c0 ? c0.tableaux : [];
+  tableau = String(tableau || '').trim();
+  if (tabs.length && tabs.indexOf(tableau) < 0) throw new Error('Choisissez votre tableau (' + tabs.join(', ') + ').');
   const today = todayStart_();
   const refused = [];
   // Inscription unique (Coupe de Rouen, SERANO) : la demande vaut pour toutes les
@@ -2247,9 +2298,10 @@ function requestInscriptions(playerId, competitionIds) {
       const row = findInscriptionRow_(rows, c.id, playerId);
       if (row) {
         if (row[2] === 'Refusée' || row[2] === 'Annulée') { row[2] = 'Demandée'; row[3] = new Date(); row[4] = ''; row[5] = ''; }
+        if (c.tableaux.length) { while (row.length < 9) row.push(''); row[8] = tableau; }
       } else {
         const series = data.competitions.filter(function (x) { return x.nom === c.nom && x.type === c.type; }).map(function (x) { return Number(x.id); });
-        rows.push([c.id, playerId, 'Demandée', new Date(), '', '', seriesTeam_(rows, series, playerId)]);
+        rows.push([c.id, playerId, 'Demandée', new Date(), '', '', seriesTeam_(rows, series, playerId), '', c.tableaux.length ? tableau : '']);
       }
     });
   });
@@ -3813,7 +3865,7 @@ function getComiteExport(code) {
       nom: String(p.Nom || ''), prenom: String(p.Prénom || ''), categorie: String(p.Catégorie || ''),
       sexe: String(p.Sexe || '').toUpperCase(), licence: String(p.Licence || ''),
       points: p.Points === '' || p.Points === undefined ? '' : Number(p.Points) || '',
-      equipe: i.equipe, participation: i.participation, reglement: i.reglement,
+      equipe: i.equipe, tableau: i.tableau, participation: i.participation, reglement: i.reglement,
     };
   });
   return {

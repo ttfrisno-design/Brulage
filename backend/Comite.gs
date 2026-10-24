@@ -67,6 +67,11 @@ function clubsAnnuaire_() {
 
 function dateKey_(d) { const m = String(d || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? m[3] + m[2] + m[1] : '99999999'; }
 function compLabel_(r) { return r.competition + (r.epreuve ? ' – ' + r.epreuve : ''); }
+// Tri : compétition (type, nom), puis tour (date), puis tableau (Coupe de
+// Rouen : -1700, -1300, -900), puis club et nom.
+const TYPES_ORDRE_ = ['Jeunes', 'Adultes', 'Tous', 'Stages'];
+function typeRang_(r) { const i = TYPES_ORDRE_.indexOf(r.type); return i < 0 ? 9 : i; }
+function tabRang_(r) { const n = Number(String(r.tableau || '').replace(/[^0-9]/g, '')); return n ? -n : 1; }
 
 /** Interroge le script de chaque club et réécrit les onglets du classeur. */
 function mettreAJourInscriptions() {
@@ -96,16 +101,17 @@ function mettreAJourInscriptions() {
     p.result.inscriptions.forEach(function (r) { r.club = nom; rows.push(r); });
     etat.push([nom, 'OK', p.result.inscriptions.length, p.result.generatedAt]);
   });
-  const line = function (r) { return [r.date, r.type, r.competition, r.epreuve, r.lieu, r.club, r.nom, r.prenom, r.categorie, r.sexe, r.licence, r.points, r.equipe, r.participation]; };
-  const cols = ['Date', 'Type', 'Compétition', 'Épreuve', 'Lieu', 'Club', 'Nom', 'Prénom', 'Catégorie', 'Sexe', 'Licence', 'Points', 'Équipe', 'Participation'];
+  const line = function (r) { return [r.date, r.type, r.competition, r.epreuve, r.lieu, r.club, r.nom, r.prenom, r.categorie, r.sexe, r.licence, r.points, r.equipe, r.participation, r.tableau || '']; };
+  const cols = ['Date', 'Type', 'Compétition', 'Épreuve', 'Lieu', 'Club', 'Nom', 'Prénom', 'Catégorie', 'Sexe', 'Licence', 'Points', 'Équipe', 'Participation', 'Tableau'];
   const byComp = rows.slice().sort(function (a, b) {
-    return dateKey_(a.date).localeCompare(dateKey_(b.date)) || compLabel_(a).localeCompare(compLabel_(b)) || a.club.localeCompare(b.club) || a.nom.localeCompare(b.nom);
+    return typeRang_(a) - typeRang_(b) || a.competition.localeCompare(b.competition) || dateKey_(a.date).localeCompare(dateKey_(b.date)) ||
+      String(a.epreuve).localeCompare(String(b.epreuve)) || tabRang_(a) - tabRang_(b) || a.club.localeCompare(b.club) || a.nom.localeCompare(b.nom);
   });
   const byClub = rows.slice().sort(function (a, b) {
     return a.club.localeCompare(b.club) || dateKey_(a.date).localeCompare(dateKey_(b.date)) || compLabel_(a).localeCompare(compLabel_(b)) || a.nom.localeCompare(b.nom);
   });
   ecrireOnglet_(COMITE_ONGLETS_.comp, [cols].concat(byComp.map(line)));
-  ecrireOnglet_(COMITE_ONGLETS_.club, [['Club', 'Date', 'Type', 'Compétition', 'Épreuve', 'Lieu', 'Nom', 'Prénom', 'Catégorie', 'Sexe', 'Licence', 'Points', 'Équipe', 'Participation']]
+  ecrireOnglet_(COMITE_ONGLETS_.club, [['Club', 'Date', 'Type', 'Compétition', 'Épreuve', 'Lieu', 'Nom', 'Prénom', 'Catégorie', 'Sexe', 'Licence', 'Points', 'Équipe', 'Participation', 'Tableau']]
     .concat(byClub.map(function (r) { const l = line(r); return [l[5]].concat(l.slice(0, 5), l.slice(6)); })));
   // Résumé : nombre d'inscrits par épreuve et par club.
   const clubNames = etat.slice(1).filter(function (e) { return e[1] === 'OK'; }).map(function (e) { return e[0]; });
@@ -161,8 +167,8 @@ function classeursParCompetition_(rows) {
     if (!groupes[k]) { const p = k.split('|'); groupes[k] = { type: p[0], nom: p.slice(1).join('|'), rows: [] }; }
   });
   const dossier = dossierClasseurs_();
-  const cols = ['Date', 'Épreuve', 'Lieu', 'Club', 'Nom', 'Prénom', 'Catégorie', 'Sexe', 'Licence', 'Points', 'Équipe', 'Participation'];
-  const ligne = function (r) { return [r.date, r.epreuve, r.lieu, r.club, r.nom, r.prenom, r.categorie, r.sexe, r.licence, r.points, r.equipe, r.participation]; };
+  const cols = ['Date', 'Épreuve', 'Tableau', 'Lieu', 'Club', 'Nom', 'Prénom', 'Catégorie', 'Sexe', 'Licence', 'Points', 'Équipe', 'Participation'];
+  const ligne = function (r) { return [r.date, r.epreuve, r.tableau || '', r.lieu, r.club, r.nom, r.prenom, r.categorie, r.sexe, r.licence, r.points, r.equipe, r.participation]; };
   const index = [['Compétition', 'Type', 'Inscrits', 'Clubs', 'Classeur']];
   const liens = [];
   Object.keys(groupes).sort(function (a, b) { return a.localeCompare(b); }).forEach(function (k) {
@@ -176,7 +182,7 @@ function classeursParCompetition_(rows) {
       map[k] = ss.getId();
     }
     const tri = g.rows.slice().sort(function (a, b) {
-      return dateKey_(a.date).localeCompare(dateKey_(b.date)) || a.club.localeCompare(b.club) || a.nom.localeCompare(b.nom) || a.prenom.localeCompare(b.prenom);
+      return dateKey_(a.date).localeCompare(dateKey_(b.date)) || tabRang_(a) - tabRang_(b) || a.club.localeCompare(b.club) || a.nom.localeCompare(b.nom) || a.prenom.localeCompare(b.prenom);
     });
     const pris = {};
     const tous = nomOnglet_('Tous les inscrits', pris);
@@ -189,7 +195,7 @@ function classeursParCompetition_(rows) {
       const nom = nomOnglet_(club, pris);
       garder[nom] = true;
       ecrireOnglet_(nom, [cols.filter(function (c) { return c !== 'Club'; })].concat(tri.filter(function (r) { return r.club === club; })
-        .map(function (r) { const l = ligne(r); return l.slice(0, 3).concat(l.slice(4)); })), ss);
+        .map(function (r) { const l = ligne(r); return l.slice(0, 4).concat(l.slice(5)); })), ss);
     });
     // Onglets en trop (club sans inscrit, « Feuille 1 » d'origine…) supprimés.
     ss.getSheets().forEach(function (sh) { if (!garder[sh.getName()] && ss.getSheets().length > 1) ss.deleteSheet(sh); });
