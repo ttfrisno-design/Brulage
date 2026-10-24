@@ -20,7 +20,7 @@
 // "group" identifie l'ensemble de dates (jour de match) partagé par les équipes.
 // Version du script (affichée au comité et dans l'admin) : permet de savoir
 // quels clubs ont recollé la dernière version de Code.gs.
-const REBONTT_VERSION = '2026.10.24';
+const REBONTT_VERSION = '2026.10.24b';
 
 // Équipes par défaut (celles du FRI). Chaque club règle les siennes dans
 // l'onglet « Equipes » de son classeur (créé avec ces valeurs) : ID, Nom,
@@ -351,7 +351,7 @@ function ensureSheetsNow_() {
   // --- Equipes (ajout d'un onglet seulement, avec les équipes par défaut) ---
   if (!ss.getSheetByName('Equipes')) {
     const eq = ss.insertSheet('Equipes');
-    eq.getRange(1, 1, 30, 6).setNumberFormat('@');
+    textFmt_(eq.getRange(1, 1, 30, 6));
     eq.getRange(1, 1, DEFAULT_TEAMS_.length + 1, 6).setValues([TEAMS_HEADERS_].concat(DEFAULT_TEAMS_.map(function (t) {
       return [String(t.id), t.name, t.division, t.day, t.time, t.group];
     })));
@@ -364,7 +364,7 @@ function ensureSheetsNow_() {
     cfg = ss.insertSheet('Config');
     // Format texte AVANT d'écrire les valeurs : sinon Sheets convertit un
     // PIN comme "0000" en nombre 0 et fait perdre les zéros de tête.
-    cfg.getRange(1, 1, 10, 2).setNumberFormat('@');
+    textFmt_(cfg.getRange(1, 1, 10, 2));
     cfg.getRange(1, 1, 3, 2).setValues([
       ['Clé', 'Valeur'],
       ['AdminPIN', DEFAULT_ADMIN_PIN],
@@ -385,7 +385,7 @@ function ensureSheetsNow_() {
     // Colonne Date (D) toujours en texte : sinon Sheets convertit "20/09/2025"
     // en date interne (avec un risque d'inversion jour/mois et de décalage
     // d'un jour selon le fuseau horaire lors de la relecture).
-    datesSheet.getRange(2, 4, 998, 1).setNumberFormat('@');
+    textFmt_(datesSheet.getRange(2, 4, 998, 1));
     datesSheet.setFrozenRows(1);
     const rows = [];
     [1, 2].forEach(function (phase) {
@@ -414,7 +414,7 @@ function ensureSheetsNow_() {
     });
     if (extra.length) {
       const start = datesSheet.getLastRow() + 1;
-      datesSheet.getRange(start, 4, extra.length, 1).setNumberFormat('@');
+      textFmt_(datesSheet.getRange(start, 4, extra.length, 1));
       datesSheet.getRange(start, 1, extra.length, 6).setValues(extra);
     }
   }
@@ -431,7 +431,7 @@ function ensureSheetsNow_() {
     players = ss.insertSheet('Joueurs');
     players.getRange(1, 1, 1, 8).setValues([['ID', 'Nom', 'Prénom', 'EquipeDomicile', 'PIN', 'Actif', 'Capitaine', 'Téléphone']]);
     // Colonne PIN (E) toujours en texte, pour ne jamais perdre un zéro de tête (ex. "0042").
-    players.getRange(2, 5, 998, 1).setNumberFormat('@');
+    textFmt_(players.getRange(2, 5, 998, 1));
     players.setFrozenRows(1);
   }
   // Réparation : classeur créé par une version antérieure sans la colonne
@@ -446,7 +446,7 @@ function ensureSheetsNow_() {
   }
   // Toujours en texte : sinon Sheets transforme "0612345678" en nombre et
   // supprime le zéro de tête.
-  players.getRange(2, 8, 998, 1).setNumberFormat('@');
+  textFmt_(players.getRange(2, 8, 998, 1));
 
   // Réparation : colonne "Catégorie" (9e colonne : Poussin, Benjamin...,
   // Senior, V40...) pour les compétitions individuelles. On ajoute
@@ -463,7 +463,7 @@ function ensureSheetsNow_() {
   if (players.getLastColumn() < 11) {
     players.getRange(1, 11).setValue('Points');
   }
-  players.getRange(2, 10, 998, 1).setNumberFormat('@');
+  textFmt_(players.getRange(2, 10, 998, 1));
   // Colonne L "Sexe" (F / M), pour les rassemblements féminins : en-tête
   // seulement, renseignée par l'admin dans l'effectif.
   if (players.getLastColumn() < 12) {
@@ -505,7 +505,7 @@ function ensureSheetsNow_() {
   ].forEach(function (kv) {
     if (cfgKeys.indexOf(kv[0]) < 0) {
       const row = cfg.getLastRow() + 1;
-      cfg.getRange(row, 1, 1, 2).setNumberFormat('@').setValues([kv]);
+      textFmt_(cfg.getRange(row, 1, 1, 2)).setValues([kv]);
     }
   });
 
@@ -516,8 +516,8 @@ function ensureSheetsNow_() {
   if (!compet) {
     compet = ss.insertSheet('Competitions');
     compet.getRange(1, 1, 1, 10).setValues([COMPET_HEADERS_]);
-    compet.getRange(2, 5, 998, 1).setNumberFormat('@');
-    compet.getRange(2, 7, 998, 1).setNumberFormat('@');
+    textFmt_(compet.getRange(2, 5, 998, 1));
+    textFmt_(compet.getRange(2, 7, 998, 1));
     compet.setFrozenRows(1);
     const seed = defaultCompetitions_();
     compet.getRange(2, 1, seed.length, 10).setValues(seed);
@@ -531,10 +531,10 @@ function ensureSheetsNow_() {
       let nextId = existing.slice(1).reduce(function (m, r) { return Math.max(m, Number(r[0]) || 0); }, 0);
       const stages = defaultStages_().map(function (r) { return [String(++nextId)].concat(r); });
       const range = compet.getRange(compet.getLastRow() + 1, 1, stages.length, 10);
-      range.setNumberFormat('@');
+      textFmt_(range);
       range.setValues(stages);
     }
-    cfg.getRange(cfg.getLastRow() + 1, 1, 1, 2).setNumberFormat('@').setValues([['StagesAjoutes', 'oui']]);
+    textFmt_(cfg.getRange(cfg.getLastRow() + 1, 1, 1, 2)).setValues([['StagesAjoutes', 'oui']]);
   }
 
   // --- Inscriptions ---
@@ -569,7 +569,7 @@ function ensureSheetsNow_() {
   if (!renc) {
     renc = ss.insertSheet('Rencontres');
     renc.getRange(1, 1, 1, 6).setValues([['Phase', 'Equipe', 'Date', 'Heure', 'Adversaire', 'Lieu']]);
-    renc.getRange(2, 3, 998, 2).setNumberFormat('@');
+    textFmt_(renc.getRange(2, 3, 998, 2));
     renc.setFrozenRows(1);
     const seedRenc = defaultRencontres_();
     renc.getRange(2, 1, seedRenc.length, 6).setValues(seedRenc);
@@ -588,7 +588,7 @@ function ensureSheetsNow_() {
     const missing = defaultRencontres_().filter(function (r) { return !existing[r[0] + '|' + r[1] + '|' + r[2]]; });
     if (missing.length) {
       const start = renc.getLastRow() + 1;
-      renc.getRange(start, 3, missing.length, 2).setNumberFormat('@');
+      textFmt_(renc.getRange(start, 3, missing.length, 2));
       renc.getRange(start, 1, missing.length, 6).setValues(missing);
     }
   }
@@ -609,7 +609,7 @@ function ensureSheetsNow_() {
   if (!convoc) {
     convoc = ss.insertSheet('Convocations');
     convoc.getRange(1, 1, 1, 8).setValues([['JoueurID', 'Phase', 'Date', 'Equipe', 'EnvoyeeLe', 'Message', 'Reponse', 'ReponduLe']]);
-    convoc.getRange(2, 3, 998, 1).setNumberFormat('@');
+    textFmt_(convoc.getRange(2, 3, 998, 1));
     convoc.setFrozenRows(1);
   }
 
@@ -620,7 +620,7 @@ function ensureSheetsNow_() {
     avail.getRange(1, 1, 1, 4).setValues([['JoueurID', 'Phase', 'Date', 'Statut']]);
     // Colonne Date (C) en texte dès la création — même raison que sur
     // Affectations (voir plus bas) et Dates.
-    avail.getRange(2, 3, 998, 1).setNumberFormat('@');
+    textFmt_(avail.getRange(2, 3, 998, 1));
     avail.setFrozenRows(1);
   }
   // Réparation idempotente de la colonne Date (C), comme pour Affectations.
@@ -636,12 +636,12 @@ function ensureSheetsNow_() {
       }
       return [v];
     });
-    availDateRange.setNumberFormat('@');
+    textFmt_(availDateRange);
     if (availDatesChanged) {
       availDateRange.setValues(availDatesFixed);
     }
   }
-  avail.getRange(2, 3, 998, 1).setNumberFormat('@');
+  textFmt_(avail.getRange(2, 3, 998, 1));
   // Réparation : lignes en double ou contradictoires (même joueur/phase/
   // date, statuts différents) — même cause que sur Affectations (écritures
   // retentées automatiquement). On ne garde que la dernière.
@@ -658,7 +658,7 @@ function ensureSheetsNow_() {
     // interne, avec un risque de décalage d'un jour selon le fuseau horaire
     // à la relecture — l'affectation existe alors sous une date légèrement
     // différente de celle affichée, et semble "invisible" dans l'appli.
-    assign.getRange(2, 3, 998, 1).setNumberFormat('@');
+    textFmt_(assign.getRange(2, 3, 998, 1));
     assign.setFrozenRows(1);
   }
   // Réparation idempotente de la colonne Date (C) : si Sheets a déjà
@@ -677,12 +677,12 @@ function ensureSheetsNow_() {
       }
       return [v];
     });
-    assignDateRange.setNumberFormat('@');
+    textFmt_(assignDateRange);
     if (assignDatesChanged) {
       assignDateRange.setValues(assignDatesFixed);
     }
   }
-  assign.getRange(2, 3, 998, 1).setNumberFormat('@');
+  textFmt_(assign.getRange(2, 3, 998, 1));
 
   // Réparation : des lignes en double (même joueur/phase/date) ont pu
   // s'accumuler avec d'anciennes versions du script (écritures concurrentes
@@ -696,15 +696,15 @@ function ensureSheetsNow_() {
   // valeurs telles quelles pour restaurer les zéros de tête déjà perdus
   // (ex. AdminPIN affiché "0" -> remis à "0000" uniquement s'il vaut "0").
   const cfgRange = cfg.getRange(2, 2, Math.max(cfg.getLastRow() - 1, 1), 1);
-  cfgRange.setNumberFormat('@');
+  textFmt_(cfgRange);
   const adminPinCell = cfg.getRange(2, 2);
   if (String(adminPinCell.getValue()) === '0') {
     adminPinCell.setValue(DEFAULT_ADMIN_PIN);
   }
   if (players.getLastRow() > 1) {
-    players.getRange(2, 5, players.getLastRow() - 1, 1).setNumberFormat('@');
+    textFmt_(players.getRange(2, 5, players.getLastRow() - 1, 1));
   }
-  players.getRange(2, 5, 998, 1).setNumberFormat('@');
+  textFmt_(players.getRange(2, 5, 998, 1));
 
   // Réparation idempotente de la colonne Date : si Sheets a déjà converti
   // certaines valeurs en dates internes (classeur créé avant ce correctif),
@@ -722,12 +722,12 @@ function ensureSheetsNow_() {
       }
       return [v];
     });
-    dateRange.setNumberFormat('@');
+    textFmt_(dateRange);
     if (changed) {
       dateRange.setValues(fixed);
     }
   }
-  datesSheet.getRange(2, 4, 998, 1).setNumberFormat('@');
+  textFmt_(datesSheet.getRange(2, 4, 998, 1));
 
   // Remove default "Feuille 1" if empty and unused
   const sheet1 = ss.getSheetByName('Feuille 1') || ss.getSheetByName('Sheet1');
@@ -836,7 +836,7 @@ function repairSwappedDates_() {
     });
     if (changed) {
       withScriptLock_(function () {
-        range.setNumberFormat('@');
+        textFmt_(range);
         range.setValues(fixed);
       });
     }
@@ -1080,7 +1080,7 @@ function updateDates(phase, group, dates) {
       const idx = Number(values[i][2]) - 1;
       if (normalized[idx] !== undefined) {
         const cell = sheet.getRange(i + 1, 4);
-        cell.setNumberFormat('@'); // toujours en texte
+        textFmt_(cell); // toujours en texte
         cell.setValue(normalized[idx]);
       }
     }
@@ -1099,7 +1099,7 @@ function setAdminPin(newPin) {
   for (let i = 1; i < values.length; i++) {
     if (values[i][0] === 'AdminPIN') {
       const cell = sheet.getRange(i + 1, 2);
-      cell.setNumberFormat('@'); // toujours en texte, pour ne pas perdre un zéro de tête
+      textFmt_(cell); // toujours en texte, pour ne pas perdre un zéro de tête
       cell.setValue(String(newPin));
       // Nouveau code : les sessions administrateur ouvertes avec l'ancien
       // doivent se reconnecter pour les données des adhésions.
@@ -1198,12 +1198,12 @@ function upsertDatedRow_(sheetName, playerId, phase, date, value) {
       sheet.deleteRow(matches[0]);
     } else {
       const r = sheet.getRange(matches[0], 3, 1, 2);
-      r.setNumberFormat('@');
+      textFmt_(r);
       r.setValues([[date, value]]);
     }
   } else if (value !== '' && value !== null && value !== undefined) {
     const row = sheet.getLastRow() + 1;
-    sheet.getRange(row, 3).setNumberFormat('@');
+    textFmt_(sheet.getRange(row, 3));
     sheet.getRange(row, 1, 1, 4).setValues([[playerId, Number(phase), date, value]]);
   }
 }
@@ -1298,7 +1298,7 @@ function dedupeAffectations_Now_() {
     .map(function (k) { return byKey[k]; })
     .filter(function (row) { return row[3] !== '' && row[3] !== null && row[3] !== undefined; });
 
-  sheet.getRange(2, 3, Math.max(kept.length, 1), 1).setNumberFormat('@');
+  textFmt_(sheet.getRange(2, 3, Math.max(kept.length, 1), 1));
   rewriteTable_(sheet, header.slice(0, 4), kept);
   return true;
 }
@@ -1335,7 +1335,7 @@ function dedupeDisponibilites_Now_() {
     .map(function (k) { return byKey[k]; })
     .filter(function (row) { return row[3] !== '' && row[3] !== null && row[3] !== undefined; });
 
-  sheet.getRange(2, 3, Math.max(kept.length, 1), 1).setNumberFormat('@');
+  textFmt_(sheet.getRange(2, 3, Math.max(kept.length, 1), 1));
   rewriteTable_(sheet, header.slice(0, 4), kept);
   return true;
 }
@@ -1442,7 +1442,7 @@ function setAssignments(entries) {
 
   // Réécrit toute la feuille en une seule opération (bien plus rapide que
   // modifier ligne par ligne, surtout pour un gros lot de modifications).
-  sheet.getRange(2, 3, Math.max(kept.length, 1), 1).setNumberFormat('@');
+  textFmt_(sheet.getRange(2, 3, Math.max(kept.length, 1), 1));
   rewriteTable_(sheet, header.slice(0, 4), kept);
 
   return { ok: true };
@@ -1535,7 +1535,7 @@ function saveRencontre(phase, teamId, date, adversaire, lieu) {
   if (row < 0) {
     row = sheet.getLastRow() + 1;
     const team = TEAMS.find(function (t) { return t.id === Number(teamId); }) || {};
-    sheet.getRange(row, 3, 1, 2).setNumberFormat('@');
+    textFmt_(sheet.getRange(row, 3, 1, 2));
     sheet.getRange(row, 1, 1, 4).setValues([[Number(phase), Number(teamId), date, team.time || '']]);
   }
   sheet.getRange(row, 5, 1, 2).setValues([[String(adversaire || ''), String(lieu || '')]]);
@@ -1607,7 +1607,7 @@ function sendConvocations(phase, date, teamId, message) {
       kept.push([r.JoueurID, Number(phase), date, Number(teamId), now, String(message || ''), prev ? prev.reponse : '', prev ? prev.le : '']);
     });
     answered = selected.filter(function (r) { return previous[String(r.JoueurID)]; }).map(function (r) { return String(r.JoueurID); });
-    sheet.getRange(2, 3, Math.max(kept.length, 1), 1).setNumberFormat('@');
+    textFmt_(sheet.getRange(2, 3, Math.max(kept.length, 1), 1));
     rewriteTable_(sheet, header.slice(0, 8), kept);
   });
 
@@ -2472,7 +2472,7 @@ function saveCompetition(c) {
     rowIdx = sheet.getLastRow() + 1;
   }
   const range = sheet.getRange(rowIdx, 1, 1, 10);
-  range.setNumberFormat('@');
+  textFmt_(range);
   range.setValues([[String(id), c.type || 'Adultes', c.nom, c.epreuve || '', date, c.lieu || '', limite,
     (c.categories || []).join(','), c.tarif || '', c.infos || '']]);
   return getCompetitionsAdmin();
@@ -2513,7 +2513,7 @@ function setCompetitionSettings(delaiJours, rappelJours) {
   for (let i = 1; i < values.length; i++) {
     if (wanted[values[i][0]] !== undefined) {
       const cell = sheet.getRange(i + 1, 2);
-      cell.setNumberFormat('@');
+      textFmt_(cell);
       cell.setValue(wanted[values[i][0]]);
     }
   }
@@ -2597,13 +2597,13 @@ function writeConfig_(key, value) {
   for (let i = 1; i < values.length; i++) {
     if (values[i][0] === key) {
       const cell = sheet.getRange(i + 1, 2);
-      cell.setNumberFormat('@');
+      textFmt_(cell);
       cell.setValue(v);
       return { ok: true };
     }
   }
   const row = sheet.getLastRow() + 1;
-  sheet.getRange(row, 1, 1, 2).setNumberFormat('@').setValues([[key, v]]);
+  textFmt_(sheet.getRange(row, 1, 1, 2)).setValues([[key, v]]);
   return { ok: true };
 }
 
@@ -2690,7 +2690,7 @@ function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone,
       // sans ce paramètre.
       if (telephone !== undefined) {
         const phoneCell = sheet.getRange(i + 1, 8);
-        phoneCell.setNumberFormat('@');
+        textFmt_(phoneCell);
         phoneCell.setValue(String(telephone || ''));
       }
       if (categorie !== undefined) {
@@ -2698,7 +2698,7 @@ function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone,
       }
       if (licence !== undefined) {
         const licCell = sheet.getRange(i + 1, 10);
-        licCell.setNumberFormat('@');
+        textFmt_(licCell);
         licCell.setValue(String(licence || '').trim());
       }
       if (points !== undefined) {
@@ -2725,8 +2725,17 @@ function setNaissance_(sheet, row, v) {
     v = b ? b.fr : '';
   }
   const cell = sheet.getRange(row, 14);
-  cell.setNumberFormat('@');
+  textFmt_(cell);
   cell.setValue(v);
+}
+
+/** Format texte (@) d'une plage. Ignoré sur une colonne typée d'un tableau
+ * Google Sheets (« Vous ne pouvez pas définir le format numérique des
+ * cellules dans une colonne saisie »), où le tableau impose son format :
+ * sinon la connexion au club échouait. Renvoie la plage (enchaînable). */
+function textFmt_(range) {
+  try { range.setNumberFormat('@'); } catch (e) { /* colonne typée */ }
+  return range;
 }
 
 function deletePlayer(id) {
@@ -3073,7 +3082,7 @@ function adhSheet_(name) {
   if (!sh) {
     const h = ADH_SHEETS_[name];
     sh = ss_().insertSheet(name);
-    sh.getRange(1, 1, sh.getMaxRows(), h.length).setNumberFormat('@'); // téléphones : garder le 0
+    textFmt_(sh.getRange(1, 1, sh.getMaxRows(), h.length)); // téléphones : garder le 0
     sh.getRange(1, 1, 1, h.length).setValues([h]).setFontWeight('bold');
     sh.setFrozenRows(1);
   }
@@ -3083,7 +3092,7 @@ function adhRows_(name) { adhSheet_(name); return readTable_(name); }
 function adhAppend_(name, row) {
   const sh = adhSheet_(name);
   const r = sh.getLastRow() + 1;
-  sh.getRange(r, 1, 1, row.length).setNumberFormat('@').setValues([row.map(function (v) { return v === null || v === undefined ? '' : String(v); })]);
+  textFmt_(sh.getRange(r, 1, 1, row.length)).setValues([row.map(function (v) { return v === null || v === undefined ? '' : String(v); })]);
 }
 /** Modifie les lignes d'une feuille d'adhésion qui vérifient match(obj) :
  * seules ces lignes sont réécrites. */
@@ -3099,7 +3108,7 @@ function adhUpdate_(name, match, patch) {
     const p = typeof patch === 'function' ? patch(obj) : patch;
     Object.keys(p || {}).forEach(function (k) {
       const j = h.indexOf(k);
-      if (j >= 0) sh.getRange(i + 1, j + 1).setNumberFormat('@').setValue(String(p[k] === null || p[k] === undefined ? '' : p[k]));
+      if (j >= 0) textFmt_(sh.getRange(i + 1, j + 1)).setValue(String(p[k] === null || p[k] === undefined ? '' : p[k]));
     });
     n++;
   }
@@ -4003,7 +4012,7 @@ function initialiserClubEssai() {
     const teams = [[1, 'ESSAI1', 'Régional 3', 'Dimanche', '', 'A'], [2, 'ESSAI2', 'Départemental 1', 'Vendredi', '20:00', 'B'],
       [3, 'ESSAI3', 'Départemental 2', 'Vendredi', '20:00', 'B'], [4, 'ESSAI4', 'Départemental 3', 'Vendredi', '20:00', 'C']];
     if (eq.getLastRow() > 1) eq.getRange(2, 1, eq.getLastRow() - 1, 6).clearContent();
-    eq.getRange(2, 1, teams.length, 6).setNumberFormat('@').setValues(teams.map(function (r) { return r.map(String); }));
+    textFmt_(eq.getRange(2, 1, teams.length, 6)).setValues(teams.map(function (r) { return r.map(String); }));
     teamsLoaded_ = false; loadTeams_();
   });
   // Joueurs fictifs (codes 6 chiffres affichés dans le journal d'exécution)
@@ -4035,7 +4044,7 @@ function initialiserClubEssai() {
     if (Number(dv[i][0]) !== 1 || ['A', 'B', 'C'].indexOf(String(dv[i][1])) < 0) continue;
     const k = Number(dv[i][2]) - 1, d = new Date(start.getTime());
     d.setDate(d.getDate() + 14 * k + (String(dv[i][1]) === 'A' ? 2 : 0));
-    ds.getRange(i + 1, 4).setNumberFormat('@').setValue(formatFrDate_(d));
+    textFmt_(ds.getRange(i + 1, 4)).setValue(formatFrDate_(d));
     ds.getRange(i + 1, 6).setValue('J' + (k + 1));
   }
   });
