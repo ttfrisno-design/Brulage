@@ -415,6 +415,10 @@
     .ep-grid > details { border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; background: #fafbfc; margin: 0; }
     .ep-grid > details[open] { grid-column: 1 / -1; background: #fff; border-color: var(--primary); }
     @media (max-width: 640px) { .ep-grid { grid-template-columns: 1fr; } }
+    a.btn-sm { text-decoration: none; display: inline-block; }
+    .comite-docs { border: 1px solid #c5d8ef; background: #f3f8fe; border-radius: 8px; padding: 8px 12px; margin: 8px 0; font-size: 13px; }
+    .comite-docs .cd-title { font-weight: 700; color: var(--primary-dark); }
+    .comite-docs .cd-desc { white-space: pre-line; margin-top: 4px; }
     .compet-columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(300px, 1fr); gap: 12px; overflow-x: auto; padding-bottom: 8px; align-items: start; }
     .compet-col { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; background: #fafbfc; min-width: 0; }
     .compet-col-head { font-weight: 700; font-size: 14px; padding-bottom: 6px; border-bottom: 2px solid var(--primary); margin-bottom: 4px; }
@@ -1444,7 +1448,52 @@
     stopNotifications().then(function () { location.reload(); });
   }
 
+  // ---------------------------------------------------------------------------
+  // DOCUMENTS DU COMITÉ (règlement, présentation, page du comité) affichés sur
+  // chaque compétition individuelle. Publiés par le comité (comite.html) et
+  // lus sur le script du comité (config.js › COMITE.apiUrl), gardés 6 h.
+  // ---------------------------------------------------------------------------
+  function loadComiteDocs() {
+    var api = window.APP_CONFIG && window.APP_CONFIG.COMITE && window.APP_CONFIG.COMITE.apiUrl;
+    if (!api) return;
+    try {
+      var c = JSON.parse(localStorage.getItem('rebontt_comite_docs') || 'null');
+      if (c && Array.isArray(c.docs)) { STATE.comiteDocs = c.docs; if (Date.now() - c.at < 6 * 3600 * 1000) return; }
+    } catch (e) { /* cache illisible */ }
+    fetch(api, { method: 'POST', mode: 'cors', credentials: 'omit', cache: 'no-store', body: JSON.stringify({ fn: 'getDocuments', args: [] }) })
+      .then(function (r) { return r.json(); }).then(function (p) {
+        if (!p || !p.ok || !Array.isArray(p.result)) return;
+        STATE.comiteDocs = p.result;
+        try { localStorage.setItem('rebontt_comite_docs', JSON.stringify({ at: Date.now(), docs: p.result })); } catch (e) { /* plein */ }
+        if (STATE.compet && !document.getElementById('competView').classList.contains('hidden')) renderCompetView();
+        if (STATE.adminCompet) renderAdminCompet();
+      }).catch(function () { /* hors-ligne : pas de documents */ });
+  }
+  function comiteDocsFor(nom, type) {
+    var n = normTxt(nom).replace(/[^a-z0-9]/g, '');
+    return (STATE.comiteDocs || []).filter(function (d) {
+      return normTxt(d.competition).replace(/[^a-z0-9]/g, '') === n && (d.public === 'Tous' || d.public === type);
+    });
+  }
+  function comiteDocsHtml(nom, type, compact) {
+    var docs = comiteDocsFor(nom, type);
+    if (!docs.length) return '';
+    var nomComite = (window.APP_CONFIG.COMITE && window.APP_CONFIG.COMITE.nom) || 'comité';
+    var link = function (url, label) { return '<a class="btn-sm" href="' + escAttr(url) + '" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)">' + label + '</a>'; };
+    if (compact) {
+      return docs.map(function (d) {
+        return (d.reglement ? ' ' + link(d.reglement, '📄 Règlement') : '') + (d.site ? ' ' + link(d.site, '🔗 ' + escHtml(nomComite)) : '');
+      }).join('');
+    }
+    return docs.map(function (d) {
+      return '<div class="comite-docs"><div class="cd-title">🏛️ ' + escHtml(nomComite) + ' — ' + escHtml(d.competition) + '</div>' +
+        (d.description ? '<div class="cd-desc">' + escHtml(d.description) + '</div>' : '') +
+        (d.reglement || d.site ? '<div class="compet-actions" style="margin-top:6px;">' + (d.reglement ? link(d.reglement, '📄 Règlement de la compétition') : '') +
+          (d.site ? link(d.site, '🔗 Page du ' + escHtml(nomComite)) : '') + '</div>' : '') + '</div>';
+    }).join('');
+  }
   function enterApp() {
+    loadComiteDocs();
     // Garde-fou : la configuration (équipes/dates) peut ne pas être encore
     // arrivée si la connexion a lieu très vite après le chargement de la
     // page. On attend qu'elle soit là avant d'afficher quoi que ce soit,
@@ -3290,7 +3339,7 @@
         '<div class="compet-meta">' + escHtml(first.infos) +
         (first.tarif ? ' <b>Tarif :</b> ' + escHtml(first.tarif) + '.' : '') +
         (first.categories.length ? ' <b>Catégories :</b> ' + escHtml(first.categories.join(', ')) + '.' : '') +
-        (eligible ? '' : ' <span class="pill ko">Non concerné(e) par votre catégorie</span>') + '</div>';
+        (eligible ? '' : ' <span class="pill ko">Non concerné(e) par votre catégorie</span>') + '</div>' + comiteDocsHtml(g.nom, type);
       if (singleInscription(g.nom) && eligible) {
         html += openIds.length
           ? '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds[0] + '])">Demander l\'inscription (toute la saison, ' + openIds.length + ' épreuves)</button>'
@@ -3550,7 +3599,7 @@
       if (nom !== selNom) return;
       var mail = (data.settings.mails || {})[nom];
       html += '<div class="compet-col compet-full"><div class="compet-col-head">' + escHtml(nom) + ' <span style="font-weight:400;color:var(--muted);font-size:13px;">· ' + typeLabel(type) + ' · ' + byNom[nom].length + ' épreuve' + (byNom[nom].length > 1 ? 's' : '') + '</span>' +
-        (mail ? '<span class="mail">✉️ ' + escHtml(mail) + '</span>' : '') + '</div>';
+        (mail ? '<span class="mail">✉️ ' + escHtml(mail) + '</span>' : '') + '</div>' + comiteDocsHtml(nom, type);
       var serie = (data.settings.deadlines || {})[nom] || '';
       html += '<div class="pay-link-box">📅 Date limite d\'inscription ' + (singleInscription(nom) ? '(début de saison)' : '(toutes les épreuves)') +
         '<input class="adm-serie-limit" data-nom="' + escAttr(nom) + '" value="' + escAttr(serie) + '" placeholder="' +
@@ -3901,7 +3950,7 @@
     }
     html += '<div class="profile-section box box-compet"><h4>🏆 Mes compétitions individuelles</h4>' + (nextComp.length
       ? nextComp.slice(0, 8).map(function (i) {
-          return '<div><b>' + dayLabel(i.date) + '</b> — ' + escHtml(i.nom + (i.epreuve ? ' – ' + i.epreuve : '')) +
+          return '<div><b>' + dayLabel(i.date) + '</b> — ' + escHtml(i.nom + (i.epreuve ? ' – ' + i.epreuve : '')) + comiteDocsHtml(i.nom, i.type, true) +
             (i.statut === 'Validée' ? ' <span class="pill ok">Inscription validée' + (i.equipe ? ' — ' + escHtml(i.equipe) : '') + '</span>' : ' <span class="pill wait">Demande en attente</span>') + '</div>';
         }).join('')
       : 'Aucune inscription en cours.') + '</div>';

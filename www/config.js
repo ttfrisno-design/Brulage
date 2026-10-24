@@ -8,7 +8,9 @@ window.APP_CONFIG = {
   // Espace comité départemental (comite.html, non affiché dans l'appli) :
   // nom et lien du Google Sheet du comité (backend/Comite.gs). Aucun secret
   // ici : le code comité est saisi à la connexion.
-  COMITE: { nom: 'CD76TT', sheetUrl: 'https://docs.google.com/spreadsheets/d/11Q5sF76it4w4TWKHgh2wfHrnfriDhzo_NIt_kGMEdzQ/edit' },
+  // apiUrl : adresse /exec du script du comité déployé en Application Web
+  // (documents des compétitions affichés dans l'appli).
+  COMITE: { nom: 'CD76TT', sheetUrl: 'https://docs.google.com/spreadsheets/d/11Q5sF76it4w4TWKHgh2wfHrnfriDhzo_NIt_kGMEdzQ/edit', apiUrl: '' },
   // Annuaire des clubs : www/clubs.js (chargé avant ce fichier).
   CLUBS: window.REBONTT_CLUBS,
   CLUBS_URL: 'https://ttfrisno-design.github.io/Brulage/clubs.js',
