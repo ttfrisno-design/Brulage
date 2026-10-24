@@ -2602,6 +2602,7 @@
         '<td><input type="tel" value="' + escAttr(p['Téléphone']) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Téléphone" style="width:120px;" placeholder="06…"></td>' +
         '<td><input type="text" value="' + escAttr(p.Licence) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Licence" style="width:90px;" placeholder="n° licence"></td>' +
         '<td><input type="number" value="' + escAttr(p.Points) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Points" style="width:70px;" placeholder="pts"></td>' +
+        '<td><input type="text" value="' + escAttr(p.Naissance) + '" onchange="editPlayer(' + p.ID + ',this)" data-field="Naissance" style="width:90px;" placeholder="année" title="Année (2017) ou date de naissance (27/07/2017)"></td>' +
         '<td><select onchange="editPlayer(' + p.ID + ',this)" data-field="Catégorie" style="width:95px;"><option value="">—</option>' +
           ALL_CATEGORIES.map(function (c) { return '<option' + (p['Catégorie'] === c ? ' selected' : '') + '>' + c + '</option>'; }).join('') +
         '</select></td>' +
@@ -2624,7 +2625,7 @@
       html += '<div class="team-frame" style="--team-border:' + c.border + ';--team-bg:' + c.bg + ';">' +
         '<h3 class="team-frame-title">' + t.name + ' — ' + t.division + ' <span style="font-weight:400;color:var(--muted);">(' + teamPlayers.length + ' joueur' + (teamPlayers.length > 1 ? 's' : '') + ')</span></h3>';
       if (teamPlayers.length) {
-        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Espace FFTT</th><th>Sexe</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+        html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Naissance</th><th>Catégorie</th><th>Espace FFTT</th><th>Sexe</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
         teamPlayers.forEach(function (p) { html += rowHtml(p); });
         html += '</tbody></table>';
       } else {
@@ -2641,7 +2642,7 @@
     html += '<div class="team-frame" style="--team-border:#999;--team-bg:#f5f5f5;">' +
       '<h3 class="team-frame-title">Sans équipe <span style="font-weight:400;color:var(--muted);">(' + noTeam.length + ' joueur' + (noTeam.length > 1 ? 's' : '') + ' — hors championnat par équipes, absents du tableau de brûlage)</span></h3>';
     if (noTeam.length) {
-      html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Catégorie</th><th>Espace FFTT</th><th>Sexe</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
+      html += '<table class="roster"><thead><tr><th>Nom</th><th>Prénom</th><th>Équipe</th><th>PIN</th><th>Téléphone</th><th>Licence</th><th>Points</th><th>Naissance</th><th>Catégorie</th><th>Espace FFTT</th><th>Sexe</th><th>Actif</th><th>Capitaine</th><th></th></tr></thead><tbody>';
       noTeam.forEach(function (p) { html += rowHtml(p); });
       html += '</tbody></table>';
     } else {
@@ -2676,7 +2677,7 @@
     container.dataset.players = JSON.stringify(players);
     saveCache('roster', players);
     STATE.lastRaw.roster = container.dataset.players;
-    var args = [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '', p['Catégorie'] || '', p.Licence || '', p.Points === undefined ? '' : p.Points, p.Sexe || '', p.LienEspace || ''];
+    var args = [p.ID, p.Nom, p.Prénom, p.EquipeDomicile, p.PIN, p.Actif, p.Capitaine, p['Téléphone'] || '', p['Catégorie'] || '', p.Licence || '', p.Points === undefined ? '' : p.Points, p.Sexe || '', p.LienEspace || '', p.Naissance || ''];
     el.classList.remove('save-ok', 'save-err');
     el.classList.add('save-pending');
     playerSaveChain = playerSaveChain.then(function () {
@@ -3277,7 +3278,8 @@
         '<div class="compet-meta">' + escHtml(first.infos) +
         (first.tarif ? ' <b>Tarif :</b> ' + escHtml(first.tarif) + '.' : '') +
         (first.categories.length ? ' <b>Catégories :</b> ' + escHtml(first.categories.join(', ')) + '.' : '') +
-        (eligible ? '' : ' <span class="pill ko">Non concerné(e) par votre catégorie</span>') + '</div>' + comiteDocsHtml(g.nom, type);
+        regleTexte(first.regle) +
+        (eligible ? '' : ' <span class="pill ko">' + escHtml(first.motif || 'Non concerné(e) par votre catégorie') + '</span>') + '</div>' + comiteDocsHtml(g.nom, type);
       // Compétition à tableaux (Coupe de Rouen : -1700, -1300, -900) : le
       // joueur choisit son tableau (ceux au-dessus de ses points).
       var myTab = '';
@@ -3347,7 +3349,7 @@
       }
       if (canRequest(c) && !singleInscription(c.nom)) html += '<button class="btn-sm fill" onclick="requestCompet([' + c.id + '])">Demander l\'inscription</button>';
       else if (canRequest(c)) html += '<span class="pill">Inscription pour toute la saison (ci-dessus)</span>';
-      else if (!c.eligible) html += '<span class="pill">Non concerné(e)</span>';
+      else if (!c.eligible) html += '<span class="pill">' + escHtml(c.motif || 'Non concerné(e)') + '</span>';
       else html += '<span class="pill">Inscriptions closes</span>';
     } else if (insc.statut === 'Demandée') {
       html += '<span class="pill wait">⏳ Demande envoyée, en attente du club</span>';
@@ -3443,13 +3445,29 @@
     }).catch(onGsError);
   }
 
-  function eligibleFor(c, categorie, sexe) {
+  function eligibleFor(c, categorie, sexe, p) {
     // Rassemblements féminins : joueuses seulement.
     if (/f[ée]minin/i.test(c.nom || '') && sexe !== 'F') return false;
+    if (p && regleMotif(c.regle, p.points, p.naissance, categorie)) return false;
     if (!categorie) return false;
     var allowed = c.categories.length ? c.categories
       : c.type === 'Jeunes' || c.type === 'Stages' ? YOUTH_CATEGORIES : c.type === 'Adultes' ? ADULT_CATEGORIES : ALL_CATEGORIES;
     return allowed.indexOf(categorie) >= 0;
+  }
+
+  // Règlement du comité (ex. Circuit Jeunes : nés de 2017 à 2020, 599 points
+  // maximum), envoyé par le serveur avec chaque épreuve. Même règle que
+  // regleMotif_ (Code.gs) : points ou année non renseignés, on ne bloque pas.
+  function regleMotif(r, points, annee, categorie) {
+    if (!r) return '';
+    if (r.categories && categorie && r.categories.indexOf(categorie) < 0) return 'Réservé aux catégories ' + r.categories.join(', ');
+    var pts = points === '' || points === null || points === undefined ? null : Number(points);
+    if (r.pointsMax && pts !== null && !isNaN(pts) && pts > r.pointsMax) return 'Réservé aux joueurs de ' + r.pointsMax + ' points maximum';
+    if (r.anneeMin && annee && (annee < r.anneeMin || annee > r.anneeMax)) return 'Réservé aux jeunes nés de ' + r.anneeMin + ' à ' + r.anneeMax;
+    return '';
+  }
+  function regleTexte(r) {
+    return r && r.texte ? ' <b>Règlement :</b> ' + escHtml(r.texte) : '';
   }
 
   function savePrice(target, value) {
@@ -3552,7 +3570,8 @@
       if (nom !== selNom) return;
       var mail = (data.settings.mails || {})[nom];
       html += '<div class="compet-col compet-full"><div class="compet-col-head">' + escHtml(nom) + ' <span style="font-weight:400;color:var(--muted);font-size:13px;">· ' + typeLabel(type) + ' · ' + byNom[nom].length + ' épreuve' + (byNom[nom].length > 1 ? 's' : '') + '</span>' +
-        (mail ? '<span class="mail">✉️ ' + escHtml(mail) + '</span>' : '') + '</div>' + comiteDocsHtml(nom, type);
+        (mail ? '<span class="mail">✉️ ' + escHtml(mail) + '</span>' : '') + '</div>' +
+        (byNom[nom][0].regle ? '<div class="compet-meta">' + regleTexte(byNom[nom][0].regle) + '</div>' : '') + comiteDocsHtml(nom, type);
       var serie = (data.settings.deadlines || {})[nom] || '';
       html += '<div class="pay-link-box">📅 Date limite d\'inscription ' + (singleInscription(nom) ? '(début de saison)' : '(toutes les épreuves)') +
         '<input class="adm-serie-limit" data-nom="' + escAttr(nom) + '" value="' + escAttr(serie) + '" placeholder="' +
@@ -3622,7 +3641,7 @@
           '</select><button class="btn-sm" onclick="adminAddInsc(' + c.id + ')">Inscrire (validé)</button></div>';
         // Relances SMS : joueurs concernés non inscrits (avant la date
         // limite) et inscrits validés n'ayant pas confirmé.
-        var toRegister = canRequest({ eligible: true, nom: c.nom, type: c.type, date: c.date, dateLimite: c.dateLimite, dateLimiteSerie: c.dateLimiteSerie }) ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie, p.sexe); }) : [];
+        var toRegister = canRequest({ eligible: true, nom: c.nom, type: c.type, date: c.date, dateLimite: c.dateLimite, dateLimiteSerie: c.dateLimiteSerie }) ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie, p.sexe, p); }) : [];
         var toConfirm = ins.filter(function (i) { return i.statut === 'Validée' && !i.participation; }).map(function (i) { return playersById[String(i.playerId)]; }).filter(Boolean);
         html += '<div class="compet-actions" style="margin-top:8px;">' +
           (toRegister.length ? '<button class="btn-sm" onclick="competSms(' + c.id + ',\'inscription\')">📱 Relancer les non-inscrits (' + toRegister.length + ')</button>' : '') +
@@ -3736,7 +3755,7 @@
         '</select><button class="btn-sm" onclick="adminAddSeason(' + ref.id + ')">Inscrire pour la saison (validé)</button></div>';
       var nVal = (inscByComp[ref.id] || []).filter(function (i) { return i.statut === 'Validée'; }).length;
       var toRegister = canRequest({ eligible: true, nom: ref.nom, type: ref.type, date: ref.date, dateLimite: ref.dateLimite, dateLimiteSerie: ref.dateLimiteSerie })
-        ? data.players.filter(function (p) { return !byPlayer[String(p.id)] && eligibleFor(ref, p.categorie, p.sexe); }) : [];
+        ? data.players.filter(function (p) { return !byPlayer[String(p.id)] && eligibleFor(ref, p.categorie, p.sexe, p); }) : [];
       html += '<div class="compet-actions" style="margin-top:8px;">' +
         (toRegister.length ? '<button class="btn-sm" onclick="competSms(' + ref.id + ',\'inscription\')">📱 Relancer les non-inscrits (' + toRegister.length + ')</button>' : '') +
         (nVal ? '<button class="btn-sm fill" onclick="competMail(' + ref.id + ')">✉️ Mail d\'inscription à l\'organisateur (' + nVal + ')</button>' : '') +
@@ -3768,7 +3787,7 @@
     var registered = {};
     ins.forEach(function (i) { registered[String(i.playerId)] = true; });
     var players = kind === 'inscription'
-      ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie, p.sexe); })
+      ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie, p.sexe, p); })
       : ins.filter(function (i) { return i.statut === 'Validée' && !i.participation; }).map(function (i) {
           return data.players.find(function (p) { return String(p.id) === String(i.playerId); });
         }).filter(Boolean);
@@ -4262,7 +4281,7 @@
     var validated = data.inscriptions.filter(function (i) { return i.competitionId === c.id && i.statut === 'Validée' && (season || i.participation !== 'Annulée'); })
       .map(function (i) {
         var p = data.players.find(function (x) { return String(x.id) === String(i.playerId); }) || { nom: '?', prenom: '' };
-        return { p: p, equipe: i.equipe || '', tableau: i.tableau || '' };
+        return { p: p, equipe: i.equipe || '', tableau: i.tableau || (c.regle && c.regle.tableaux && c.regle.tableaux[p.categorie]) || '' };
       })
       .sort(function (a, b) { return (a.equipe + a.p.nom).localeCompare(b.equipe + b.p.nom); });
     function line(x) {

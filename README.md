@@ -518,6 +518,33 @@ range les inscriptions **par compétition, puis par tour, puis par tableau et
 par club** (page, .xlsx et Google Sheet). Liste des tableaux :
 `COMPETITION_TABLEAUX_` dans Code.gs.
 
+### Circuit Jeunes : règlement du CD76TT
+
+Ouvert aux jeunes (garçons et filles) **nés de 2017 à 2020**, avec **599 points
+au plus** sur la licence. Les années suivent la saison : ce sont les jeunes de
+6 à 9 ans dans la 1re année civile de la saison (2026 pour 2026-2027).
+L'inscription est refusée, et le joueur n'apparaît pas dans les relances,
+quand ses points dépassent 599 ou quand son année de naissance est hors
+limites. Une donnée non renseignée ne bloque pas.
+L'année de naissance se saisit dans l'effectif (colonne **Naissance**, colonne
+N de l'onglet Joueurs : année « 2017 » ou date « 27/07/2017 »). Seul l'en-tête
+est ajouté, les joueurs existants ne sont pas modifiés. Pour un adhérent ajouté
+à l'effectif depuis son dossier d'adhésion, cette colonne est remplie
+automatiquement. Règles : `COMPETITION_REGLES_` dans Code.gs.
+
+### Challenge 500 : règlement du CD76TT
+
+Ouvert aux **benjamins, minimes, cadets et juniors** (garçons et filles), dans
+deux tableaux : **Benjamins-Minimes** et **Cadets-Juniors**. Le tableau découle
+de la catégorie, sans choix à l'inscription, et apparaît dans le mail à
+l'organisateur et chez le comité.
+- **Tours 1 à 3** : 500 points au plus, sur la licence officielle de la phase 1.
+- **Tours 4 à 6** : jusqu'à 550 points ; pour les joueurs de 501 à 550 points,
+  le club transmet l'inscription par mail au responsable.
+- Les autres catégories et les joueurs au-delà de ces points ne peuvent pas
+  s'inscrire. Le règlement est affiché sur la compétition : licence FFTT
+  compétition ou loisir valide et certificat médical en règle.
+
 ### Documents des compétitions (comité)
 
 Dans `comite.html` › **Documents des compétitions**, le comité renseigne pour
