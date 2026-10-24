@@ -532,6 +532,19 @@ est ajouté, les joueurs existants ne sont pas modifiés. Pour un adhérent ajou
 à l'effectif depuis son dossier d'adhésion, cette colonne est remplie
 automatiquement. Règles : `COMPETITION_REGLES_` dans Code.gs.
 
+### Challenge 500 : règlement du CD76TT
+
+Ouvert aux **benjamins, minimes, cadets et juniors** (garçons et filles), dans
+deux tableaux : **Benjamins-Minimes** et **Cadets-Juniors**. Le tableau découle
+de la catégorie, sans choix à l'inscription, et apparaît dans le mail à
+l'organisateur et chez le comité.
+- **Tours 1 à 3** : 500 points au plus, sur la licence officielle de la phase 1.
+- **Tours 4 à 6** : jusqu'à 550 points ; pour les joueurs de 501 à 550 points,
+  le club transmet l'inscription par mail au responsable.
+- Les autres catégories et les joueurs au-delà de ces points ne peuvent pas
+  s'inscrire. Le règlement est affiché sur la compétition : licence FFTT
+  compétition ou loisir valide et certificat médical en règle.
+
 ### Documents des compétitions (comité)
 
 Dans `comite.html` › **Documents des compétitions**, le comité renseigne pour

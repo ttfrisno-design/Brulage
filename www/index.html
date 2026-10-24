@@ -3517,7 +3517,7 @@
   function eligibleFor(c, categorie, sexe, p) {
     // Rassemblements féminins : joueuses seulement.
     if (/f[ée]minin/i.test(c.nom || '') && sexe !== 'F') return false;
-    if (p && regleMotif(c.regle, p.points, p.naissance)) return false;
+    if (p && regleMotif(c.regle, p.points, p.naissance, categorie)) return false;
     if (!categorie) return false;
     var allowed = c.categories.length ? c.categories
       : c.type === 'Jeunes' || c.type === 'Stages' ? YOUTH_CATEGORIES : c.type === 'Adultes' ? ADULT_CATEGORIES : ALL_CATEGORIES;
@@ -3527,19 +3527,16 @@
   // Règlement du comité (ex. Circuit Jeunes : nés de 2017 à 2020, 599 points
   // maximum), envoyé par le serveur avec chaque épreuve. Même règle que
   // regleMotif_ (Code.gs) : points ou année non renseignés, on ne bloque pas.
-  function regleMotif(r, points, annee) {
+  function regleMotif(r, points, annee, categorie) {
     if (!r) return '';
+    if (r.categories && categorie && r.categories.indexOf(categorie) < 0) return 'Réservé aux catégories ' + r.categories.join(', ');
     var pts = points === '' || points === null || points === undefined ? null : Number(points);
     if (r.pointsMax && pts !== null && !isNaN(pts) && pts > r.pointsMax) return 'Réservé aux joueurs de ' + r.pointsMax + ' points maximum';
     if (r.anneeMin && annee && (annee < r.anneeMin || annee > r.anneeMax)) return 'Réservé aux jeunes nés de ' + r.anneeMin + ' à ' + r.anneeMax;
     return '';
   }
   function regleTexte(r) {
-    if (!r) return '';
-    var t = [];
-    if (r.anneeMin) t.push('nés de ' + r.anneeMin + ' à ' + r.anneeMax);
-    if (r.pointsMax) t.push(r.pointsMax + ' points maximum');
-    return t.length ? ' <b>Règlement :</b> ' + escHtml(t.join(', ')) + '.' : '';
+    return r && r.texte ? ' <b>Règlement :</b> ' + escHtml(r.texte) : '';
   }
 
   function savePrice(target, value) {
@@ -4353,7 +4350,7 @@
     var validated = data.inscriptions.filter(function (i) { return i.competitionId === c.id && i.statut === 'Validée' && (season || i.participation !== 'Annulée'); })
       .map(function (i) {
         var p = data.players.find(function (x) { return String(x.id) === String(i.playerId); }) || { nom: '?', prenom: '' };
-        return { p: p, equipe: i.equipe || '', tableau: i.tableau || '' };
+        return { p: p, equipe: i.equipe || '', tableau: i.tableau || (c.regle && c.regle.tableaux && c.regle.tableaux[p.categorie]) || '' };
       })
       .sort(function (a, b) { return (a.equipe + a.p.nom).localeCompare(b.equipe + b.p.nom); });
     function line(x) {

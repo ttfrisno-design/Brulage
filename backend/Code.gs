@@ -1690,8 +1690,8 @@ function defaultCompetitions_() {
     ['03/10/2026', 'T1', 'Le Havre'], ['28/11/2026', 'T2', 'Rouen'], ['12/12/2026', 'T3', 'Dieppe'],
     ['13/02/2027', 'T4', 'Rouen'], ['20/03/2027', 'T5', 'Le Havre'], ['10/04/2027', 'T6', 'Dieppe'],
   ];
-  add('Jeunes', 'Challenge 500', c500, '', '', '6 € par tour',
-    'Le samedi. Pour les débutants classés 500 points : beaucoup de matchs contre des joueurs de ton niveau.');
+  add('Jeunes', 'Challenge 500', c500, '', 'Benjamin,Minime,Cadet,Junior', '6 € par tour',
+    'Le samedi. Pour les joueurs classés 500 points : beaucoup de matchs contre des joueurs de ton niveau. Deux tableaux : benjamins-minimes et cadets-juniors.');
   add('Jeunes', 'Circuit Jeunes', c500, '', 'Poussin,Benjamin', '6 € par tour',
     'Le samedi. Ouvert aux clubs de Seine-Maritime affiliés à la FFTT : garçons et filles nés de 2017 à 2020, 599 points maximum.');
   add('Jeunes', 'Championnat Jeunes (équipe de 2)', [
@@ -2063,7 +2063,7 @@ function readCompetitions_(settings) {
       tarif: String(r.Tarif || ''), infos: String(r.Infos || ''),
       teams: competitionTeams_(String(r.Nom)),
       tableaux: competitionTableaux_(String(r.Nom)),
-      regle: competitionRegle_(String(r.Nom), String(r.Date)),
+      regle: competitionRegle_(String(r.Nom), String(r.Date), String(r.Epreuve || '')),
     };
   });
 }
@@ -2079,21 +2079,49 @@ function competitionTableaux_(nom) {
   return COMPETITION_TABLEAUX_[nom] || [];
 }
 
-// Règlements du comité (CD76TT) : âge atteint dans la 1re année civile de la
-// saison (2026-2027 : 2026 − année de naissance) et points FFTT maximum.
-// Circuit Jeunes : nés de 2017 à 2020 (garçons et filles), 599 points au plus.
+// Règlements du comité (CD76TT), vérifiés à l'inscription :
+// - ageMin / ageMax : âge atteint dans la 1re année civile de la saison
+//   (2026-2027 : 2026 − année de naissance) ;
+// - categories : catégories admises ; tableaux : tableau de chaque catégorie ;
+// - pointsMax : points FFTT maximum, pointsTours : maximum relevé à partir
+//   d'un tour (« T4 », « Tour 4 »…).
 const COMPETITION_REGLES_ = [
+  // Nés de 2017 à 2020 (garçons et filles), 599 points au plus.
   { nom: /circuit\s*jeune/i, ageMin: 6, ageMax: 9, pointsMax: 599 },
+  // 2 tableaux, 500 points au plus (points de la licence phase 1) aux tours 1
+  // à 3 ; de 501 à 550 points admis aux tours 4 à 6 (inscription transmise
+  // par mail au responsable).
+  { nom: /challenge\s*500/i, categories: ['Benjamin', 'Minime', 'Cadet', 'Junior'], pointsMax: 500, pointsTours: { tour: 4, max: 550 },
+    tableaux: { Benjamin: 'Benjamins-Minimes', Minime: 'Benjamins-Minimes', Cadet: 'Cadets-Juniors', Junior: 'Cadets-Juniors' },
+    note: 'Tours 1 à 3 : 500 points maximum sur la licence officielle de la phase 1. Tours 4 à 6 : ouverts aussi aux joueurs de 501 à 550 points ' +
+      '(inscription transmise par mail au responsable). Licence FFTT compétition ou loisir valide pour la saison et certificat médical en règle.' },
 ];
-/** Règle de la compétition, avec les années de naissance de sa saison. */
-function competitionRegle_(nom, date) {
+/** Règle de l'épreuve, avec les années de naissance de sa saison et son
+ * maximum de points, et son texte pour l'affichage. */
+function competitionRegle_(nom, date, epreuve) {
   const r = COMPETITION_REGLES_.find(function (x) { return x.nom.test(String(nom || '')); });
   if (!r) return null;
   const d = parseFrDate_(date) || new Date();
   const saison = d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1;
-  const out = { pointsMax: r.pointsMax || null };
+  const tour = Number((String(epreuve || '').match(/^\s*(?:t|tour)\s*(\d+)/i) || [])[1]) || 0;
+  const out = { pointsMax: r.pointsTours && tour >= r.pointsTours.tour ? r.pointsTours.max : (r.pointsMax || null) };
   if (r.ageMax) { out.anneeMin = saison - r.ageMax; out.anneeMax = saison - r.ageMin; }
+  if (r.categories) out.categories = r.categories.slice();
+  if (r.tableaux) out.tableaux = r.tableaux;
+  const t = [];
+  if (r.tableaux) {
+    const tabs = [];
+    Object.keys(r.tableaux).forEach(function (k) { if (tabs.indexOf(r.tableaux[k]) < 0) tabs.push(r.tableaux[k]); });
+    t.push(tabs.length + ' tableaux : ' + tabs.join(', ') + ' (garçons et filles)');
+  } else if (r.categories) t.push(r.categories.join(', '));
+  if (out.anneeMin) t.push('nés de ' + out.anneeMin + ' à ' + out.anneeMax + ' (garçons et filles)');
+  if (r.pointsMax) t.push(r.pointsMax + ' points maximum');
+  out.texte = t.join(', ') + '.' + (r.note ? ' ' + r.note : '');
   return out;
+}
+/** Tableau d'un joueur d'après sa catégorie (Challenge 500), '' sinon. */
+function tableauAuto_(c, categorie) {
+  return (c.regle && c.regle.tableaux && c.regle.tableaux[String(categorie || '')]) || '';
 }
 /** Année de naissance d'une cellule « Naissance » (2017, 27/07/2017, date). */
 function naissanceAnnee_(v) {
@@ -2104,8 +2132,11 @@ function naissanceAnnee_(v) {
 /** Raison pour laquelle le joueur ne peut pas s'inscrire d'après le
  * règlement (points, année de naissance), '' sinon. Points ou année non
  * renseignés : on ne bloque pas (comme pour la catégorie). */
-function regleMotif_(regle, points, annee) {
+function regleMotif_(regle, points, annee, categorie) {
   if (!regle) return '';
+  if (regle.categories && categorie && regle.categories.indexOf(String(categorie)) < 0) {
+    return 'Réservé aux catégories ' + regle.categories.join(', ');
+  }
   const pts = points === '' || points === null || points === undefined ? null : Number(points);
   if (regle.pointsMax && pts !== null && !isNaN(pts) && pts > regle.pointsMax) {
     return 'Réservé aux joueurs de ' + regle.pointsMax + ' points maximum';
@@ -2268,7 +2299,7 @@ function getCompetitions(playerId) {
     categorie: categorie,
     points: player.Points === '' || player.Points === undefined ? null : Number(player.Points) || null,
     competitions: readCompetitions_(settings).map(function (c) {
-      c.motif = regleMotif_(c.regle, player.Points, naissanceAnnee_(player.Naissance));
+      c.motif = regleMotif_(c.regle, player.Points, naissanceAnnee_(player.Naissance), categorie);
       c.eligible = isEligible_(c, categorie, sexe) && !c.motif;
       return c;
     }),
@@ -3931,7 +3962,7 @@ function getComiteExport(code) {
       nom: String(p.Nom || ''), prenom: String(p.Prénom || ''), categorie: String(p.Catégorie || ''),
       sexe: String(p.Sexe || '').toUpperCase(), licence: String(p.Licence || ''),
       points: p.Points === '' || p.Points === undefined ? '' : Number(p.Points) || '',
-      equipe: i.equipe, tableau: i.tableau, participation: i.participation, reglement: i.reglement,
+      equipe: i.equipe, tableau: i.tableau || tableauAuto_(c, p.Catégorie), participation: i.participation, reglement: i.reglement,
     };
   });
   return {
