@@ -446,7 +446,31 @@
     .btn-sm.pay { background: #2e7d32; border-color: #2e7d32; color: #fff; text-decoration: none; display: inline-block; }
     .pay-block { margin-top: 10px; padding: 10px; border-radius: 8px; background: #f1f8f1; border: 1px solid #c8e6c9; font-size: 13px; }
     .mail-box textarea { width: 100%; font: inherit; font-size: 12px; padding: 6px; border: 1px solid var(--border); border-radius: 6px; margin-top: 6px; }
-    .compet-mails { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 12px; }
+    .compet-mails { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px 12px; }
+    /* Cartes de l'onglet Compétitions individuelles (admin). */
+    .adm-card { border-top: 4px solid var(--ac, var(--primary)); padding-top: 14px; }
+    .adm-card > h2 { color: var(--ac, var(--primary)); font-size: 17px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+    .adm-card.ac-settings { --ac: #d97706; }
+    .adm-card.ac-mails { --ac: #1565c0; }
+    .adm-card.ac-add { --ac: #2e7d32; }
+    .adm-card.ac-list { --ac: #4338ca; }
+    .ac-intro { color: var(--muted); font-size: 13px; margin: -2px 0 12px; }
+    .ac-note { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
+    .ac-settings .compet-settings > div, .ac-add .compet-form > div { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 2px 10px 10px; }
+    .ac-settings .compet-settings > div { background: #fffbeb; border-color: #fde68a; }
+    .ac-add .compet-form > div { background: #f3faf3; border-color: #cfe8d0; }
+    .compet-settings label, .compet-form label { font-weight: 600; color: var(--ink); }
+    .cm-item { border: 1px solid var(--border); border-left: 4px solid var(--tc, var(--primary)); border-radius: 8px; padding: 2px 10px 10px; background: #fff; }
+    .cm-item label { font-weight: 600; color: var(--ink); display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+    .cm-item .cm-type { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--tc); background: var(--tc-bg); border-radius: 8px; padding: 1px 6px; white-space: nowrap; }
+    .cm-item input { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background: #fafafa; }
+    .cm-item.cm-set { background: var(--tc-bg); }
+    .cm-item.cm-set input { background: #fff; border-color: var(--tc); }
+    .cat-chips { gap: 6px; margin-bottom: 4px; }
+    .cat-chips label { border: 1px solid var(--tc); color: var(--tc); background: #fff; border-radius: 16px; padding: 4px 10px; cursor: pointer; font-weight: 600; }
+    .cat-chips label:has(input:checked) { background: var(--tc); color: #fff; }
+    .cat-chips input { accent-color: var(--tc); margin: 0; }
+    label small { font-weight: 400; color: var(--muted); }
     footer.hint { text-align: center; color: var(--muted); font-size: 12px; margin: 20px 0; }
     @media (max-width: 640px) {
       main { padding: 10px; }
@@ -690,23 +714,23 @@
       </div>
 
       <div id="tab-compet" class="admin-tab hidden">
-        <div class="card">
-          <h2>Réglages des inscriptions</h2>
+        <div class="card adm-card ac-settings">
+          <h2>⚙️ Réglages des inscriptions</h2>
           <div class="compet-settings">
             <div><label>Date limite par défaut (jours avant l'épreuve)</label><input type="number" id="setDelai" min="0"></div>
             <div><label>Rappel aux joueurs (jours avant la date limite / l'épreuve)</label><input type="number" id="setRappel" min="0"></div>
           </div>
           <button class="secondary" style="margin-top:10px;" onclick="saveCompetSettings()">Enregistrer les réglages</button>
-          <p style="color:var(--muted);font-size:12px;margin-bottom:0;">Une épreuve sans date limite propre utilise « date de l'épreuve − délai par défaut ».</p>
+          <p class="ac-note">Une épreuve sans date limite propre utilise « date de l'épreuve − délai par défaut ».</p>
         </div>
-        <div class="card">
-          <h2>Mails d'inscription aux organisateurs</h2>
-          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Adresse à qui envoyer la liste des inscrits validés (bouton « ✉️ Mail d'inscription » de chaque épreuve). Laisser vide si la compétition ne s'inscrit pas par mail.</p>
+        <div class="card adm-card ac-mails">
+          <h2>✉️ Mails d'inscription aux organisateurs</h2>
+          <p class="ac-intro">Adresse à qui envoyer la liste des inscrits validés (bouton « ✉️ Mail d'inscription » de chaque épreuve). Laisser vide si la compétition ne s'inscrit pas par mail.</p>
           <div class="compet-mails" id="competMails"></div>
           <button class="secondary" style="margin-top:10px;" onclick="saveCompetMails()">Enregistrer les adresses</button>
         </div>
-        <div class="card">
-          <h2>Ajouter une épreuve</h2>
+        <div class="card adm-card ac-add">
+          <h2>➕ Ajouter une épreuve</h2>
           <div class="compet-form">
             <div><label>Type</label><select id="ncType"><option>Jeunes</option><option>Adultes</option><option>Tous</option><option value="Stages">Stages (jeunes)</option></select></div>
             <div><label>Compétition</label><input type="text" id="ncNom" list="ncNoms" placeholder="Critérium Fédéral"><datalist id="ncNoms"></datalist></div>
@@ -717,12 +741,12 @@
             <div><label>Tarif</label><input type="text" id="ncTarif"></div>
             <div><label>Infos</label><input type="text" id="ncInfos"></div>
           </div>
-          <label>Catégories (aucune cochée = toutes celles du type)</label>
-          <div id="ncCats" class="cat-checks"></div>
+          <label>Catégories <small>(aucune cochée = toutes celles du type)</small></label>
+          <div id="ncCats" class="cat-checks cat-chips"></div>
           <button class="primary" onclick="addCompetition()">Ajouter</button>
         </div>
-        <div class="card">
-          <h2>Épreuves et inscriptions</h2>
+        <div class="card adm-card ac-list">
+          <h2>🏓 Épreuves et inscriptions</h2>
           <label style="display:inline-flex;gap:6px;align-items:center;margin:0 0 10px;"><input type="checkbox" id="showPastCompet" onchange="renderAdminCompet()"> Afficher les épreuves passées</label>
           <div id="adminCompetList"></div>
         </div>
@@ -3535,7 +3559,7 @@
     document.getElementById('setRappel').value = data.settings.rappelJours;
     var cats = document.getElementById('ncCats');
     if (!cats.innerHTML) {
-      cats.innerHTML = ALL_CATEGORIES.map(function (c) { return '<label><input type="checkbox" value="' + c + '"> ' + c + '</label>'; }).join('');
+      cats.innerHTML = ALL_CATEGORIES.map(function (c) { return '<label class="' + (YOUTH_CATEGORIES.indexOf(c) >= 0 ? 't-Jeunes' : 't-Adultes') + '"><input type="checkbox" value="' + c + '"> ' + c + '</label>'; }).join('');
     }
     var names = {};
     data.competitions.forEach(function (c) { names[c.nom] = true; });
@@ -3543,8 +3567,17 @@
 
     var mailsEl = document.getElementById('competMails');
     if (!mailsEl.contains(document.activeElement)) {
-      mailsEl.innerHTML = Object.keys(names).map(function (n) {
-        return '<div><label>' + escHtml(n) + '</label><input type="email" data-nom="' + escAttr(n) + '" value="' + escAttr((data.settings.mails || {})[n] || '') + '" placeholder="adresse@exemple.fr"></div>';
+      // Une case par compétition, à la couleur de son type (jeunes, adultes…).
+      var typeOf = {};
+      // Même compétition chez les jeunes et les adultes (Critérium) : « Tous ».
+      data.competitions.forEach(function (c) { typeOf[c.nom] = !typeOf[c.nom] || typeOf[c.nom] === c.type ? c.type : 'Tous'; });
+      var order = ['Jeunes', 'Adultes', 'Tous', 'Stages'];
+      mailsEl.innerHTML = Object.keys(names).sort(function (a, b) {
+        return order.indexOf(typeOf[a]) - order.indexOf(typeOf[b]) || a.localeCompare(b);
+      }).map(function (n) {
+        var v = (data.settings.mails || {})[n] || '';
+        return '<div class="cm-item t-' + escAttr(typeOf[n]) + (v ? ' cm-set' : '') + '"><label>' + escHtml(n) + ' <span class="cm-type">' + escHtml(typeOf[n] === 'Tous' ? 'Jeunes et adultes' : typeOf[n] === 'Stages' ? 'Stages' : typeOf[n]) + '</span></label>' +
+          '<input type="email" data-nom="' + escAttr(n) + '" value="' + escAttr(v) + '" placeholder="adresse@exemple.fr" oninput="this.parentNode.classList.toggle(\'cm-set\', !!this.value.trim())"></div>';
       }).join('');
     }
 
