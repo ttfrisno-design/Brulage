@@ -411,8 +411,35 @@
     .compet-col { border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; background: #fafbfc; min-width: 0; }
     .compet-col-head { font-weight: 700; font-size: 14px; padding-bottom: 6px; border-bottom: 2px solid var(--primary); margin-bottom: 4px; }
     .compet-col-head .mail { display: block; font-weight: 400; font-size: 11px; color: var(--muted); word-break: break-all; }
-    .pay-link-box { margin-top: 8px; padding: 6px 8px; border: 1px dashed var(--border); border-radius: 8px; font-size: 12px; background: #fff; }
-    .pay-link-box input { width: 100%; font-size: 12px; padding: 4px 6px; margin-top: 3px; }
+    .pay-link-box { margin-top: 10px; padding: 8px 12px; border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: 8px; font-size: 12px; background: #fff; }
+    .pay-link-box input { width: 100%; font-size: 13px; padding: 5px 8px; margin-top: 4px; }
+    .pay-link-box.plb-date { border-left-color: #f59e0b; background: #fffbeb; }
+    .pay-link-box.plb-pay { border-left-color: #16a34a; background: #f0fdf4; }
+    .plb-h { font-weight: 700; font-size: 13px; color: var(--ink); }
+    .plb-h small { font-weight: 400; color: var(--muted); font-size: 12px; }
+    /* Compétitions individuelles (admin) : une couleur par type. */
+    .t-Jeunes { --tc: #1565c0; --tc-bg: #e8f1fb; }
+    .t-Adultes { --tc: #e65100; --tc-bg: #fff3e0; }
+    .t-Tous { --tc: #8e24aa; --tc-bg: #f6e9f8; }
+    .t-Stages { --tc: #00897b; --tc-bg: #e0f2f1; }
+    .compet-tabs { background: #f7f9fc; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+    .compet-tabs .ct-group { padding: 4px 6px 4px 4px; border-radius: 22px; background: var(--tc-bg); }
+    .compet-tabs .ct-group .ct-type { color: #fff; background: var(--tc); border-radius: 14px; padding: 4px 10px; }
+    .compet-tabs .ct-group .compet-tab { border-color: var(--tc); color: var(--tc); }
+    .compet-tabs .ct-group .compet-tab:hover { background: var(--tc-bg); }
+    .compet-tabs .ct-group .compet-tab.on { background: var(--tc); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.18); }
+    .compet-col.compet-full { border: 2px solid var(--tc, var(--primary)); border-radius: 12px; padding: 0 16px 14px; margin-top: 4px; }
+    .compet-full > .compet-col-head { background: var(--tc-bg, #e8f1fb); color: var(--tc, var(--primary)); border-bottom: 3px solid var(--tc, var(--primary)); margin: 0 -16px 10px; padding: 10px 16px; border-radius: 10px 10px 0 0; font-size: 18px; }
+    .compet-full > .compet-col-head .mail { color: var(--ink); }
+    .adm-sec-title { margin: 14px 0 6px; font-weight: 700; font-size: 14px; color: var(--tc, var(--primary)); display: flex; align-items: center; gap: 6px; }
+    .adm-sec-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .compet-full .ep-grid > details { background: #fff; border-left: 4px solid var(--tc, var(--primary)); box-shadow: 0 1px 2px rgba(0,0,0,.06); padding: 6px 12px; }
+    .compet-full .ep-grid > details > summary b { color: var(--tc, var(--primary)); }
+    .compet-full .ep-grid > details[open] { border-color: var(--tc, var(--primary)); border-width: 2px 2px 2px 4px; }
+    .compet-full .ep-grid > details[open] > summary { background: var(--tc-bg); margin: -6px -12px 6px; padding: 8px 12px; border-radius: 6px 6px 0 0; }
+    .compet-full .season-box { border: 1px solid var(--border); border-left: 4px solid var(--tc, var(--primary)); border-radius: 8px; padding: 6px 12px; background: #fff; }
+    .compet-full .season-h { color: var(--tc, var(--primary)); }
+    .adm-regle { border: 1px solid var(--border); border-left: 4px solid #64748b; background: #f8fafc; border-radius: 8px; padding: 8px 12px; color: var(--ink); }
     .cat-prices { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 4px 6px; margin-top: 4px; }
     .cat-prices label { font-size: 11px; }
     .cat-prices input { margin-top: 1px; }
@@ -3549,7 +3576,7 @@
     }
     var html = tabs.length ? '<div class="compet-tabs">' + TYPES.map(function (type) {
       var ts = tabs.filter(function (t) { return t.type === type; });
-      return ts.length ? '<div class="ct-group"><span class="ct-type">' + typeLabel(type) + '</span>' + ts.map(function (t) {
+      return ts.length ? '<div class="ct-group t-' + type + '"><span class="ct-type">' + typeLabel(type) + '</span>' + ts.map(function (t) {
         return '<button type="button" class="compet-tab' + (t.key === STATE.competTab ? ' on' : '') + '" onclick="STATE.competTab=' + escAttr(JSON.stringify(t.key)) + ';renderAdminCompet()">' +
           escHtml(t.nom) + (t.dem ? '<span class="ct-badge" title="Demandes à traiter">' + t.dem + '</span>' : '') + '</button>';
       }).join('') + '</div>' : '';
@@ -3571,11 +3598,11 @@
       noms.forEach(function (nom) {
       if (nom !== selNom) return;
       var mail = (data.settings.mails || {})[nom];
-      html += '<div class="compet-col compet-full"><div class="compet-col-head">' + escHtml(nom) + ' <span style="font-weight:400;color:var(--muted);font-size:13px;">· ' + typeLabel(type) + ' · ' + byNom[nom].length + ' épreuve' + (byNom[nom].length > 1 ? 's' : '') + '</span>' +
+      html += '<div class="compet-col compet-full t-' + type + '"><div class="compet-col-head">' + escHtml(nom) + ' <span style="font-weight:400;color:var(--muted);font-size:13px;">· ' + typeLabel(type) + ' · ' + byNom[nom].length + ' épreuve' + (byNom[nom].length > 1 ? 's' : '') + '</span>' +
         (mail ? '<span class="mail">✉️ ' + escHtml(mail) + '</span>' : '') + '</div>' +
-        (byNom[nom][0].regle ? '<div class="compet-meta">' + regleTexte(byNom[nom][0].regle) + '</div>' : '') + comiteDocsHtml(nom, type);
+        (byNom[nom][0].regle ? '<div class="compet-meta adm-regle">📋' + regleTexte(byNom[nom][0].regle) + '</div>' : '') + comiteDocsHtml(nom, type);
       var serie = (data.settings.deadlines || {})[nom] || '';
-      html += '<div class="pay-link-box">📅 Date limite d\'inscription ' + (singleInscription(nom) ? '(début de saison)' : '(toutes les épreuves)') +
+      html += '<div class="pay-link-box plb-date"><div class="plb-h">📅 Date limite d\'inscription <small>' + (singleInscription(nom) ? '(début de saison)' : '(toutes les épreuves)') + '</small></div>' +
         '<input class="adm-serie-limit" data-nom="' + escAttr(nom) + '" value="' + escAttr(serie) + '" placeholder="' +
         escAttr(singleInscription(nom) ? 'date du 1er tour' : 'jj/mm/aaaa (sinon par épreuve)') + '" onchange="saveSeriesLimit(this.dataset.nom, this.value)">' +
         (lateAllowed({ nom: nom }) ? '<div style="color:var(--muted);margin-top:2px;">Inscription encore possible après cette date (jusqu\'au jour de l\'épreuve).</div>'
@@ -3583,7 +3610,7 @@
       // Coupe de Rouen / SERANO : inscription pour la saison, gérée en une
       // seule liste (pas de gestion tour par tour).
       if (singleInscription(nom)) html += seasonAdminHtml(nom, byNom[nom], data, inscByComp, playersById);
-      else html += '<div class="ep-grid">';
+      else html += '<div class="adm-sec-title">🗓️ Épreuves (' + byNom[nom].length + ')</div><div class="ep-grid">';
       if (!singleInscription(nom)) byNom[nom].forEach(function (c) {
         var ins = inscByComp[c.id] || [];
         var nDem = ins.filter(function (i) { return i.statut === 'Demandée'; }).length;
@@ -3654,7 +3681,7 @@
             '<div id="competMailResult-' + c.id + '" style="font-size:12px;"></div>';
         }
         if (perEpreuvePayment(nom)) {
-          html += '<div class="pay-link-box">💳 Montant HelloAsso de cette épreuve (€)' +
+          html += '<div class="pay-link-box plb-pay"><div class="plb-h">💳 Montant HelloAsso de cette épreuve <small>(€)</small></div>' +
             '<input type="number" min="0" step="0.5" value="' + escAttr(((data.settings.prices || {}).epreuve || {})[c.id] || '') + '" placeholder="sinon montant de la compétition" onchange="savePrice(\'#' + c.id + '\', this.value)"></div>';
         }
         html += '</div></details>';
@@ -3663,7 +3690,7 @@
       // Sous les dates : lien de règlement de la compétition (règlement
       // unique, ou lien par défaut des épreuves pour Challenge 500 /
       // Circuit Jeunes).
-      html += '<div class="pay-link-box">💳 ' + (perEpreuvePayment(nom) ? 'Montant HelloAsso par épreuve (€, par défaut)' : 'Montant HelloAsso pour la saison (€, paiement unique = inscription à toutes les épreuves)') +
+      html += '<div class="adm-sec-title">💳 Tarifs</div><div class="pay-link-box plb-pay"><div class="plb-h">' + (perEpreuvePayment(nom) ? 'Montant HelloAsso par épreuve <small>(€, par défaut)</small>' : 'Montant HelloAsso pour la saison <small>(€, paiement unique = inscription à toutes les épreuves)</small>') + '</div>' +
         '<input type="number" min="0" step="0.5" value="' + escAttr(((data.settings.prices || {}).serie || {})[nom] || '') + '" placeholder="ex. 25" onchange="savePrice(' + escAttr(JSON.stringify(nom)) + ', this.value)">';
       // Tarif selon la catégorie du joueur (prioritaire sur le montant
       // ci-dessus), ex. Critérium fédéral : jeunes 20 €, juniors 25 €…
