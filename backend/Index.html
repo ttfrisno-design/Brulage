@@ -1399,15 +1399,21 @@
   // ---------------------------------------------------------------------------
   // DOCUMENTS DU COMITÉ (règlement, présentation, page du comité) affichés sur
   // chaque compétition individuelle. Publiés par le comité (comite.html) et
-  // lus sur le script du comité (config.js › COMITE.apiUrl), gardés 6 h.
+  // lus sur le script du comité (config.js › COMITE.apiUrl). La dernière
+  // liste reçue s'affiche tout de suite (et hors-ligne), puis elle est relue à
+  // l'ouverture de l'appli et des compétitions (au plus une fois par minute).
   // ---------------------------------------------------------------------------
   function loadComiteDocs() {
     var api = window.APP_CONFIG && window.APP_CONFIG.COMITE && window.APP_CONFIG.COMITE.apiUrl;
     if (!api) return;
-    try {
-      var c = JSON.parse(localStorage.getItem('rebontt_comite_docs') || 'null');
-      if (c && Array.isArray(c.docs)) { STATE.comiteDocs = c.docs; if (Date.now() - c.at < 6 * 3600 * 1000) return; }
-    } catch (e) { /* cache illisible */ }
+    if (!STATE.comiteDocs) {
+      try {
+        var c = JSON.parse(localStorage.getItem('rebontt_comite_docs') || 'null');
+        if (c && Array.isArray(c.docs)) STATE.comiteDocs = c.docs;
+      } catch (e) { /* cache illisible */ }
+    }
+    if (STATE.comiteDocsAt && Date.now() - STATE.comiteDocsAt < 60 * 1000) return;
+    STATE.comiteDocsAt = Date.now();
     fetch(api, { method: 'POST', mode: 'cors', credentials: 'omit', cache: 'no-store', body: JSON.stringify({ fn: 'getDocuments', args: [] }) })
       .then(function (r) { return r.json(); }).then(function (p) {
         if (!p || !p.ok || !Array.isArray(p.result)) return;
@@ -3084,6 +3090,7 @@
     STATE.view = 'compet';
     STATE.competType = type;
     showView('competView');
+    loadComiteDocs();
     document.getElementById('competHeader').textContent = type === 'Stages' ? 'Stages de tennis de table' : 'Compétitions ' + type.toLowerCase();
     if (STATE.compet) renderCompetView();
     loadHomeData();
@@ -3425,6 +3432,7 @@
   // COMPÉTITIONS INDIVIDUELLES — onglet administrateur
   // ---------------------------------------------------------------------------
   function loadAdminCompet() {
+    loadComiteDocs();
     var cached = loadCache('adminCompet');
     if (cached && !STATE.adminCompet) { STATE.adminCompet = cached; STATE.lastRaw.adminCompet = JSON.stringify(cached); renderAdminCompet(); }
     callServer('getCompetitionsAdmin', []).then(function (res) {
