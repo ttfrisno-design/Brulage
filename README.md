@@ -518,6 +518,20 @@ range les inscriptions **par compétition, puis par tour, puis par tableau et
 par club** (page, .xlsx et Google Sheet). Liste des tableaux :
 `COMPETITION_TABLEAUX_` dans Code.gs.
 
+### Circuit Jeunes : règlement du CD76TT
+
+Ouvert aux jeunes (garçons et filles) **nés de 2017 à 2020**, avec **599 points
+au plus** sur la licence. Les années suivent la saison : ce sont les jeunes de
+6 à 9 ans dans la 1re année civile de la saison (2026 pour 2026-2027).
+L'inscription est refusée, et le joueur n'apparaît pas dans les relances,
+quand ses points dépassent 599 ou quand son année de naissance est hors
+limites. Une donnée non renseignée ne bloque pas.
+L'année de naissance se saisit dans l'effectif (colonne **Naissance**, colonne
+N de l'onglet Joueurs : année « 2017 » ou date « 27/07/2017 »). Seul l'en-tête
+est ajouté, les joueurs existants ne sont pas modifiés. Pour un adhérent ajouté
+à l'effectif depuis son dossier d'adhésion, cette colonne est remplie
+automatiquement. Règles : `COMPETITION_REGLES_` dans Code.gs.
+
 ### Documents des compétitions (comité)
 
 Dans `comite.html` › **Documents des compétitions**, le comité renseigne pour

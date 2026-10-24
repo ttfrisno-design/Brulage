@@ -20,7 +20,7 @@
 // "group" identifie l'ensemble de dates (jour de match) partagé par les équipes.
 // Version du script (affichée au comité et dans l'admin) : permet de savoir
 // quels clubs ont recollé la dernière version de Code.gs.
-const REBONTT_VERSION = '2026.10.22';
+const REBONTT_VERSION = '2026.10.24';
 
 // Équipes par défaut (celles du FRI). Chaque club règle les siennes dans
 // l'onglet « Equipes » de son classeur (créé avec ces valeurs) : ID, Nom,
@@ -321,7 +321,7 @@ function getDataSpreadsheetUrl() {
 // répondre"). On ne la fait donc plus qu'une fois par exécution, et au plus
 // une fois par heure (mémorisé dans le cache du script).
 let sheetsChecked_ = false;
-const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V22';
+const SHEETS_CHECK_CACHE_KEY_ = 'SHEETS_CHECKED_V23';
 
 function ensureSheets_() {
   loadTeams_();
@@ -473,6 +473,11 @@ function ensureSheetsNow_() {
   // l'application FFTT ou PingPocket (prioritaire sur le modèle commun).
   if (players.getLastColumn() < 13) {
     players.getRange(1, 13).setValue('LienEspace');
+  }
+  // Colonne N "Naissance" (année ou date de naissance), pour les compétitions
+  // réservées à certaines années (Circuit Jeunes) : en-tête seulement.
+  if (players.getLastColumn() < 14) {
+    players.getRange(1, 14).setValue('Naissance');
   }
 
   // Réglages des compétitions individuelles, ajoutés à la feuille Config
@@ -1688,7 +1693,7 @@ function defaultCompetitions_() {
   add('Jeunes', 'Challenge 500', c500, '', '', '6 € par tour',
     'Le samedi. Pour les débutants classés 500 points : beaucoup de matchs contre des joueurs de ton niveau.');
   add('Jeunes', 'Circuit Jeunes', c500, '', 'Poussin,Benjamin', '6 € par tour',
-    'Le samedi. Poussins et benjamins 1re année (nés en 2017), tous niveaux.');
+    'Le samedi. Ouvert aux clubs de Seine-Maritime affiliés à la FFTT : garçons et filles nés de 2017 à 2020, 599 points maximum.');
   add('Jeunes', 'Championnat Jeunes (équipe de 2)', [
     ['07/11/2026', 'J1'], ['05/12/2026', 'J2'], ['16/01/2027', 'J3'], ['06/02/2027', 'J4'],
     ['13/03/2027', 'J5'], ['22/05/2027', 'Finale district'], ['20/06/2027', 'Finale départementale'],
@@ -2058,6 +2063,7 @@ function readCompetitions_(settings) {
       tarif: String(r.Tarif || ''), infos: String(r.Infos || ''),
       teams: competitionTeams_(String(r.Nom)),
       tableaux: competitionTableaux_(String(r.Nom)),
+      regle: competitionRegle_(String(r.Nom), String(r.Date)),
     };
   });
 }
@@ -2071,6 +2077,43 @@ const COMPETITION_TABLEAUX_ = {
 };
 function competitionTableaux_(nom) {
   return COMPETITION_TABLEAUX_[nom] || [];
+}
+
+// Règlements du comité (CD76TT) : âge atteint dans la 1re année civile de la
+// saison (2026-2027 : 2026 − année de naissance) et points FFTT maximum.
+// Circuit Jeunes : nés de 2017 à 2020 (garçons et filles), 599 points au plus.
+const COMPETITION_REGLES_ = [
+  { nom: /circuit\s*jeune/i, ageMin: 6, ageMax: 9, pointsMax: 599 },
+];
+/** Règle de la compétition, avec les années de naissance de sa saison. */
+function competitionRegle_(nom, date) {
+  const r = COMPETITION_REGLES_.find(function (x) { return x.nom.test(String(nom || '')); });
+  if (!r) return null;
+  const d = parseFrDate_(date) || new Date();
+  const saison = d.getMonth() >= 6 ? d.getFullYear() : d.getFullYear() - 1;
+  const out = { pointsMax: r.pointsMax || null };
+  if (r.ageMax) { out.anneeMin = saison - r.ageMax; out.anneeMax = saison - r.ageMin; }
+  return out;
+}
+/** Année de naissance d'une cellule « Naissance » (2017, 27/07/2017, date). */
+function naissanceAnnee_(v) {
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v.getFullYear();
+  const m = String(v || '').match(/(19|20)\d{2}/);
+  return m ? Number(m[0]) : null;
+}
+/** Raison pour laquelle le joueur ne peut pas s'inscrire d'après le
+ * règlement (points, année de naissance), '' sinon. Points ou année non
+ * renseignés : on ne bloque pas (comme pour la catégorie). */
+function regleMotif_(regle, points, annee) {
+  if (!regle) return '';
+  const pts = points === '' || points === null || points === undefined ? null : Number(points);
+  if (regle.pointsMax && pts !== null && !isNaN(pts) && pts > regle.pointsMax) {
+    return 'Réservé aux joueurs de ' + regle.pointsMax + ' points maximum';
+  }
+  if (regle.anneeMin && annee && (annee < regle.anneeMin || annee > regle.anneeMax)) {
+    return 'Réservé aux jeunes nés de ' + regle.anneeMin + ' à ' + regle.anneeMax;
+  }
+  return '';
 }
 
 const COMPETITION_TEAMS_ = {
@@ -2225,7 +2268,8 @@ function getCompetitions(playerId) {
     categorie: categorie,
     points: player.Points === '' || player.Points === undefined ? null : Number(player.Points) || null,
     competitions: readCompetitions_(settings).map(function (c) {
-      c.eligible = isEligible_(c, categorie, sexe);
+      c.motif = regleMotif_(c.regle, player.Points, naissanceAnnee_(player.Naissance));
+      c.eligible = isEligible_(c, categorie, sexe) && !c.motif;
       return c;
     }),
     inscriptions: mine,
@@ -2350,6 +2394,7 @@ function getCompetitionsAdmin() {
         return {
           id: p.ID, nom: p.Nom, prenom: p.Prénom, categorie: String(p.Catégorie || ''), sexe: String(p.Sexe || '').toUpperCase(), phone: String(p.Téléphone || ''),
           licence: String(p.Licence || ''), points: p.Points === '' || p.Points === undefined ? '' : Number(p.Points) || '',
+          naissance: naissanceAnnee_(p.Naissance),
         };
       }),
   };
@@ -2537,7 +2582,11 @@ function writeConfig_(key, value) {
 
 function listPlayers() {
   ensureSheets_();
-  return readTable_('Joueurs');
+  return readTable_('Joueurs').map(function (p) {
+    // Date saisie directement dans le classeur : affichée jj/mm/aaaa.
+    if (p.Naissance instanceof Date) p.Naissance = formatFrDate_(p.Naissance);
+    return p;
+  });
 }
 
 function assertPinAvailable_(pin, excludeId) {
@@ -2597,7 +2646,7 @@ function normSexe_(v) {
   return s === 'F' || s === 'M' ? s : '';
 }
 
-function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone, categorie, licence, points, sexe, lienEspace) {
+function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone, categorie, licence, points, sexe, lienEspace, naissance) {
   ensureSheets_();
   assertPinAvailable_(pin, id);
   const sheet = ss_().getSheetByName('Joueurs');
@@ -2630,10 +2679,23 @@ function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone,
       if (lienEspace !== undefined) {
         sheet.getRange(i + 1, 13).setValue(normLink_(lienEspace));
       }
+      if (naissance !== undefined) setNaissance_(sheet, i + 1, naissance);
       return { ok: true };
     }
   }
   return { ok: false };
+}
+
+/** Colonne N « Naissance » : année (2017) ou date (27/07/2017), en texte. */
+function setNaissance_(sheet, row, v) {
+  v = v instanceof Date ? formatFrDate_(v) : String(v || '').trim();
+  if (v && !/^(\d{4}|\d{2}\/\d{2}\/\d{4})$/.test(v)) {
+    const b = adhBirth_(v);
+    v = b ? b.fr : '';
+  }
+  const cell = sheet.getRange(row, 14);
+  cell.setNumberFormat('@');
+  cell.setValue(v);
 }
 
 function deletePlayer(id) {
@@ -3808,6 +3870,10 @@ function createPlayerFromAdhesion(token, dossier, n) {
   let pin = '';
   do { pin = String(Math.floor(100000 + Math.random() * 900000)); } while (used[pin]);
   const res = addPlayer(m.Nom, m.Prénom, 0, pin, false, a.Téléphone, m.Catégorie, m.Sexe, m.NumLicence);
+  // Nouvelle ligne seulement : date de naissance du dossier d'adhésion.
+  const jsh = ss_().getSheetByName('Joueurs');
+  const ids = jsh.getRange(1, 1, jsh.getLastRow(), 1).getValues();
+  for (let r = ids.length - 1; r >= 1; r--) if (String(ids[r][0]) === String(res.id)) { setNaissance_(jsh, r + 1, m.Naissance); break; }
   adhUpdate_('AdhesionMembres', function (x) { return x.Dossier === a.Dossier && adhNum_(x.N) === adhNum_(m.N); }, { JoueurID: res.id });
   adhFamilyMail_(a.Dossier, 'Bienvenue au club', m.Prénom + ' est inscrit(e) dans l\'effectif du club. Son code personnel pour l\'application RebonTT ' +
     '(disponibilités, convocations, compétitions) est : ' + pin + '. Il est personnel : ne le communiquez pas.');
