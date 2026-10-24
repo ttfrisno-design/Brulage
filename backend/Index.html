@@ -454,6 +454,26 @@
     .adm-card.ac-mails { --ac: #1565c0; }
     .adm-card.ac-add { --ac: #2e7d32; }
     .adm-card.ac-list { --ac: #4338ca; }
+    .ac-blue { --ac: #1565c0; --ac-bg: #eef5fd; --ac-bd: #c9def5; }
+    .ac-indigo { --ac: #4338ca; --ac-bg: #f0f0fd; --ac-bd: #d4d4f7; }
+    .ac-teal { --ac: #00897b; --ac-bg: #ebf7f6; --ac-bd: #c2e6e2; }
+    .ac-green { --ac: #2e7d32; --ac-bg: #f1f9f1; --ac-bd: #cfe8d0; }
+    .ac-amber { --ac: #d97706; --ac-bg: #fffbeb; --ac-bd: #fde68a; }
+    .ac-orange { --ac: #e65100; --ac-bg: #fff4ea; --ac-bd: #fcd6b8; }
+    .ac-purple { --ac: #8e24aa; --ac-bg: #f8eefa; --ac-bd: #e6c9ee; }
+    .ac-red { --ac: #c62828; --ac-bg: #fdf0f0; --ac-bd: #f3c8c8; }
+    /* Rubriques encadrées (réglages des adhésions, présentation du club). */
+    .adm-groups { display: flex; flex-direction: column; gap: 12px; }
+    .adm-group { border: 1px solid var(--ac-bd, var(--border)); border-left: 4px solid var(--ac, var(--primary)); border-radius: 8px; background: var(--ac-bg, #f8fafc); padding: 8px 12px 12px; }
+    .adm-sub { font-weight: 700; font-size: 14px; color: var(--ac, var(--primary)); margin-bottom: 2px; }
+    .adm-sub small { font-weight: 400; color: var(--muted); font-size: 12px; }
+    .adm-card label { color: #44505c; }
+    .adm-card .adh-form label, .adm-card .club-form label { font-weight: 600; }
+    .adm-card .club-form > div { background: var(--ac-bg); border: 1px solid var(--ac-bd); border-radius: 8px; padding: 0 10px 10px; margin-bottom: 8px; }
+    .adm-card .club-form { gap: 0 10px; }
+    .dg-box { border: 1px solid var(--border); border-left: 4px solid var(--gc); border-radius: 8px; padding: 0 10px 10px; margin-bottom: 8px; background: #fff; }
+    .dg-box > label { color: var(--gc); font-weight: 700; }
+    .dg-phase { background: var(--ac-bg); color: var(--ac); border-radius: 6px; padding: 6px 10px; text-transform: none; font-size: 15px; letter-spacing: 0; }
     .ac-intro { color: var(--muted); font-size: 13px; margin: -2px 0 12px; }
     .ac-note { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
     .ac-settings .compet-settings > div, .ac-add .compet-form > div { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 2px 10px 10px; }
@@ -499,7 +519,7 @@
     <main style="max-width:520px;">
       <div class="card">
         <h2>Choisissez votre club</h2>
-        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Tapez le nom du club ou sa ville.</p>
+        <p class="ac-intro">Tapez le nom du club ou sa ville.</p>
         <input type="search" id="clubSearch" placeholder="Ex. Isneauville, FRI…" autocomplete="off" oninput="renderClubList()">
         <label class="club-remember"><input type="checkbox" id="clubRemember" checked> Mémoriser ce club sur cet appareil (ouverture directe sur mon club)</label>
         <div id="clubList" class="club-list"></div>
@@ -529,7 +549,7 @@
       <div class="card login-card" id="loginCard">
         <div id="loginClub" class="login-club"></div>
         <h2 id="loginTitle">Mon compte</h2>
-        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Licencié du club : saisissez votre code personnel à 6 chiffres.</p>
+        <p class="ac-intro">Licencié du club : saisissez votre code personnel à 6 chiffres.</p>
         <label>Code</label>
         <input type="password" id="loginPin" inputmode="numeric" maxlength="6" autocomplete="off" autofocus style="letter-spacing:4px;font-size:20px;text-align:center;" onkeydown="if (event.key === 'Enter') doLogin();" oninput="onPinInput()">
         <button class="primary" id="loginBtn" onclick="doLogin()">Se connecter</button>
@@ -611,7 +631,7 @@
       <div id="burnBannerPlayer"></div>
       <div class="card">
         <h2>Mes disponibilités</h2>
-        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">
+        <p class="ac-intro">
           Indiquez si vous êtes disponible pour chaque date de match. Un administrateur vous affectera ensuite à une équipe.
         </p>
         <div id="playerDatesList"></div>
@@ -636,7 +656,7 @@
       <div id="burnBannerCaptain"></div>
       <div class="card">
         <h2 id="captainTeamTitle">Feuille de match de mon équipe</h2>
-        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">
+        <p class="ac-intro">
           Indiquez qui a joué dans votre équipe à chaque date. Les cases grisées sont déjà affectées à une autre équipe.
         </p>
         <div class="legend" id="captainGroupColorLegend"></div>
@@ -646,7 +666,7 @@
       <div class="card" id="convocSenderCaptain"></div>
       <div class="card">
         <h2>Mes disponibilités</h2>
-        <p style="color:var(--muted);font-size:13px;margin-top:-6px;">
+        <p class="ac-intro">
           Indiquez si vous êtes disponible pour chaque date de match.
         </p>
         <div id="captainOwnDatesList"></div>
@@ -752,20 +772,20 @@
         </div>
       </div>
       <div id="tab-adh" class="admin-tab hidden">
-        <div class="card">
-          <h2>Site d'inscription au club</h2>
-          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Les familles s'inscrivent en ligne (créneaux, questionnaire de santé, règlement intérieur, documents, mode de paiement). Les créneaux, tarifs et places se règlent dans <b>Dates &amp; Réglages › Présentation du club</b>.</p>
+        <div class="card adm-card ac-blue">
+          <h2>🌐 Site d'inscription au club</h2>
+          <p class="ac-intro">Les familles s'inscrivent en ligne (créneaux, questionnaire de santé, règlement intérieur, documents, mode de paiement). Les créneaux, tarifs et places se règlent dans <b>Dates &amp; Réglages › Présentation du club</b>.</p>
           <div id="adhLink"></div>
         </div>
-        <div class="card"><h2>Places par créneau</h2><div id="adhPlaces">…</div></div>
-        <div class="card">
-          <h2>Dossiers</h2>
+        <div class="card adm-card ac-teal"><h2>📊 Places par créneau</h2><div id="adhPlaces">…</div></div>
+        <div class="card adm-card ac-indigo">
+          <h2>📁 Dossiers</h2>
           <input type="search" id="adhSearch" placeholder="Rechercher (n° de dossier, nom, téléphone…)" oninput="renderAdhDossiers()">
           <div id="adhDossiers" style="margin-top:10px;">…</div>
         </div>
-        <div class="card">
-          <h2>Chèques — bordereau de remise en banque</h2>
-          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Cochez les chèques à déposer, imprimez le bordereau puis marquez-les déposés : leur montant s'ajoute au règlement du dossier et la famille est prévenue par e-mail.</p>
+        <div class="card adm-card ac-green">
+          <h2>🧾 Chèques — bordereau de remise en banque</h2>
+          <p class="ac-intro">Cochez les chèques à déposer, imprimez le bordereau puis marquez-les déposés : leur montant s'ajoute au règlement du dossier et la famille est prévenue par e-mail.</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
             <select id="chqFiltre" onchange="renderCheques()"><option value="">Tous les chèques</option><option value="1">Chèques n° 1</option><option value="2">Chèques n° 2</option><option value="3">Chèques n° 3</option></select>
             <label style="display:flex;gap:6px;align-items:center;margin:0;color:var(--ink);"><input type="checkbox" id="chqNonDep" checked onchange="renderCheques()"> Non déposés uniquement</label>
@@ -778,50 +798,61 @@
             <button class="secondary" onclick="markDeposes()">✓ Marquer comme déposés</button>
           </div>
         </div>
-        <div class="card"><h2>Messages et demandes</h2><div id="adhMessages">…</div></div>
-        <div class="card">
-          <h2>Réglages des inscriptions</h2>
-          <div class="adh-form">
-            <div><label for="adhSaison">Saison</label><input type="text" id="adhSaison" placeholder="2026/2027"></div>
-            <div><label for="adhOuvert">Inscriptions en ligne</label><select id="adhOuvert"><option value="oui">Ouvertes</option><option value="non">Fermées</option></select></div>
-            <div><label for="adhCommune">Commune (tarif habitant)</label><input type="text" id="adhCommune" placeholder="Isneauville"></div>
-            <div><label for="adhSupp">Supplément hors commune (€ par membre)</label><input type="number" id="adhSupp" min="0" step="1"></div>
-            <div><label for="adhRed">Réduction famille (€ par membre supplémentaire)</label><input type="number" id="adhRed" min="0" step="1"></div>
-            <div><label for="adhCheques">Nombre maximal de chèques</label><input type="number" id="adhCheques" min="1" max="10" step="1"></div>
-            <div class="full"><label>Prix de la licence FFTT par catégorie d'âge (€, ajouté au tarif du créneau)</label>
-              <div id="adhLic" class="lic-grid"></div></div>
-            <div class="full"><label>Modes de règlement proposés</label>
-              <div id="adhModes" style="display:flex;gap:14px;flex-wrap:wrap;font-size:14px;"></div></div>
-            <div><label for="adhOrdre">Ordre des chèques</label><input type="text" id="adhOrdre"></div>
-            <div class="full"><label style="font-weight:600;color:var(--ink);">Coordonnées bancaires du club (virements et bordereau de remise de chèques)</label></div>
-            <div><label for="adhBqTit">Titulaire du compte</label><input type="text" id="adhBqTit" placeholder="Nom de l'association"></div>
-            <div><label for="adhBqNom">Banque</label><input type="text" id="adhBqNom" placeholder="Ex. Crédit Agricole Normandie-Seine"></div>
-            <div class="full"><label for="adhBqAg">Agence (nom, adresse)</label><input type="text" id="adhBqAg"></div>
-            <div><label for="adhIban">IBAN</label><input type="text" id="adhIban" placeholder="FR76 …"></div>
-            <div><label for="adhBic">BIC</label><input type="text" id="adhBic" placeholder="Ex. AGRIFRPP866"></div>
-            <div class="full"><label for="adhHaLien">Lien de paiement HelloAsso du club (si le paiement HelloAsso intégré n'est pas configuré)</label><input type="text" id="adhHaLien" placeholder="https://www.helloasso.com/associations/…"></div>
-            <div class="full"><label for="adhAides">Aides acceptées (une par ligne ; « Nom|montant » pour déduire un montant fixe)</label><textarea id="adhAides" rows="4"></textarea></div>
-            <div class="full"><label for="adhPps">Lien vers le PPS (espace licencié MaLicence FFTT ; vide = https://malicence.fftt.com/login)</label><input type="text" id="adhPps" placeholder="https://malicence.fftt.com/login"></div>
-            <div class="full"><label for="adhLicUrl">Formulaire FFTT de demande de licence en ligne du club (vide = https://inscriptionenligne.fftt.com/club/09760374)</label><input type="text" id="adhLicUrl" placeholder="https://inscriptionenligne.fftt.com/club/…"></div>
-            <div class="full"><label for="adhRiUrl">Lien vers le règlement intérieur (PDF, facultatif)</label><input type="text" id="adhRiUrl" placeholder="https://…"></div>
-            <div class="full"><label for="adhRiTxt">Texte du règlement intérieur (facultatif)</label><textarea id="adhRiTxt" rows="4"></textarea></div>
-            <div><label for="adhContact">E-mail du club (copie des inscriptions, documents et messages)</label><input type="text" id="adhContact" placeholder="club@exemple.fr"></div>
-            <div class="full"><label for="adhInfos">Informations affichées sur la page d'inscription (facultatif)</label><textarea id="adhInfos" rows="3" placeholder="Ex. reprise le 1er septembre, séance d'essai gratuite…"></textarea></div>
+        <div class="card adm-card ac-purple"><h2>💬 Messages et demandes</h2><div id="adhMessages">…</div></div>
+        <div class="card adm-card ac-amber">
+          <h2>⚙️ Réglages des inscriptions</h2>
+          <div class="adm-groups">
+            <div class="adm-group ac-blue"><div class="adm-sub">📆 Saison et ouverture</div><div class="adh-form">
+              <div><label for="adhSaison">Saison</label><input type="text" id="adhSaison" placeholder="2026/2027"></div>
+              <div><label for="adhOuvert">Inscriptions en ligne</label><select id="adhOuvert"><option value="oui">Ouvertes</option><option value="non">Fermées</option></select></div>
+              <div><label for="adhContact">E-mail du club (copie des inscriptions, documents et messages)</label><input type="text" id="adhContact" placeholder="club@exemple.fr"></div>
+              <div class="full"><label for="adhInfos">Informations affichées sur la page d'inscription (facultatif)</label><textarea id="adhInfos" rows="3" placeholder="Ex. reprise le 1er septembre, séance d'essai gratuite…"></textarea></div>
+            </div></div>
+            <div class="adm-group ac-green"><div class="adm-sub">💶 Tarifs</div><div class="adh-form">
+              <div><label for="adhCommune">Commune (tarif habitant)</label><input type="text" id="adhCommune" placeholder="Isneauville"></div>
+              <div><label for="adhSupp">Supplément hors commune (€ par membre)</label><input type="number" id="adhSupp" min="0" step="1"></div>
+              <div><label for="adhRed">Réduction famille (€ par membre supplémentaire)</label><input type="number" id="adhRed" min="0" step="1"></div>
+              <div class="full"><label>Prix de la licence FFTT par catégorie d'âge (€, ajouté au tarif du créneau)</label>
+                <div id="adhLic" class="lic-grid"></div></div>
+              <div class="full"><label for="adhAides">Aides acceptées (une par ligne ; « Nom|montant » pour déduire un montant fixe)</label><textarea id="adhAides" rows="4"></textarea></div>
+            </div></div>
+            <div class="adm-group ac-teal"><div class="adm-sub">💳 Modes de règlement</div><div class="adh-form">
+              <div class="full"><label>Modes de règlement proposés</label>
+                <div id="adhModes" style="display:flex;gap:14px;flex-wrap:wrap;font-size:14px;"></div></div>
+              <div><label for="adhCheques">Nombre maximal de chèques</label><input type="number" id="adhCheques" min="1" max="10" step="1"></div>
+              <div><label for="adhOrdre">Ordre des chèques</label><input type="text" id="adhOrdre"></div>
+              <div class="full"><label for="adhHaLien">Lien de paiement HelloAsso du club (si le paiement HelloAsso intégré n'est pas configuré)</label><input type="text" id="adhHaLien" placeholder="https://www.helloasso.com/associations/…"></div>
+            </div></div>
+            <div class="adm-group ac-indigo"><div class="adm-sub">🏦 Coordonnées bancaires du club <small>(virements et bordereau de remise de chèques)</small></div><div class="adh-form">
+              <div><label for="adhBqTit">Titulaire du compte</label><input type="text" id="adhBqTit" placeholder="Nom de l'association"></div>
+              <div><label for="adhBqNom">Banque</label><input type="text" id="adhBqNom" placeholder="Ex. Crédit Agricole Normandie-Seine"></div>
+              <div class="full"><label for="adhBqAg">Agence (nom, adresse)</label><input type="text" id="adhBqAg"></div>
+              <div><label for="adhIban">IBAN</label><input type="text" id="adhIban" placeholder="FR76 …"></div>
+              <div><label for="adhBic">BIC</label><input type="text" id="adhBic" placeholder="Ex. AGRIFRPP866"></div>
+            </div></div>
+            <div class="adm-group ac-orange"><div class="adm-sub">🏓 Licence FFTT et santé</div><div class="adh-form">
+              <div class="full"><label for="adhPps">Lien vers le PPS (espace licencié MaLicence FFTT ; vide = https://malicence.fftt.com/login)</label><input type="text" id="adhPps" placeholder="https://malicence.fftt.com/login"></div>
+              <div class="full"><label for="adhLicUrl">Formulaire FFTT de demande de licence en ligne du club (vide = https://inscriptionenligne.fftt.com/club/09760374)</label><input type="text" id="adhLicUrl" placeholder="https://inscriptionenligne.fftt.com/club/…"></div>
+            </div></div>
+            <div class="adm-group ac-purple"><div class="adm-sub">📜 Règlement intérieur</div><div class="adh-form">
+              <div class="full"><label for="adhRiUrl">Lien vers le règlement intérieur (PDF, facultatif)</label><input type="text" id="adhRiUrl" placeholder="https://…"></div>
+              <div class="full"><label for="adhRiTxt">Texte du règlement intérieur (facultatif)</label><textarea id="adhRiTxt" rows="4"></textarea></div>
+            </div></div>
           </div>
           <button class="secondary" style="margin-top:10px;" onclick="saveAdhSettings()">Enregistrer les réglages</button>
           <span id="adhStatus" style="font-size:13px;margin-left:8px;"></span>
         </div>
       </div>
       <div id="tab-dates" class="admin-tab hidden">
-        <div class="card">
-          <h2>Code administrateur</h2>
+        <div class="card adm-card ac-red">
+          <h2>🔑 Code administrateur</h2>
           <label>Nouveau code PIN admin</label>
           <input type="text" id="newAdminPin" style="max-width:200px;">
           <button class="secondary" style="margin-top:10px;" onclick="saveAdminPin()">Enregistrer</button>
         </div>
-        <div class="card">
-          <h2>Présentation du club</h2>
-          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Affichée avant la connexion, après le choix du club : salle, équipes (automatique), entraînements, tarifs et lien d'inscription.</p>
+        <div class="card adm-card ac-blue">
+          <h2>🏠 Présentation du club</h2>
+          <p class="ac-intro">Affichée avant la connexion, après le choix du club : salle, équipes (automatique), entraînements, tarifs et lien d'inscription.</p>
           <div class="club-form">
             <div><label for="ciNom">Nom du club</label><input type="text" id="ciNom"></div>
             <div><label for="ciVille">Ville</label><input type="text" id="ciVille"></div>
@@ -842,36 +873,36 @@
           <button class="secondary" style="margin-top:10px;" onclick="saveClubInfo()">Enregistrer la présentation</button>
           <span id="ciStatus" style="font-size:13px;margin-left:8px;"></span>
         </div>
-        <div class="card">
-          <h2>Espace joueur FFTT / PingPocket</h2>
-          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Adresse de l'espace d'un joueur sur l'application FFTT ou sur PingPocket, où <b>{licence}</b> sera remplacé par son numéro de licence (onglet Effectif). Affiché sur la page du joueur sous « Mon espace FFTT / PingPocket ». Laisser vide pour ne pas afficher de lien.</p>
+        <div class="card adm-card ac-teal">
+          <h2>🏓 Espace joueur FFTT / PingPocket</h2>
+          <p class="ac-intro">Adresse de l'espace d'un joueur sur l'application FFTT ou sur PingPocket, où <b>{licence}</b> sera remplacé par son numéro de licence (onglet Effectif). Affiché sur la page du joueur sous « Mon espace FFTT / PingPocket ». Laisser vide pour ne pas afficher de lien.</p>
           <input type="text" id="ffttLinkInput" placeholder="https://…{licence}…">
           <button class="secondary" style="margin-top:10px;" onclick="saveFfttLink()">Enregistrer</button>
         </div>
-        <div class="card">
-          <h2>Site du club</h2>
-          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Lien affiché dans le profil de chaque joueur.</p>
+        <div class="card adm-card ac-indigo">
+          <h2>🔗 Site du club</h2>
+          <p class="ac-intro">Lien affiché dans le profil de chaque joueur.</p>
           <input type="text" id="clubSiteInput" placeholder="https://…">
           <button class="secondary" style="margin-top:10px;" onclick="saveClubSite()">Enregistrer</button>
         </div>
-        <div class="card">
-          <h2>Liens des poules</h2>
-          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Adresse de la page de la poule de chaque équipe (FFTT ou PingPocket). Dans le tableau de brûlage, le nom de l'adversaire sous chaque date devient un lien vers cette page.</p>
+        <div class="card adm-card ac-orange">
+          <h2>🗂️ Liens des poules</h2>
+          <p class="ac-intro">Adresse de la page de la poule de chaque équipe (FFTT ou PingPocket). Dans le tableau de brûlage, le nom de l'adversaire sous chaque date devient un lien vers cette page.</p>
           <div class="table-scroll"><table class="pool-links" id="poolLinks"></table></div>
           <button class="secondary" style="margin-top:10px;" onclick="savePoolLinks()">Enregistrer</button>
         </div>
-        <div class="card">
-          <h2>Paiement HelloAsso</h2>
-          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Les joueurs paient leur inscription sur HelloAsso ; l'inscription est validée automatiquement quand HelloAsso confirme le paiement.</p>
+        <div class="card adm-card ac-green">
+          <h2>💳 Paiement HelloAsso</h2>
+          <p class="ac-intro">Les joueurs paient leur inscription sur HelloAsso ; l'inscription est validée automatiquement quand HelloAsso confirme le paiement.</p>
           <div id="helloassoStatus" style="font-size:14px;">…</div>
         </div>
-        <div class="card">
-          <h2>Notifications</h2>
-          <p style="color:var(--muted);font-size:13px;margin-top:-6px;">Sur l'appli installée : rappels automatiques (veille de match, date limite d'inscription, participation à confirmer) et notifications push (nouvelle convocation, inscription validée).</p>
+        <div class="card adm-card ac-purple">
+          <h2>🔔 Notifications</h2>
+          <p class="ac-intro">Sur l'appli installée : rappels automatiques (veille de match, date limite d'inscription, participation à confirmer) et notifications push (nouvelle convocation, inscription validée).</p>
           <div id="pushStatus" style="font-size:14px;">…</div>
           <button class="secondary" style="margin-top:10px;" onclick="sendTestPushFromAdmin()">Envoyer une notification de test</button>
         </div>
-        <div class="card" id="datesEditor"></div>
+        <div class="card adm-card ac-blue" id="datesEditor"></div>
       </div>
     </main>
   </div>
@@ -2911,7 +2942,7 @@
     draft.teamId = teamId;
 
     var html = '<h2>📣 Envoyer les convocations</h2>' +
-      '<p style="color:var(--muted);font-size:13px;margin-top:-6px;">Les joueurs de la feuille de match enregistrée reçoivent la convocation dans l\'appli, et WhatsApp s\'ouvre avec le message à envoyer dans le groupe de l\'équipe (SMS toujours possible).</p>' +
+      '<p class="ac-intro">Les joueurs de la feuille de match enregistrée reçoivent la convocation dans l\'appli, et WhatsApp s\'ouvre avec le message à envoyer dans le groupe de l\'équipe (SMS toujours possible).</p>' +
       '<div class="convoc-form">';
     if (!fixedTeamId) {
       html += '<div><label>Équipe</label><select onchange="onConvocTeam(\'' + containerId + '\', this.value)">' +
@@ -4443,16 +4474,16 @@
   // ---------------------------------------------------------------------------
   function renderDatesEditor() {
     var el = document.getElementById('datesEditor');
-    var html = '<h2>Dates des matchs</h2>';
+    var html = '<h2>📅 Dates des matchs</h2>';
     [1, 2].forEach(function (phase) {
-      html += '<h3>Phase ' + phase + '</h3>';
+      html += '<h3 class="dg-phase">Phase ' + phase + '</h3>';
       GROUPS.forEach(function (grp) {
-        html += '<label>' + groupLabel(grp) + '</label><div class="dates-grid" id="dates-' + phase + '-' + grp + '">';
+        html += '<div class="dg-box" style="--gc:' + (GROUP_COLORS[grp] || 'var(--primary)') + ';"><label>' + groupLabel(grp) + '</label><div class="dates-grid" id="dates-' + phase + '-' + grp + '">';
         var dates = STATE.config.dates[phase][grp] || [];
         for (var i = 0; i < 7; i++) {
           html += '<input type="text" placeholder="jj/mm/aaaa" value="' + escAttr(dates[i] || '') + '">';
         }
-        html += '</div>';
+        html += '</div></div>';
       });
       html += '<button class="secondary" style="margin-top:8px;" onclick="saveDates(' + phase + ')">Enregistrer les dates — Phase ' + phase + '</button><hr style="margin:18px 0;border:none;border-top:1px solid var(--border);">';
     });
