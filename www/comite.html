@@ -80,6 +80,9 @@
     </div>
 
     <div id="app" class="hidden">
+      <div class="seg" style="margin-bottom:12px;"><button id="mInsc" class="on" onclick="setMode('insc')">📋 Inscriptions</button><button id="mDocs" onclick="setMode('docs')">📄 Documents des compétitions</button></div>
+      <div id="docsApp" class="hidden"></div>
+      <div id="inscApp">
       <div class="card">
         <div class="toolbar">
           <div class="seg"><button id="vComp" class="on" onclick="setView('comp')">Par compétition</button><button id="vClub" onclick="setView('club')">Par club</button></div>
@@ -99,6 +102,7 @@
         <div class="stats" id="stats"></div>
       </div>
       <div id="list"></div>
+      </div>
     </div>
   </main>
   <footer>RebonTT · espace comité (accès réservé)</footer>
@@ -121,7 +125,7 @@
     return { id: c.id, nom: c.nom + (c.essai ? ' (essai)' : ''), ville: c.ville || '', url: c.serverUrl || CFG.SERVER_URL };
   });
   var COMITE = CFG.COMITE || {};
-  var DATA = [], STATUS = {}, VIEW = 'comp', CODE = '';
+  var DATA = [], STATUS = {}, VIEW = 'comp', CODE = '', COMPS = {}, DOCS = null;
 
   function $(id) { return document.getElementById(id); }
   function esc(v) { return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -171,6 +175,7 @@
       return call(c.url, 'getComiteExport', [CODE]).then(function (res) {
         var nom = (res.club && res.club.nom) || c.nom;
         STATUS[c.id] = { nom: nom, n: res.inscriptions.length, at: res.generatedAt, version: (res.club && res.club.version) || '' };
+        (res.competitions || []).forEach(function (k) { COMPS[k.type + '|' + k.nom] = k; });
         return res.inscriptions.map(function (r) { r.club = nom; return r; });
       }).catch(function (e) {
         STATUS[c.id] = { nom: c.nom, error: e.message };
@@ -309,6 +314,92 @@
     add('Résumé', summary, [11, 9, 34].concat(clubs.map(function () { return 14; }), [8]));
     var d = new Date();
     XLSX.writeFile(wb, 'inscriptions-' + (COMITE.nom || 'comite').replace(/\W+/g, '') + '-' + d.getFullYear() + ('0' + (d.getMonth() + 1)).slice(-2) + ('0' + d.getDate()).slice(-2) + '.xlsx');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Documents des compétitions : règlement, description et lien du site du
+  // comité, enregistrés par le script du comité (Comite.gs déployé en
+  // Application Web, adresse dans config.js › COMITE.apiUrl) et affichés dans
+  // l'appli des clubs (joueurs et administrateurs).
+  // ---------------------------------------------------------------------------
+  var PUBLICS = ['Jeunes', 'Adultes', 'Stages', 'Tous'];
+  function setMode(m) {
+    $('mInsc').classList.toggle('on', m === 'insc'); $('mDocs').classList.toggle('on', m === 'docs');
+    $('inscApp').classList.toggle('hidden', m !== 'insc'); $('docsApp').classList.toggle('hidden', m !== 'docs');
+    if (m === 'docs') loadDocs();
+  }
+  function loadDocs() {
+    var box = $('docsApp');
+    if (!COMITE.apiUrl) {
+      box.innerHTML = '<div class="card"><h2 style="margin-top:0;">Documents des compétitions</h2><p>Pour publier les documents, le script du comité (<code>backend/Comite.gs</code>) doit être déployé en <b>Application Web</b> ' +
+        '(Déployer › Nouveau déploiement › Application Web, exécuter en tant que moi, accès : tout le monde), puis son adresse /exec ajoutée dans <code>config.js › COMITE.apiUrl</code>.</p></div>';
+      return;
+    }
+    box.innerHTML = '<div class="card">Chargement des documents…</div>';
+    call(COMITE.apiUrl, 'getDocuments', []).then(function (docs) { DOCS = docs; renderDocs(); })
+      .catch(function (e) { box.innerHTML = '<div class="card error">Documents indisponibles : ' + esc(e.message) + '</div>'; });
+  }
+  function docKey(d) { return d.public + '|' + d.competition; }
+  function renderDocs() {
+    var byKey = {};
+    (DOCS || []).forEach(function (d) { byKey[docKey(d)] = d; });
+    // Compétitions des clubs (type = public) + fiches déjà enregistrées.
+    var keys = Object.keys(COMPS).map(function (k) { var c = COMPS[k]; return (PUBLICS.indexOf(c.type) >= 0 ? c.type : 'Tous') + '|' + c.nom; });
+    Object.keys(byKey).forEach(function (k) { if (keys.indexOf(k) < 0) keys.push(k); });
+    keys = keys.filter(function (k, i) { return keys.indexOf(k) === i; }).sort(function (a, b) {
+      var pa = a.split('|'), pb = b.split('|');
+      return PUBLICS.indexOf(pa[0]) - PUBLICS.indexOf(pb[0]) || pa[1].localeCompare(pb[1]);
+    });
+    $('docsApp').innerHTML = '<div class="card"><h2 style="margin-top:0;">Documents des compétitions</h2>' +
+      '<p style="color:var(--muted);margin-top:-4px;">Règlement, présentation et lien vers la page du comité : affichés aux joueurs et aux administrateurs des clubs, sur chaque compétition individuelle.</p>' +
+      '<div class="toolbar"><input id="newComp" placeholder="Autre compétition (nom exact, ex. Critérium Fédéral)" style="flex:1;min-width:220px;"><select id="newPub">' + PUBLICS.map(function (p) { return '<option>' + p + '</option>'; }).join('') + '</select>' +
+      '<button class="btn" onclick="addDoc()">+ Ajouter</button></div></div>' +
+      keys.map(function (k, i) {
+        var p = k.split('|'), d = byKey[k] || { competition: p.slice(1).join('|'), public: p[0], description: '', reglement: '', site: '' };
+        return '<div class="group"><h3><span class="tag ' + esc(d.public) + '">' + esc(d.public) + '</span>' + esc(d.competition) +
+          '<span>' + (byKey[k] ? 'mis à jour le ' + esc(d.majLe || '') : 'pas encore de fiche') + '</span></h3><div style="padding:10px 14px;">' +
+          '<label>Présentation de la compétition</label><textarea id="dDesc' + i + '" rows="3" style="width:100%;font:inherit;padding:8px;border:1px solid var(--border);border-radius:6px;">' + esc(d.description) + '</textarea>' +
+          '<label>Règlement (lien ou fichier PDF)</label><div class="toolbar"><input id="dReg' + i + '" value="' + esc(d.reglement) + '" placeholder="https://…" style="flex:1;min-width:220px;">' +
+          '<input type="file" id="dFile' + i + '" accept="application/pdf,image/*" style="max-width:230px;"><button class="btn" onclick="uploadDoc(' + i + ', this)">⬆ Envoyer le fichier</button></div>' +
+          '<label>Page de la compétition sur le site du comité</label><input id="dSite' + i + '" value="' + esc(d.site) + '" placeholder="https://…" style="width:100%;">' +
+          '<div class="toolbar" style="margin-top:10px;"><button class="btn primary" onclick="saveDoc(' + i + ', this)">Enregistrer</button>' +
+          (byKey[k] ? '<button class="btn" onclick="deleteDoc(' + i + ')">Supprimer la fiche</button>' : '') +
+          (d.reglement ? '<a class="btn" href="' + esc(d.reglement) + '" target="_blank" rel="noopener">Voir le règlement ↗</a>' : '') +
+          '<span id="dSt' + i + '" style="font-size:13px;"></span></div></div></div>';
+      }).join('');
+    $('docsApp').dataset.keys = JSON.stringify(keys);
+  }
+  function keyAt(i) { return JSON.parse($('docsApp').dataset.keys)[i].split('|'); }
+  function addDoc() {
+    var nom = $('newComp').value.trim(); if (!nom) return;
+    COMPS[$('newPub').value + '|' + nom] = { type: $('newPub').value, nom: nom };
+    renderDocs();
+  }
+  function saveDoc(i, btn) {
+    var k = keyAt(i);
+    btn.disabled = true; $('dSt' + i).textContent = 'Enregistrement…';
+    call(COMITE.apiUrl, 'saveDocument', [CODE, { competition: k.slice(1).join('|'), public: k[0], description: $('dDesc' + i).value, reglement: $('dReg' + i).value.trim(), site: $('dSite' + i).value.trim() }])
+      .then(function (docs) { DOCS = docs; renderDocs(); })
+      .catch(function (e) { btn.disabled = false; $('dSt' + i).textContent = '⚠ ' + e.message; });
+  }
+  function deleteDoc(i) {
+    var k = keyAt(i);
+    if (!confirm('Supprimer la fiche « ' + k.slice(1).join('|') + ' » ?')) return;
+    call(COMITE.apiUrl, 'deleteDocument', [CODE, k.slice(1).join('|'), k[0]]).then(function (docs) { DOCS = docs; renderDocs(); })
+      .catch(function (e) { alert(e.message); });
+  }
+  function uploadDoc(i, btn) {
+    var f = $('dFile' + i).files[0];
+    if (!f) { alert('Choisissez un fichier.'); return; }
+    if (f.size > 10 * 1024 * 1024) { alert('Fichier trop volumineux (10 Mo maximum).'); return; }
+    var fr = new FileReader();
+    fr.onload = function () {
+      btn.disabled = true; $('dSt' + i).textContent = 'Envoi du fichier…';
+      call(COMITE.apiUrl, 'uploadDocument', [CODE, f.name, f.type, fr.result]).then(function (r) {
+        btn.disabled = false; $('dReg' + i).value = r.url; $('dSt' + i).textContent = '✓ Fichier envoyé : pensez à Enregistrer.';
+      }).catch(function (e) { btn.disabled = false; $('dSt' + i).textContent = '⚠ ' + e.message; });
+    };
+    fr.readAsDataURL(f);
   }
 
   // Reconnexion automatique dans le même onglet.

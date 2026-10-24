@@ -21,9 +21,11 @@
 const COMITE_ONGLETS_ = { comp: 'Par compétition', club: 'Par club', resume: 'Résumé', clubs: 'Clubs', classeurs: 'Classeurs' };
 
 function onOpen() {
+  try { classeur_(); } catch (e) { /* mémorisation de l'identifiant du classeur */ }
   SpreadsheetApp.getUi().createMenu('Comité')
     .addItem('Mettre à jour les inscriptions', 'mettreAJourInscriptions')
     .addItem('Mise à jour automatique (toutes les heures)', 'installerMiseAJourAuto')
+    .addItem('Préparer les documents des compétitions', 'installerDocuments')
     .addToUi();
 }
 
@@ -234,3 +236,132 @@ function installerMiseAJourAuto() {
   ScriptApp.newTrigger('mettreAJourInscriptions').timeBased().everyHours(1).create();
   SpreadsheetApp.getActive().toast('Mise à jour automatique installée (toutes les heures).');
 }
+
+// ---------------------------------------------------------------------------
+// DOCUMENTS DES COMPÉTITIONS (règlement, description, lien du site du comité)
+// ---------------------------------------------------------------------------
+// Onglet « Documents » de ce classeur, rempli depuis l'espace comité
+// (comite.html) ou à la main. Pour que l'appli des clubs les affiche, ce
+// script doit être déployé en Application Web (Déployer › Nouveau
+// déploiement › Application Web, exécuter en tant que moi, accès : tout le
+// monde) ; l'adresse /exec se met dans config.js › COMITE.apiUrl.
+// Lecture publique (documents destinés aux joueurs) ; modification réservée
+// au comité (code COMITE_CODE).
+const DOCS_ONGLET_ = 'Documents';
+const DOCS_COLS_ = ['Compétition', 'Public', 'Description', 'Règlement (lien)', 'Site du comité (lien)', 'Mis à jour'];
+
+/** Classeur du comité, y compris quand le script répond en Application Web
+ * (pas de classeur « actif ») : son identifiant est mémorisé. */
+function classeur_() {
+  const props = PropertiesService.getScriptProperties();
+  let ss = null;
+  try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) { ss = null; }
+  if (ss) { if (props.getProperty('COMITE_SHEET_ID') !== ss.getId()) props.setProperty('COMITE_SHEET_ID', ss.getId()); return ss; }
+  const id = props.getProperty('COMITE_SHEET_ID');
+  if (!id) throw new Error('Lancez une fois « installerDocuments » depuis l\'éditeur du script du comité.');
+  return SpreadsheetApp.openById(id);
+}
+/** À lancer UNE FOIS depuis l'éditeur : crée l'onglet « Documents » et
+ * mémorise le classeur pour l'Application Web. */
+function installerDocuments() {
+  docsSheet_();
+  Logger.log('Onglet « Documents » prêt. Déployez maintenant ce script en Application Web.');
+}
+
+function docsSheet_() {
+  const ss = classeur_();
+  let sh = ss.getSheetByName(DOCS_ONGLET_);
+  if (!sh) {
+    sh = ss.insertSheet(DOCS_ONGLET_);
+    sh.getRange(1, 1, 1, DOCS_COLS_.length).setValues([DOCS_COLS_]).setFontWeight('bold').setBackground('#e8f1fb');
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+function lireDocuments_() {
+  const sh = docsSheet_();
+  if (sh.getLastRow() < 2) return [];
+  return sh.getRange(2, 1, sh.getLastRow() - 1, DOCS_COLS_.length).getValues().map(function (r, i) {
+    return { row: i + 2, competition: String(r[0] || '').trim(), public: String(r[1] || '').trim() || 'Tous', description: String(r[2] || ''),
+      reglement: String(r[3] || '').trim(), site: String(r[4] || '').trim(),
+      majLe: r[5] instanceof Date ? Utilities.formatDate(r[5], Session.getScriptTimeZone(), 'dd/MM/yyyy') : String(r[5] || '') };
+  }).filter(function (d) { return d.competition; });
+}
+function verifierCode_(code) {
+  const attendu = String(PropertiesService.getScriptProperties().getProperty('COMITE_CODE') || '');
+  if (attendu.length < 12) throw new Error('Propriété COMITE_CODE du script du comité absente.');
+  const cache = CacheService.getScriptCache(), n = Number(cache.get('ECHECS') || 0);
+  if (n >= 10) throw new Error('Trop de tentatives : réessayez dans 15 minutes.');
+  if (String(code || '') !== attendu) { cache.put('ECHECS', String(n + 1), 900); throw new Error('Code comité incorrect.'); }
+}
+function lienOk_(v) {
+  v = String(v || '').trim();
+  if (v && !/^https:\/\/\S+$/i.test(v)) throw new Error('Lien invalide (https://…) : ' + v);
+  return v;
+}
+/** Comité : crée ou met à jour la fiche d'une compétition. */
+function enregistrerDocument_(code, d) {
+  verifierCode_(code);
+  d = d || {};
+  const comp = String(d.competition || '').trim();
+  if (!comp) throw new Error('Nom de la compétition obligatoire.');
+  const pub = ['Jeunes', 'Adultes', 'Stages', 'Tous'].indexOf(d.public) >= 0 ? d.public : 'Tous';
+  const ligne = [comp, pub, String(d.description || '').slice(0, 5000), lienOk_(d.reglement), lienOk_(d.site), new Date()];
+  const sh = docsSheet_();
+  const exist = lireDocuments_().find(function (x) { return x.competition.toLowerCase() === comp.toLowerCase() && x.public === pub; });
+  const row = exist ? exist.row : sh.getLastRow() + 1;
+  sh.getRange(row, 1, 1, ligne.length).setValues([ligne]);
+  return lireDocuments_();
+}
+function supprimerDocument_(code, competition, pub) {
+  verifierCode_(code);
+  const d = lireDocuments_().find(function (x) { return x.competition === competition && x.public === pub; });
+  if (d) docsSheet_().deleteRow(d.row);
+  return lireDocuments_();
+}
+/** Comité : PDF (règlement…) enregistré dans le Drive du comité, partagé en
+ * lecture à toute personne ayant le lien. */
+function deposerFichier_(code, nom, mime, base64) {
+  verifierCode_(code);
+  if (['application/pdf', 'image/jpeg', 'image/png'].indexOf(mime) < 0) throw new Error('Format accepté : PDF, JPEG ou PNG.');
+  const data = String(base64 || '').replace(/^data:[^,]+,/, '');
+  if (!data || data.length > 14 * 1024 * 1024) throw new Error('Fichier vide ou trop volumineux (10 Mo maximum).');
+  const props = PropertiesService.getScriptProperties();
+  let dossier = null;
+  const id = props.getProperty('COMITE_DOCS_DOSSIER_ID');
+  if (id) { try { dossier = DriveApp.getFolderById(id); if (dossier.isTrashed()) dossier = null; } catch (e) { dossier = null; } }
+  if (!dossier) {
+    const parents = DriveApp.getFileById(classeur_().getId()).getParents();
+    dossier = (parents.hasNext() ? parents.next() : DriveApp.getRootFolder()).createFolder('Documents des compétitions');
+    props.setProperty('COMITE_DOCS_DOSSIER_ID', dossier.getId());
+  }
+  const f = dossier.createFile(Utilities.newBlob(Utilities.base64Decode(data), mime, String(nom || 'document').replace(/[\\/:*?"<>|]/g, '_').slice(0, 100)));
+  f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return { url: f.getUrl() };
+}
+
+/** Application Web du comité : documents (lecture publique) et gestion. */
+function doGet(e) {
+  return sortieJson_({ ok: true, result: lireDocuments_().map(function (d) { delete d.row; return d; }) });
+}
+function doPost(e) {
+  let out;
+  try {
+    const body = JSON.parse(e.postData.contents);
+    const a = body.args || [];
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      if (body.fn === 'getDocuments') out = lireDocuments_().map(function (d) { delete d.row; return d; });
+      else if (body.fn === 'saveDocument') out = enregistrerDocument_(a[0], a[1]);
+      else if (body.fn === 'deleteDocument') out = supprimerDocument_(a[0], a[1], a[2]);
+      else if (body.fn === 'uploadDocument') out = deposerFichier_(a[0], a[1], a[2], a[3]);
+      else if (body.fn === 'checkCode') { verifierCode_(a[0]); out = { ok: true }; }
+      else throw new Error('Fonction inconnue : ' + body.fn);
+    } finally { lock.releaseLock(); }
+    return sortieJson_({ ok: true, result: out });
+  } catch (err) {
+    return sortieJson_({ ok: false, error: err && err.message ? err.message : String(err) });
+  }
+}
+function sortieJson_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }

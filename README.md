@@ -508,6 +508,19 @@ Mise en place :
 - Les textes des questionnaires de santé sont ceux du Code du sport : à
   vérifier par le club avec les versions officielles en vigueur.
 
+### Documents des compétitions (comité)
+
+Dans `comite.html` › **Documents des compétitions**, le comité renseigne pour
+chaque compétition (proposées d'après les calendriers des clubs) : une
+**présentation**, le **règlement** (lien ou fichier PDF déposé sur le Drive du
+comité, partagé en lecture) et le **lien de la page du comité**. Ces fiches
+apparaissent dans l'appli des clubs : vue Compétitions des joueurs, onglet
+admin « Compétitions individuelles » et « Mes compétitions » du profil.
+Mise en place côté comité : recoller `backend/Comite.gs`, lancer
+`installerDocuments` (ou menu Comité › Préparer les documents), déployer le
+script en **Application Web** (exécuter en tant que moi, accès : tout le monde)
+et mettre son adresse /exec dans `config.js › COMITE.apiUrl`.
+
 ## Plusieurs clubs, club d'essai, déploiement
 
 - **Annuaire des clubs** : `www/clubs.js` (une ligne par club : id, nom,

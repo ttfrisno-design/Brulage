@@ -2421,7 +2421,7 @@ function getProfile(playerId) {
   const inscriptions = Object.keys(comp.inscriptions).map(function (cid) {
     const i = comp.inscriptions[cid];
     const c = byId[Number(cid)];
-    return c ? { nom: c.nom, epreuve: c.epreuve, date: c.date, lieu: c.lieu, statut: i.statut, participation: i.participation, equipe: i.equipe } : null;
+    return c ? { nom: c.nom, type: c.type, epreuve: c.epreuve, date: c.date, lieu: c.lieu, statut: i.statut, participation: i.participation, equipe: i.equipe } : null;
   }).filter(Boolean);
   const licence = String(p.Licence || '').trim();
   const points = p.Points === '' || p.Points === undefined ? null : Number(p.Points) || null;
@@ -3820,6 +3820,12 @@ function getComiteExport(code) {
     club: { nom: String(readConfigValue_('ClubNom', '') || ''), ville: String(readConfigValue_('ClubVille', '') || ''), version: REBONTT_VERSION },
     generatedAt: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm'),
     inscriptions: rows,
+    // Compétitions du calendrier du club (pour les fiches documents du comité).
+    competitions: Object.keys(comps).reduce(function (acc, id) {
+      const c = comps[id], k = c.type + '|' + c.nom;
+      if (!acc.seen[k]) { acc.seen[k] = true; acc.list.push({ type: c.type, nom: c.nom }); }
+      return acc;
+    }, { seen: {}, list: [] }).list,
   };
 }
 
