@@ -1225,8 +1225,8 @@
     callServer('getClubInfo', [], 3).then(function (info) {
       storeSet('rebontt_clubinfo_' + club.id, JSON.stringify(info));
       if (STATE.club === club && !document.getElementById('clubInfoView').classList.contains('hidden')) renderClubInfo(info);
-    }).catch(function () {
-      if (!cached) renderClubInfo(null);
+    }).catch(function (err) {
+      if (!cached) renderClubInfo(null, err);
     });
   }
   // Dès que l'on tape son code (joueur ou admin), la présentation du club
@@ -1240,11 +1240,14 @@
   function textBlock(v, empty) {
     return v ? '<div class="pre">' + escHtml(v) + '</div>' : '<p style="color:var(--muted);margin:0;">' + empty + '</p>';
   }
-  function renderClubInfo(info) {
+  function renderClubInfo(info, err) {
     var club = STATE.club || defaultClub();
     var html = '';
     if (!info) {
-      html += '<div class="card">La présentation du club n\'a pas pu être chargée (connexion ?). Vous pouvez tout de même vous connecter.</div>';
+      // Erreur renvoyée par le script du club : affichée telle quelle (aide au
+      // diagnostic) ; sinon problème de connexion.
+      html += '<div class="card">La présentation du club n\'a pas pu être chargée' +
+        (err && err.isAppError ? ' : <b>' + escHtml(err.message) + '</b>' : ' (connexion ?)') + '. Vous pouvez tout de même vous connecter.</div>';
     } else {
       if (info.nom) document.getElementById('clubInfoName').textContent = info.nom;
       var mapUrl = info.adresse ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(info.adresse) : '';
