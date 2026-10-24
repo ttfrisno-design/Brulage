@@ -20,7 +20,7 @@
 // "group" identifie l'ensemble de dates (jour de match) partagé par les équipes.
 // Version du script (affichée au comité et dans l'admin) : permet de savoir
 // quels clubs ont recollé la dernière version de Code.gs.
-const REBONTT_VERSION = '2026.10.24c';
+const REBONTT_VERSION = '2026.10.24d';
 
 // Équipes par défaut (celles du FRI). Chaque club règle les siennes dans
 // l'onglet « Equipes » de son classeur (créé avec ces valeurs) : ID, Nom,
@@ -900,13 +900,24 @@ function normalizeDateFr_(raw) {
 // AUTHENTIFICATION
 // ----------------------------------------------------------------------------------
 
+/** Code saisi = code enregistré. Espaces ignorés. Si la cellule est un
+ * nombre (colonne typée « nombre » d'un tableau Google Sheets, qui perd les
+ * zéros de tête : 0000 → 0), on compare la valeur numérique. */
+function pinEq_(given, stored) {
+  const g = String(given === null || given === undefined ? '' : given).trim();
+  const st = String(stored === null || stored === undefined ? '' : stored).trim();
+  if (!g || !st) return false;
+  if (g === st) return true;
+  return typeof stored === 'number' && /^\d+$/.test(g) && Number(g) === stored;
+}
+
 function login(pin) {
   ensureSheets_();
 
   // Connexion admin : le code correspond au PIN administrateur.
   const cfg = readTable_('Config');
   const adminPin = (cfg.find(function (r) { return r.Clé === 'AdminPIN'; }) || {}).Valeur;
-  if (String(pin) === String(adminPin)) {
+  if (pinEq_(pin, adminPin)) {
     return { ok: true, isAdmin: true, name: 'Administrateur', config: getStaticConfig(), adminToken: adminToken_() };
   }
 
@@ -915,7 +926,7 @@ function login(pin) {
   // PIN unique — voir la vérification anti-doublon dans addPlayer/updatePlayer.
   const players = readTable_('Joueurs');
   const match = players.find(function (p) {
-    return String(p.PIN) === String(pin) &&
+    return pinEq_(pin, p.PIN) &&
       p.Actif !== false && p.Actif !== 'FAUX' && p.Actif !== 'NON';
   });
   if (!match) {
@@ -1104,7 +1115,7 @@ function updateDates(phase, group, dates) {
 function setAdminPin(newPin) {
   ensureSheets_();
   const players = readTable_('Joueurs');
-  if (players.some(function (p) { return String(p.PIN) === String(newPin); })) {
+  if (players.some(function (p) { return pinEq_(newPin, p.PIN); })) {
     throw new Error('Ce code est déjà utilisé par un joueur. Choisissez-en un autre.');
   }
   const sheet = ss_().getSheetByName('Config');
@@ -2639,12 +2650,12 @@ function assertPinAvailable_(pin, excludeId) {
   // différent du code administrateur.
   const cfg = readTable_('Config');
   const adminPin = (cfg.find(function (r) { return r.Clé === 'AdminPIN'; }) || {}).Valeur;
-  if (String(pin) === String(adminPin)) {
+  if (pinEq_(pin, adminPin)) {
     throw new Error("Ce code est déjà utilisé comme code administrateur. Choisissez-en un autre.");
   }
   const players = readTable_('Joueurs');
   const clash = players.some(function (p) {
-    return String(p.PIN) === String(pin) && (excludeId === undefined || String(p.ID) !== String(excludeId));
+    return pinEq_(pin, p.PIN) && (excludeId === undefined || String(p.ID) !== String(excludeId));
   });
   if (clash) {
     throw new Error('Ce code est déjà utilisé par un autre joueur. Choisissez-en un autre.');
@@ -2745,9 +2756,23 @@ function setNaissance_(sheet, row, v) {
 /** Format texte (@) d'une plage. Ignoré sur une colonne typée d'un tableau
  * Google Sheets (« Vous ne pouvez pas définir le format numérique des
  * cellules dans une colonne saisie »), où le tableau impose son format :
- * sinon la connexion au club échouait. Renvoie la plage (enchaînable). */
+ * sinon la connexion au club échouait. Renvoie la plage (enchaînable).
+ * Apps Script regroupe les écritures et ne signale ce refus qu'à la lecture
+ * suivante : on envoie donc d'abord les écritures en attente, puis le format
+ * seul, pour que le refus éventuel arrive ici. Une plage déjà refusée n'est
+ * plus retentée pendant l'exécution. */
+const textFmtRefus_ = {};
 function textFmt_(range) {
-  try { range.setNumberFormat('@'); } catch (e) { /* colonne typée */ }
+  let key = '';
+  try { key = range.getSheet().getName() + '!' + range.getColumn() + ':' + range.getNumColumns(); } catch (e) { key = ''; }
+  if (key && textFmtRefus_[key]) return range;
+  SpreadsheetApp.flush();
+  try {
+    range.setNumberFormat('@');
+    SpreadsheetApp.flush();
+  } catch (e) {
+    if (key) textFmtRefus_[key] = true; // colonne typée : format imposé par le tableau
+  }
   return range;
 }
 
