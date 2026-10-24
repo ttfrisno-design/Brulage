@@ -28,7 +28,7 @@ Il sert à tester chaque nouvelle version avant de la proposer aux clubs.
    un compte Google de test, puis *Extensions › Apps Script* et coller
    `backend/Code.gs`.
 2. Exécuter **`initialiserClubEssai`** (menu Exécuter). Cela crée :
-   - 4 équipes ESSAI1 à ESSAI4 ;
+   - 4 équipes Equip1 à Equip4 ;
    - 14 joueurs fictifs, avec des capitaines ;
    - des dates autour d'aujourd'hui ;
    - les créneaux et la présentation du club.

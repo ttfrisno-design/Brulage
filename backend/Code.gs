@@ -4047,8 +4047,8 @@ function initialiserClubEssai() {
   if (reels.length) throw new Error('Ce classeur contient déjà ' + reels.length + ' joueur(s) réel(s) : initialisation d\'essai refusée.');
   etape(2, 'Équipes', function () {
     const eq = ss_().getSheetByName('Equipes');
-    const teams = [[1, 'ESSAI1', 'Régional 3', 'Dimanche', '', 'A'], [2, 'ESSAI2', 'Départemental 1', 'Vendredi', '20:00', 'B'],
-      [3, 'ESSAI3', 'Départemental 2', 'Vendredi', '20:00', 'B'], [4, 'ESSAI4', 'Départemental 3', 'Vendredi', '20:00', 'C']];
+    const teams = [[1, 'Equip1', 'Régional 3', 'Dimanche', '', 'A'], [2, 'Equip2', 'Départemental 1', 'Vendredi', '20:00', 'B'],
+      [3, 'Equip3', 'Départemental 2', 'Vendredi', '20:00', 'B'], [4, 'Equip4', 'Départemental 3', 'Vendredi', '20:00', 'C']];
     if (eq.getLastRow() > 1) eq.getRange(2, 1, eq.getLastRow() - 1, 6).clearContent();
     textFmt_(eq.getRange(2, 1, teams.length, 6)).setValues(teams.map(function (r) { return r.map(String); }));
     teamsLoaded_ = false; loadTeams_();
