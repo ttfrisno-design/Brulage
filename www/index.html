@@ -3340,9 +3340,22 @@
         (first.tarif ? ' <b>Tarif :</b> ' + escHtml(first.tarif) + '.' : '') +
         (first.categories.length ? ' <b>Catégories :</b> ' + escHtml(first.categories.join(', ')) + '.' : '') +
         (eligible ? '' : ' <span class="pill ko">Non concerné(e) par votre catégorie</span>') + '</div>' + comiteDocsHtml(g.nom, type);
+      // Compétition à tableaux (Coupe de Rouen : -1700, -1300, -900) : le
+      // joueur choisit son tableau (ceux au-dessus de ses points).
+      var myTab = '';
+      g.items.forEach(function (c) { if (mine[c.id] && mine[c.id].tableau) myTab = mine[c.id].tableau; });
+      if (myTab) html += '<div class="compet-meta">Votre tableau : <b>' + escHtml(myTab) + '</b></div>';
+      var tabSel = '';
+      if ((first.tableaux || []).length && openIds.length) {
+        var pts = Number(STATE.compet.points) || 0;
+        var okTabs = first.tableaux.filter(function (t) { return !pts || pts < Number(String(t).replace(/[^0-9]/g, '')); });
+        if (!okTabs.length) okTabs = first.tableaux.slice(0, 1);
+        tabSel = '<label style="display:inline-flex;gap:6px;align-items:center;margin:0 8px 6px 0;">Tableau <select id="tab-' + openIds[0] + '" style="width:auto;padding:5px;">' +
+          okTabs.map(function (t, k) { return '<option' + (k === okTabs.length - 1 ? ' selected' : '') + '>' + escHtml(t) + '</option>'; }).join('') + '</select></label>';
+      }
       if (singleInscription(g.nom) && eligible) {
         html += openIds.length
-          ? '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds[0] + '])">Demander l\'inscription (toute la saison, ' + openIds.length + ' épreuves)</button>'
+          ? tabSel + '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds[0] + '])">Demander l\'inscription (toute la saison, ' + openIds.length + ' épreuves)</button>'
           : (upcoming.length && !g.items.some(function (c) { return mine[c.id]; }) ? '<div class="compet-meta">Inscriptions closes : le 1er tour est passé.</div>' : '');
       } else if (openIds.length > 1) {
         html += '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds.join(',') + '])">Demander l\'inscription aux ' + openIds.length + (type === 'Stages' ? ' stages ouverts' : ' épreuves ouvertes') + '</button>';
@@ -3425,8 +3438,9 @@
   function requestCompet(ids) {
     var c0 = (STATE.compet.competitions || []).find(function (x) { return x.id === ids[0]; });
     var what = c0 && singleInscription(c0.nom) ? 'toute la saison de « ' + c0.nom + ' »' : ids.length + ' épreuve' + (ids.length > 1 ? 's' : '');
-    if (!confirm('Envoyer votre demande d\'inscription au club (' + what + ') ?')) return;
-    callServer('requestInscriptions', [STATE.session.playerId, ids]).then(applyCompetResult).catch(onGsError);
+    var tabEl = document.getElementById('tab-' + ids[0]), tableau = tabEl ? tabEl.value : '';
+    if (!confirm('Envoyer votre demande d\'inscription au club (' + what + (tableau ? ', tableau ' + tableau : '') + ') ?')) return;
+    callServer('requestInscriptions', [STATE.session.playerId, ids, tableau]).then(applyCompetResult).catch(onGsError);
   }
   // Paiement HelloAsso : le script crée le paiement (montant, compétition,
   // date) puis la page HelloAsso s'ouvre. L'inscription n'est validée que
@@ -3738,11 +3752,13 @@
         if (!e.future) { e.row = i; e.future = parseFrDate(x.date) >= today; }
       });
     });
+    var tabs = ref.tableaux || [];
     var entries = order.map(function (k) { return byPlayer[k]; }).sort(function (a, b) {
       var pa = playersById[String(a.row.playerId)] || {}, pb = playersById[String(b.row.playerId)] || {};
-      return String(pa.nom || '').localeCompare(String(pb.nom || ''));
+      var ta = tabs.indexOf(a.row.tableau), tb = tabs.indexOf(b.row.tableau);
+      return (ta < 0 ? 99 : ta) - (tb < 0 ? 99 : tb) || String(pa.nom || '').localeCompare(String(pb.nom || ''));
     });
-    var head = '<table class="insc-table"><thead><tr><th>Joueur</th><th>Statut</th>' + (teams.length ? '<th>Équipe</th>' : '') + '<th></th></tr></thead><tbody>';
+    var head = '<table class="insc-table"><thead><tr><th>Joueur</th><th>Statut</th>' + (tabs.length ? '<th>Tableau</th>' : '') + (teams.length ? '<th>Équipe</th>' : '') + '<th></th></tr></thead><tbody>';
     var rowHtml = function (e) {
       var i = e.row, pid = q(i.playerId);
       var p = playersById[String(i.playerId)] || { prenom: '?', nom: 'joueur ' + i.playerId };
@@ -3750,6 +3766,8 @@
           '<div style="font-size:11px;color:var(--muted);">' + e.n + ' tour' + (e.n > 1 ? 's' : '') + '</div></td>' +
         '<td>' + (i.statut === 'Validée' ? '<span class="pill ok">Validée</span>' : i.statut === 'Refusée' ? '<span class="pill ko">Refusée</span>' : '<span class="pill wait">Demandée</span>') +
           (i.reglement ? ' <span class="pill ok" title="Réglé en ligne">💳 ' + escHtml(i.reglement) + '</span>' : '') + '</td>' +
+        (tabs.length ? '<td><select style="width:auto;padding:4px;font-size:13px;"' + (e.future ? '' : ' disabled') + ' onchange="setInscTableau(' + i.competitionId + ',' + pid + ', this.value)"><option value="">—</option>' +
+          tabs.map(function (t) { return '<option' + (i.tableau === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></td>' : '') +
         (teams.length ? '<td><select style="width:auto;padding:4px;font-size:13px;"' + (e.future ? '' : ' disabled title="Saison terminée : équipe non modifiable"') + ' onchange="setInscEquipe(' + i.competitionId + ',' + pid + ', this.value)"><option value="">—</option>' +
           teams.map(function (t) { return '<option' + (i.equipe === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select></td>' : '') +
         '<td class="compet-actions">' +
@@ -3838,6 +3856,10 @@
     if (statut === '' && !confirm('Retirer cette inscription ?')) return;
     STATE.openCompet = id;
     callServer('setInscriptionStatus', [id, playerId, statut]).then(function (res) { STATE.adminCompet = res; renderAdminCompet(); }).catch(onGsError);
+  }
+  function setInscTableau(id, playerId, tableau) {
+    STATE.openCompet = id;
+    callServer('setInscriptionTableau', [id, playerId, tableau]).then(function (res) { STATE.adminCompet = res; renderAdminCompet(); }).catch(onGsError);
   }
   function setInscEquipe(id, playerId, equipe) {
     STATE.openCompet = id;
@@ -4301,7 +4323,7 @@
     var validated = data.inscriptions.filter(function (i) { return i.competitionId === c.id && i.statut === 'Validée' && (season || i.participation !== 'Annulée'); })
       .map(function (i) {
         var p = data.players.find(function (x) { return String(x.id) === String(i.playerId); }) || { nom: '?', prenom: '' };
-        return { p: p, equipe: i.equipe || '' };
+        return { p: p, equipe: i.equipe || '', tableau: i.tableau || '' };
       })
       .sort(function (a, b) { return (a.equipe + a.p.nom).localeCompare(b.equipe + b.p.nom); });
     function line(x) {
@@ -4309,7 +4331,7 @@
       return '- ' + String(p.nom).toUpperCase() + ' ' + p.prenom +
         (p.licence ? ' — licence ' + p.licence : '') +
         (p.categorie ? ' — ' + p.categorie : '') +
-        (p.points ? ' — ' + p.points + ' pts' : '');
+        (p.points ? ' — ' + p.points + ' pts' : '') + (x.tableau ? ' — tableau ' + x.tableau : '');
     }
     var lines = [];
     var teams = {};

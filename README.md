@@ -508,6 +508,16 @@ Mise en place :
 - Les textes des questionnaires de santé sont ceux du Code du sport : à
   vérifier par le club avec les versions officielles en vigueur.
 
+### Coupe de Rouen : tableaux -1700 / -1300 / -900
+
+À la demande d'inscription, le joueur choisit son **tableau** (seuls ceux
+au-dessus de ses points sont proposés) ; l'admin peut le changer dans la liste
+des inscrits de la saison (colonne Tableau, reportée sur tous les tours à
+venir). Le tableau figure dans le mail à l'organisateur et chez le comité, qui
+range les inscriptions **par compétition, puis par tour, puis par tableau et
+par club** (page, .xlsx et Google Sheet). Liste des tableaux :
+`COMPETITION_TABLEAUX_` dans Code.gs.
+
 ### Documents des compétitions (comité)
 
 Dans `comite.html` › **Documents des compétitions**, le comité renseigne pour
