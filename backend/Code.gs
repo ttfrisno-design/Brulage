@@ -20,7 +20,7 @@
 // "group" identifie l'ensemble de dates (jour de match) partagé par les équipes.
 // Version du script (affichée au comité et dans l'admin) : permet de savoir
 // quels clubs ont recollé la dernière version de Code.gs.
-const REBONTT_VERSION = '2026.10.24b';
+const REBONTT_VERSION = '2026.10.24c';
 
 // Équipes par défaut (celles du FRI). Chaque club règle les siennes dans
 // l'onglet « Equipes » de son classeur (créé avec ces valeurs) : ID, Nom,
@@ -331,9 +331,18 @@ function ensureSheets_() {
     sheetsChecked_ = true;
     return;
   }
-  ensureSheetsNow_();
+  // Vérification / réparation des onglets : au mieux. Si une étape échoue
+  // (ex. onglet converti en tableau Google Sheets, plage protégée), l'erreur
+  // est notée dans le journal et l'appli continue avec le classeur tel qu'il
+  // est, au lieu de refuser toute connexion. Nouvel essai 10 minutes après.
+  try {
+    ensureSheetsNow_();
+    cache.put(SHEETS_CHECK_CACHE_KEY_, '1', 3600);
+  } catch (e) {
+    console.error('Vérification des onglets incomplète : ' + (e && e.stack || e));
+    cache.put(SHEETS_CHECK_CACHE_KEY_, '1', 600);
+  }
   sheetsChecked_ = true;
-  cache.put(SHEETS_CHECK_CACHE_KEY_, '1', 3600);
 }
 
 /** À lancer manuellement depuis l'éditeur Apps Script (menu Exécuter) après
@@ -341,8 +350,12 @@ function ensureSheets_() {
  * la vérification/réparation au lieu d'attendre l'heure suivante. */
 function forceSheetsCheck() {
   CacheService.getScriptCache().remove(SHEETS_CHECK_CACHE_KEY_);
-  sheetsChecked_ = false;
-  ensureSheets_();
+  sheetsChecked_ = true;
+  loadTeams_();
+  // Lancée depuis l'éditeur : l'erreur éventuelle s'affiche avec sa ligne.
+  ensureSheetsNow_();
+  CacheService.getScriptCache().put(SHEETS_CHECK_CACHE_KEY_, '1', 3600);
+  Logger.log('Onglets vérifiés : tout est en ordre.');
 }
 
 function ensureSheetsNow_() {
