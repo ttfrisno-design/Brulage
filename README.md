@@ -248,6 +248,12 @@ Deux jours après une date de match, l'équipe jouée n'est plus modifiable
 L'administrateur peut cliquer sur 🔒 pour déverrouiller la case et corriger
 une erreur.
 
+Quand un joueur a **confirmé sa convocation** (« Présent ») pour l'équipe où
+il est affecté, sa case est verrouillée et affiche « FRI1 ✓ 🔒 ».
+L'administrateur ou le capitaine clique sur 🔒 pour la déverrouiller en cas de
+changement de dernière minute, puis renvoie les convocations des équipes
+concernées. Le déverrouillage vaut jusqu'au rechargement de la page.
+
 ## Indisponibilités saisies par l'administrateur
 
 Dans le tableau de brûlage, chaque case comporte un petit bouton
