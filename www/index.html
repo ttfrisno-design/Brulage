@@ -152,6 +152,7 @@
     td.avail-none select.assign-select { background: #fff; }
     td.burned-cell { background: var(--burn-bg) !important; }
     td.burned-cell select.assign-select { border-color: var(--burn-border); }
+    .convoc-lock-team { font-size: 12px; font-weight: 700; color: var(--green); white-space: nowrap; }
     .past-lock { border: 0; background: none; padding: 0 2px; font-size: 11px; cursor: default; }
     button.past-lock { cursor: pointer; }
     .team-count-badge {
@@ -2190,6 +2191,22 @@
     renderBurnTable();
   }
 
+  // Joueur qui a confirmé sa convocation (« Présent ») pour l'équipe où il
+  // est affecté : la case est verrouillée (🔒) pour éviter un changement
+  // involontaire ; l'administrateur ou le capitaine peut la déverrouiller
+  // pour un changement de dernière minute.
+  function convocConfirmed(p, date, assigned) {
+    var c = (p.convocations || {})[date];
+    return !!(assigned && c && Number(c.teamId) === Number(assigned) && c.response === 'Présent');
+  }
+  function unlockConvoc(playerId, date, name, team) {
+    if (!confirm(name + ' a confirmé sa présence avec ' + team + ' le ' + date + '.\n\nDéverrouiller pour changer son équipe (changement de dernière minute) ?\n\nPensez ensuite à renvoyer les convocations des équipes concernées.')) return;
+    STATE.unlockedConvoc = STATE.unlockedConvoc || {};
+    STATE.unlockedConvoc[pendingKey(playerId, date)] = true;
+    if (STATE.session && STATE.session.isAdmin) renderBurnTable();
+    else renderCaptainTeamTable();
+  }
+
   function burnTableRowHtml(p, dates, lastTeamId, isLastRow, restrictToTeamId, viewOnly, showHomeTeamBadge) {
     // Pour un joueur "invité" (affiché dans le cadre d'une équipe qui n'est
     // pas la sienne, parce qu'il a été sélectionné pour y jouer un jour
@@ -2223,6 +2240,8 @@
       var burnedNow = assigned && burnedAt[assigned];
       var isAdminCtx = STATE.session && STATE.session.isAdmin;
       var pastLock = pastLocked(d.date) && !(isAdminCtx && (STATE.unlockedPast || {})[pendingKey(p.id, d.date)]);
+      var convocLock = !pastLock && !viewOnly && convocConfirmed(p, d.date, assigned) && !STATE.pendingAssignments[pendingKey(p.id, d.date)] &&
+        !(STATE.unlockedConvoc || {})[pendingKey(p.id, d.date)] && !(restrictToTeamId && assigned !== restrictToTeamId);
       var gc = GROUP_COLORS[d.group] || '#999';
       var journee = journeeByDate[d.date];
       // Verrouillé si ce joueur est déjà affecté à une AUTRE date de la
@@ -2237,7 +2256,12 @@
       // monté qui ne peut plus redescendre) : 🔥 affiché directement.
       var groupTeams = friTeams().filter(function (t) { return t.group === d.group; });
       var allBurned = !assigned && groupTeams.length > 0 && groupTeams.every(function (t) { return burnedAt[t.id]; });
-      if (viewOnly || journeeLocked || pastLock || (restrictToTeamId && assigned && assigned !== restrictToTeamId)) {
+      if (convocLock && !journeeLocked) {
+        var cTeam = STATE.config.teams.find(function (t) { return t.id === assigned; }) || { name: '?' };
+        html += '<span class="convoc-lock-team" title="Présence confirmée par le joueur">' + escHtml(cTeam.name) + ' ✓</span>' +
+          ' <button type="button" class="past-lock" onclick="unlockConvoc(\'' + p.id + '\',\'' + d.date + '\',' + escAttr(JSON.stringify(p.prenom + ' ' + p.nom)) + ',' + escAttr(JSON.stringify(cTeam.name)) + ')" title="Présence confirmée : cliquer pour déverrouiller (changement de dernière minute)">🔒</button>';
+        if (status === 'Indisponible') html += '<span class="indispo-tag">✕ indispo</span>';
+      } else if (viewOnly || journeeLocked || pastLock || (restrictToTeamId && assigned && assigned !== restrictToTeamId)) {
         // Lecture seule : soit une équipe qu'un capitaine ne fait que
         // consulter, soit une date verrouillée (déjà joué cette journée),
         // soit (vue capitaine sur sa propre équipe) une case déjà affectée
