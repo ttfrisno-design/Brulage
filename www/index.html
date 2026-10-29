@@ -3626,7 +3626,7 @@
           okTabs.map(function (t, k) { return '<option' + (k === okTabs.length - 1 ? ' selected' : '') + '>' + escHtml(t) + '</option>'; }).join('') + '</select></label>';
       }
       if (seasonIn) {
-        html += '<div class="pay-block">✓ Vous êtes inscrit(e) pour la saison : rien d\'autre à faire pour les tours suivants.</div>';
+        html += '<div class="pay-block">✓ Vous êtes inscrit(e) pour la saison. Pensez à <b>confirmer votre participation à chaque tour</b>, à l\'approche de l\'épreuve (bouton « Je confirme » ci-dessous).</div>';
       } else if (singleInscription(g.nom) && eligible) {
         html += openIds.length
           ? tabSel + '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds[0] + '])">Demander l\'inscription (toute la saison, ' + openIds.length + ' épreuves)</button>'
