@@ -1450,7 +1450,7 @@
         var name = c.nom + (c.epreuve ? ' – ' + c.epreuve : '');
         var date = parseFrDate(c.date);
         if (!date || date < today) return;
-        if (!i && played[c.nom] && c.type !== 'Tous' && STATE.compet.categorie && c.eligible && c.dateLimite && canRequest(c)) {
+        if (!i && played[c.nom] && !seasonInscrit(c) && c.type !== 'Tous' && STATE.compet.categorie && c.eligible && c.dateLimite && canRequest(c)) {
           add(atHour(parseFrDate(c.dateLimite) - 2 * DAY_MS, 18), '⏰ Inscriptions bientôt closes', name + ' : inscription jusqu\'au ' + c.dateLimite + '.');
         } else if (i && i.statut === 'Validée' && i.participation !== 'Annulée') {
           if (!i.participation) add(atHour(date - 3 * DAY_MS, 18), '✅ Confirmez votre participation', name + ' (' + dayLabel(c.date) + ').');
@@ -3440,6 +3440,34 @@
   // Règlement en ligne : épreuve par épreuve pour le Challenge 500 et le
   // Circuit Jeunes, règlement unique (toutes les épreuves) pour les autres.
   function perEpreuvePayment(nom) { return /challenge\s*500|circuit\s*jeune|stage/i.test(nom || ''); }
+  // Compétition inscrite et réglée pour la saison (Critérium, championnats,
+  // Coupe de Rouen… ou montant « saison ») : même règle que seasonCompet_
+  // (Code.gs). Une fois inscrit, plus d'inscription ni de paiement proposé.
+  function seasonCompet(c) {
+    if (!c || perEpreuvePayment(c.nom) || c.type === 'Tous') return false;
+    var st = (STATE.compet && STATE.compet.settings) || (STATE.adminCompet && STATE.adminCompet.settings) || {};
+    var serie = (st.prices || {}).serie || {};
+    return singleInscription(c.nom) || /crit[ée]rium|championnat/i.test(c.nom || '') || Number(serie[c.nom]) > 0;
+  }
+  // Le joueur est déjà inscrit (demande en attente ou validée) à la saison
+  // de cette compétition.
+  // Admin : joueurs inscrits (hors refus) à au moins un tour de la saison
+  // d'une compétition « saison » : pas de relance « non-inscrits » pour eux.
+  function seasonRegistered(data, c) {
+    var out = {};
+    if (!seasonCompet(c)) return out;
+    var ids = {};
+    data.competitions.forEach(function (x) { if (x.nom === c.nom && x.type === c.type) ids[x.id] = true; });
+    data.inscriptions.forEach(function (i) { if (ids[i.competitionId] && i.statut !== 'Refusée') out[String(i.playerId)] = true; });
+    return out;
+  }
+  function seasonInscrit(c) {
+    if (!seasonCompet(c) || !STATE.compet) return false;
+    var mine = STATE.compet.inscriptions || {};
+    return (STATE.compet.competitions || []).some(function (x) {
+      return x.nom === c.nom && x.type === c.type && mine[x.id] && mine[x.id].statut !== 'Refusée';
+    });
+  }
   // Montant du paiement HelloAsso (euros) : par épreuve pour le Challenge
   // 500 / Circuit Jeunes (sinon montant de la compétition), montant unique
   // de la saison pour les autres.
@@ -3467,7 +3495,7 @@
       // Pas de rappel d'inscription pour les rendez-vous "Tous" (ex.
       // rassemblements féminins) : sans information sur le joueur, ce
       // serait envoyé à tout le monde.
-      if (!i && c.type !== 'Tous' && STATE.compet.categorie && c.eligible && canRequest(c) &&
+      if (!i && !seasonInscrit(c) && c.type !== 'Tous' && STATE.compet.categorie && c.eligible && canRequest(c) &&
           (singleInscription(c.nom) ? (parseFrDate(c.date) === seriesFirstDate(c) && daysUntil(c.date) <= rappel) : daysUntil(c.dateLimite) <= rappel)) {
         out.push({ kind: 'inscription', c: c });
       } else if (i && i.statut === 'Validée' && !i.participation && daysUntil(c.date) >= 0 && daysUntil(c.date) <= rappel) {
@@ -3574,7 +3602,10 @@
       var first = g.items[0];
       var eligible = first.eligible;
       var upcoming = g.items.filter(function (c) { return daysUntil(c.date) >= 0; });
-      var openIds = g.items.filter(function (c) { return canRequest(c) && !mine[c.id]; }).map(function (c) { return c.id; });
+      // Déjà inscrit à la saison (Critérium, championnats, Coupe de Rouen…) :
+      // plus aucune inscription ni paiement proposé pour les autres tours.
+      var seasonIn = seasonInscrit(first);
+      var openIds = seasonIn ? [] : g.items.filter(function (c) { return canRequest(c) && !mine[c.id]; }).map(function (c) { return c.id; });
       html += '<div class="card compet-group"' + (eligible ? '' : ' style="opacity:.6;"') + '><h2>' + escHtml(g.nom) + '</h2>' +
         '<div class="compet-meta">' + escHtml(first.infos) +
         (first.tarif ? ' <b>Tarif :</b> ' + escHtml(first.tarif) + '.' : '') +
@@ -3594,32 +3625,37 @@
         tabSel = '<label style="display:inline-flex;gap:6px;align-items:center;margin:0 8px 6px 0;">Tableau <select id="tab-' + openIds[0] + '" style="width:auto;padding:5px;">' +
           okTabs.map(function (t, k) { return '<option' + (k === okTabs.length - 1 ? ' selected' : '') + '>' + escHtml(t) + '</option>'; }).join('') + '</select></label>';
       }
-      if (singleInscription(g.nom) && eligible) {
+      if (seasonIn) {
+        html += '<div class="pay-block">✓ Vous êtes inscrit(e) pour la saison : rien d\'autre à faire pour les tours suivants.</div>';
+      } else if (singleInscription(g.nom) && eligible) {
         html += openIds.length
           ? tabSel + '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds[0] + '])">Demander l\'inscription (toute la saison, ' + openIds.length + ' épreuves)</button>'
           : (upcoming.length && !g.items.some(function (c) { return mine[c.id]; }) ? '<div class="compet-meta">Inscriptions closes : le 1er tour est passé.</div>' : '');
-      } else if (openIds.length > 1) {
-        html += '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds.join(',') + '])">Demander l\'inscription aux ' + openIds.length + (type === 'Stages' ? ' stages ouverts' : ' épreuves ouvertes') + '</button>';
+      } else if (openIds.length > 1 || (openIds.length && seasonCompet(first))) {
+        html += '<button class="btn-sm fill" style="margin-bottom:6px;" onclick="requestCompet([' + openIds.join(',') + '])">' +
+          (seasonCompet(first) ? 'Demander l\'inscription pour la saison (' + openIds.length + ' épreuve' + (openIds.length > 1 ? 's' : '') + ')'
+            : 'Demander l\'inscription aux ' + openIds.length + (type === 'Stages' ? ' stages ouverts' : ' épreuves ouvertes')) + '</button>';
       }
       if (!upcoming.length) html += '<div class="compet-meta">Toutes les épreuves sont passées.</div>';
       g.items.forEach(function (c) {
         var past = daysUntil(c.date) < 0;
         if (past && !mine[c.id]) return;
-        html += competRowHtml(c, mine[c.id], past);
+        html += competRowHtml(c, mine[c.id], past, seasonIn);
       });
       // Règlement unique (sous les dates) : vaut inscription à toutes les
       // épreuves à venir de la compétition.
       if (!perEpreuvePayment(g.nom) && eligible) {
         var price = priceFor(first, STATE.compet.settings);
         var future = upcoming.filter(function (c) { return c.eligible; });
-        var paid = future.length && future.every(function (c) { return mine[c.id] && mine[c.id].reglement; });
+        var paidRow = g.items.map(function (c) { return mine[c.id]; }).find(function (i) { return i && i.reglement && i.statut !== 'Refusée'; });
+        var paid = (future.length && future.every(function (c) { return mine[c.id] && mine[c.id].reglement; })) || (seasonIn && paidRow);
         var payable = future.filter(function (c) { return canRequest(c); });
         if (price && paid) {
-          html += '<div class="pay-block">💳 Inscription payée le ' + escHtml(mine[future[0].id].reglement) + ' (HelloAsso) : vous êtes inscrit(e) à toutes les épreuves.</div>';
+          html += '<div class="pay-block">💳 Inscription payée le ' + escHtml((paidRow || mine[future[0].id]).reglement) + ' (HelloAsso) : vous êtes inscrit(e) à toutes les épreuves.</div>';
         } else if (price && future.some(paymentPending)) {
           html += '<div class="pay-block">⏳ Paiement en cours de validation par HelloAsso.' +
             '<div style="margin-top:6px;"><button class="btn-sm" onclick="checkPayments(true)">Vérifier mon paiement</button></div></div>';
-        } else if (price && payable.length) {
+        } else if (price && payable.length && !seasonIn) {
           html += '<div class="pay-block">💳 <b>Paiement en ligne HelloAsso : ' + euros(price) + '</b> pour la saison. Une fois le paiement validé par HelloAsso, vous êtes inscrit(e) à toutes les épreuves à venir (' + future.length + ').' +
             '<div style="margin-top:6px;"><button class="btn-sm pay" onclick="payCompet(' + payable[0].id + ')">💳 Payer ' + euros(price) + ' et m\'inscrire</button></div></div>';
         }
@@ -3629,7 +3665,7 @@
     document.getElementById('competList').innerHTML = html || '<div class="card">Aucune compétition ouverte aux inscriptions pour le moment.</div>';
   }
 
-  function competRowHtml(c, insc, past) {
+  function competRowHtml(c, insc, past, seasonIn) {
     var dl = daysUntil(c.dateLimite);
     var rappel = STATE.compet.settings.rappelJours;
     var first = singleInscription(c.nom) && !lateAllowed(c) ? seriesLimit(c) : 0;
@@ -3643,12 +3679,14 @@
       '</div><div class="compet-actions">';
     if (past) {
       html += '<span class="pill">Terminée</span>';
+    } else if (!insc && seasonIn) {
+      html += '<span class="pill ok">Inscrit(e) pour la saison</span>';
     } else if (!insc) {
       if (canRequest(c) && perEpreuvePayment(c.nom) && priceFor(c, STATE.compet.settings)) {
         if (paymentPending(c)) html += '<span class="pill wait">⏳ Paiement en cours de validation</span><button class="btn-sm" onclick="checkPayments(true)">Vérifier</button>';
         else html += '<button class="btn-sm pay" onclick="payCompet(' + c.id + ')">💳 Payer ' + euros(priceFor(c, STATE.compet.settings)) + ' et m\'inscrire</button>';
       }
-      if (canRequest(c) && !singleInscription(c.nom)) html += '<button class="btn-sm fill" onclick="requestCompet([' + c.id + '])">Demander l\'inscription</button>';
+      if (canRequest(c) && !seasonCompet(c)) html += '<button class="btn-sm fill" onclick="requestCompet([' + c.id + '])">Demander l\'inscription</button>';
       else if (canRequest(c)) html += '<span class="pill">Inscription pour toute la saison (ci-dessus)</span>';
       else if (!c.eligible) html += '<span class="pill">' + escHtml(c.motif || 'Non concerné(e)') + '</span>';
       else html += '<span class="pill">Inscriptions closes</span>';
@@ -3678,7 +3716,7 @@
   }
   function requestCompet(ids) {
     var c0 = (STATE.compet.competitions || []).find(function (x) { return x.id === ids[0]; });
-    var what = c0 && singleInscription(c0.nom) ? 'toute la saison de « ' + c0.nom + ' »' : ids.length + ' épreuve' + (ids.length > 1 ? 's' : '');
+    var what = c0 && seasonCompet(c0) ? 'toute la saison de « ' + c0.nom + ' »' : ids.length + ' épreuve' + (ids.length > 1 ? 's' : '');
     var tabEl = document.getElementById('tab-' + ids[0]), tableau = tabEl ? tabEl.value : '';
     if (!confirm('Envoyer votre demande d\'inscription au club (' + what + (tableau ? ', tableau ' + tableau : '') + ') ?')) return;
     callServer('requestInscriptions', [STATE.session.playerId, ids, tableau]).then(applyCompetResult).catch(onGsError);
@@ -3951,7 +3989,8 @@
           '</select><button class="btn-sm" onclick="adminAddInsc(' + c.id + ')">Inscrire (validé)</button></div>';
         // Relances SMS : joueurs concernés non inscrits (avant la date
         // limite) et inscrits validés n'ayant pas confirmé.
-        var toRegister = canRequest({ eligible: true, nom: c.nom, type: c.type, date: c.date, dateLimite: c.dateLimite, dateLimiteSerie: c.dateLimiteSerie }) ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie, p.sexe, p); }) : [];
+        var seasonReg = seasonRegistered(data, c);
+        var toRegister = canRequest({ eligible: true, nom: c.nom, type: c.type, date: c.date, dateLimite: c.dateLimite, dateLimiteSerie: c.dateLimiteSerie }) ? data.players.filter(function (p) { return !registered[String(p.id)] && !seasonReg[String(p.id)] && eligibleFor(c, p.categorie, p.sexe, p); }) : [];
         var toConfirm = ins.filter(function (i) { return i.statut === 'Validée' && !i.participation; }).map(function (i) { return playersById[String(i.playerId)]; }).filter(Boolean);
         html += '<div class="compet-actions" style="margin-top:8px;">' +
           (toRegister.length ? '<button class="btn-sm" onclick="competSms(' + c.id + ',\'inscription\')">📱 Relancer les non-inscrits (' + toRegister.length + ')</button>' : '') +
@@ -4096,8 +4135,9 @@
     var ins = data.inscriptions.filter(function (i) { return i.competitionId === id; });
     var registered = {};
     ins.forEach(function (i) { registered[String(i.playerId)] = true; });
+    var seasonReg = seasonRegistered(data, c);
     var players = kind === 'inscription'
-      ? data.players.filter(function (p) { return !registered[String(p.id)] && eligibleFor(c, p.categorie, p.sexe, p); })
+      ? data.players.filter(function (p) { return !registered[String(p.id)] && !seasonReg[String(p.id)] && eligibleFor(c, p.categorie, p.sexe, p); })
       : ins.filter(function (i) { return i.statut === 'Validée' && !i.participation; }).map(function (i) {
           return data.players.find(function (p) { return String(p.id) === String(i.playerId); });
         }).filter(Boolean);
