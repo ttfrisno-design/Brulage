@@ -237,6 +237,39 @@ changement de phase), chaque tableau défile automatiquement jusqu'à la
 **prochaine date de match** (aujourd'hui compris ; la dernière date si la
 phase est terminée). Ensuite, la position choisie est conservée.
 
+## Lien direct d'un club et nom de domaine
+
+**Lien direct**
+
+`…/?club=<id>` ouvre directement la page d'un club, sans passer par la
+liste. L'`id` est celui du club dans `www/clubs.js`, par exemple
+`https://ttfrisno-design.github.io/Brulage/?club=fri`.
+- **Où le trouver :** l'admin le copie dans *Dates & Réglages › 📲 Lien de
+  l'appli pour votre club*.
+- **Changement de club :** si le navigateur avait une session ouverte pour un
+  autre club, le lien l'oublie et ouvre le club demandé.
+- **Club inconnu :** l'appli affiche la liste des clubs.
+
+**Brancher un nom de domaine sur GitHub Pages** (ex. `rebontt.fr`)
+
+1. Acheter le domaine chez un registrar : OVH, Gandi, Infomaniak…
+2. Chez ce registrar, créer les enregistrements DNS :
+   - pour le domaine nu, 4 enregistrements `A` vers `185.199.108.153`,
+     `185.199.109.153`, `185.199.110.153` et `185.199.111.153` ;
+   - ou, pour un sous-domaine comme `appli.cd76tt.fr`, un `CNAME` vers
+     `ttfrisno-design.github.io`.
+3. Dans GitHub, aller dans *Settings › Pages › Custom domain*, saisir le
+   domaine, attendre la vérification, puis cocher *Enforce HTTPS*.
+4. Mettre à jour les adresses qui citent `ttfrisno-design.github.io` :
+   - `CLUBS_URL` dans `www/config.js` ;
+   - la propriété `APP_URL` des scripts (retour HelloAsso) ;
+   - les liens déjà partagés.
+
+   L'ancienne adresse redirige vers la nouvelle.
+
+Le lien direct affiché à l'admin suit automatiquement l'adresse du site.
+`APP_CONFIG.APP_URL` (config.js) permet de l'imposer.
+
 ## Compétitions inscrites pour la saison
 
 Certaines compétitions se règlent une seule fois pour plusieurs tours :

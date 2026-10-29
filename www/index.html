@@ -872,6 +872,11 @@
           <input type="text" id="newAdminPin" style="max-width:200px;">
           <button class="secondary" style="margin-top:10px;" onclick="saveAdminPin()">Enregistrer</button>
         </div>
+        <div class="card adm-card ac-green">
+          <h2>📲 Lien de l'appli pour votre club</h2>
+          <p class="ac-intro">À partager aux licenciés (site du club, WhatsApp, affiche) : ce lien ouvre directement votre club, sans passer par la liste des clubs.</p>
+          <div id="clubAppLink"></div>
+        </div>
         <div class="card adm-card ac-blue">
           <h2>🏠 Présentation du club</h2>
           <p class="ac-intro">Affichée avant la connexion, après le choix du club : salle, équipes (automatique), entraînements, tarifs et lien d'inscription.</p>
@@ -1217,6 +1222,19 @@
   })();
   function findClub(id) { return (CLUBS || []).filter(function (c) { return c.id === id; })[0] || null; }
   function defaultClub() { return CLUBS ? CLUBS[0] : { id: 'club', nom: '' }; }
+  // Lien direct d'un club : ?club=<id> (ex. …/?club=fri) ouvre directement la
+  // page de ce club, sans passer par la liste des clubs.
+  var URL_CLUB = (function () {
+    var m = location.search.match(/[?&]club=([^&#]+)/);
+    if (!m) return null;
+    try { return findClub(decodeURIComponent(m[1])); } catch (e) { return null; }
+  })();
+  // Adresse de l'appli pour un club (lien à partager aux licenciés).
+  function clubAppUrl(club) {
+    var base = (window.APP_CONFIG && window.APP_CONFIG.APP_URL) ||
+      (/^https?:$/.test(location.protocol) ? location.origin + location.pathname.replace(/[^/]*$/, '') : 'https://ttfrisno-design.github.io/Brulage/');
+    return base + (CLUBS && club && club.id ? '?club=' + encodeURIComponent(club.id) : '');
+  }
   function applyClub(club) {
     STATE.club = club;
     SERVER_URL = club.serverUrl || DEFAULT_SERVER_URL;
@@ -1226,6 +1244,7 @@
   }
   function showStart() {
     if (!CLUBS) { applyClub(defaultClub()); openClubInfo(); return; }
+    if (URL_CLUB) { selectClub(URL_CLUB.id); openClubInfo(); return; }
     var last = findClub(storeGet(CLUB_KEY));
     if (last) applyClub(last);
     // Club mémorisé : ouverture directe sur la page du club, connexion en haut.
@@ -1250,17 +1269,21 @@
         (c.id === lastId ? '<em>Votre club</em>' : '') + '</button>';
     }).join('') : '<p style="color:var(--muted);">Aucun club trouvé. Votre club n\'utilise pas encore RebonTT ?</p>';
   }
-  function pickClub(id) {
+  function selectClub(id) {
     var club = findClub(id);
-    if (!club) return;
+    if (!club) return null;
     if (storeGet(CLUB_KEY) && storeGet(CLUB_KEY) !== id) {
       // Autre club : on oublie les données gardées pour le précédent.
       try { Object.keys(localStorage).forEach(function (k) { if (/^fri_cache_|^fri_avail_outbox$/.test(k)) localStorage.removeItem(k); }); } catch (e) { /* pas bloquant */ }
     }
     storeSet(CLUB_KEY, id);
+    applyClub(club);
+    return club;
+  }
+  function pickClub(id) {
+    if (!selectClub(id)) return;
     var rem = document.getElementById('clubRemember');
     storeSet(CLUB_FIXED_KEY, rem && rem.checked ? '1' : null);
-    applyClub(club);
     openClubInfo();
   }
   function openClubInfo() {
@@ -1625,6 +1648,7 @@
       document.getElementById('ffttLinkInput').value = STATE.config.ffttLink || '';
       loadClubInfoAdmin();
       document.getElementById('clubSiteInput').value = STATE.config.siteClub || '';
+      renderClubAppLink();
       renderPoolLinks();
       loadHelloAssoStatus();
       loadPushStatus();
@@ -1720,6 +1744,13 @@
   // Try restoring session
   (function tryRestore() {
     var saved = localStorage.getItem('fri_session');
+    // Lien direct vers un autre club que celui de la session : on ouvre ce
+    // club (nouvelle connexion) au lieu de la session de l'ancien.
+    if (saved && URL_CLUB) {
+      var sc = '';
+      try { sc = JSON.parse(saved).clubId || storeGet(CLUB_KEY) || ''; } catch (e) { sc = ''; }
+      if (sc && sc !== URL_CLUB.id) { localStorage.removeItem('fri_session'); saved = null; }
+    }
     if (!saved) { setTimeout(showStart, 0); return; }
     if (saved) {
       STATE.session = JSON.parse(saved);
@@ -4309,6 +4340,13 @@
     }).catch(onGsError);
   }
 
+  function renderClubAppLink() {
+    var el = document.getElementById('clubAppLink');
+    if (!el) return;
+    var url = clubAppUrl(STATE.club);
+    el.innerHTML = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"><input type="text" readonly value="' + escAttr(url) + '" style="flex:1;min-width:220px;" onclick="this.select()">' +
+      '<button class="secondary" style="margin:0;" onclick="copyText(' + escAttr(JSON.stringify(url)) + ', this)">Copier le lien</button></div>';
+  }
   function copyText(text, btn) {
     var done = function () { if (btn) { btn.textContent = 'Copié ✓'; setTimeout(function () { btn.textContent = 'Copier'; }, 1500); } };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done).catch(function () { prompt('Copiez :', text); });
