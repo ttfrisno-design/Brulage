@@ -742,6 +742,13 @@
             <div><button class="primary" style="margin-top:0;" onclick="addPlayer()">Ajouter</button></div>
           </div>
         </div>
+        <div class="card adm-card ac-teal">
+          <h2>📥 Compléter depuis un export FFTT</h2>
+          <p class="ac-intro">Fichier <b>.xlsx</b> ou <b>.csv</b> exporté de l'espace club FFTT (n° de licence, nom, prénom, sexe, naissance, points, téléphone, catégorie). Le fichier est lu sur cet appareil et n'est conservé nulle part. Seules les <b>cases vides</b> des joueurs déjà dans l'effectif sont remplies : aucun joueur n'est ajouté, rien d'autre n'est modifié.</p>
+          <input type="file" id="ffttImportFile" accept=".xlsx,.xls,.csv" onchange="ffttImportRead(this)">
+          <label style="display:flex;gap:6px;align-items:center;color:var(--ink);"><input type="checkbox" id="ffttMajPoints" onchange="ffttImportPreview()"> Remplacer aussi les points déjà renseignés par ceux du fichier</label>
+          <div id="ffttImportPreview"></div>
+        </div>
         <div class="card">
           <h2>Effectif</h2>
           <div id="rosterTable"></div>
@@ -2871,6 +2878,120 @@
         onGsError(err);
       });
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // COMPLÉTER L'EFFECTIF DEPUIS UN EXPORT FFTT (.xlsx / .csv)
+  // Le fichier est lu dans le navigateur (SheetJS) ; seules les cases vides
+  // des joueurs reconnus (n° de licence, sinon nom + prénom) sont envoyées
+  // au serveur (completerJoueurs), qui revérifie qu'elles sont vides.
+  // ---------------------------------------------------------------------------
+  function loadXlsxLib() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    return new Promise(function (resolve, reject) {
+      var sc = document.createElement('script');
+      sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+      sc.onload = function () { window.XLSX ? resolve(window.XLSX) : reject(new Error('Lecteur de fichier indisponible.')); };
+      sc.onerror = function () { reject(new Error('Impossible de charger le lecteur de fichier (connexion ?).')); };
+      document.head.appendChild(sc);
+    });
+  }
+  function ffttKey(v) { return normTxt(v).replace(/[^a-z0-9]/g, ''); }
+  function ffttCategorie(adm, sport) {
+    var t = normTxt(adm), m = t.match(/veteran\s*(\d+)/) || normTxt(sport).match(/^v\s*(\d+)/);
+    if (m) { var a = Number(m[1]); return a >= 80 ? 'V80' : a >= 70 ? 'V70' : a >= 60 ? 'V60' : a >= 50 ? 'V50' : 'V40'; }
+    var map = [[/senior/, 'Senior'], [/junior/, 'Junior'], [/cadet/, 'Cadet'], [/minime/, 'Minime'], [/benjamin/, 'Benjamin'], [/poussin/, 'Poussin']];
+    for (var i = 0; i < map.length; i++) if (map[i][0].test(t)) return map[i][1];
+    return '';
+  }
+  function ffttImportRead(input) {
+    var file = input.files && input.files[0];
+    var box = document.getElementById('ffttImportPreview');
+    STATE.ffttRows = null;
+    if (!file) { box.innerHTML = ''; return; }
+    box.innerHTML = '<p>Lecture du fichier…</p>';
+    Promise.all([loadXlsxLib(), file.arrayBuffer()]).then(function (r) {
+      var wb = r[0].read(new Uint8Array(r[1]), { type: 'array' });
+      var rows = r[0].utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: false, defval: '' });
+      var hi = rows.findIndex(function (row) { var k = row.map(ffttKey); return k.indexOf('nom') >= 0 && k.indexOf('prenom') >= 0; });
+      if (hi < 0) throw new Error('Colonnes « Nom » et « Prénom » introuvables dans le fichier.');
+      var keys = rows[hi].map(ffttKey);
+      var col = function (re) { for (var i = 0; i < keys.length; i++) if (re.test(keys[i])) return i; return -1; };
+      var c = { licence: col(/licence/), nom: keys.indexOf('nom'), prenom: keys.indexOf('prenom'), sexe: col(/^sexe/), naissance: col(/naissance/),
+        points: col(/^points?$/) >= 0 ? col(/^points?$/) : col(/^points/), tel: col(/portable/) >= 0 ? col(/portable/) : col(/tel/),
+        catAdm: col(/categ.*admin/), catSport: col(/categ.*sport/) >= 0 ? col(/categ.*sport/) : col(/categ/) };
+      var g = function (row, i) { return i >= 0 ? String(row[i] == null ? '' : row[i]).trim() : ''; };
+      STATE.ffttRows = rows.slice(hi + 1).filter(function (row) { return g(row, c.nom) || g(row, c.prenom); }).map(function (row) {
+        var sexe = normTxt(g(row, c.sexe));
+        return { licence: g(row, c.licence).replace(/\s+/g, ''), nom: g(row, c.nom), prenom: g(row, c.prenom),
+          sexe: /^(f|femme|feminin)/.test(sexe) ? 'F' : /^(m|h|homme|masculin)/.test(sexe) ? 'M' : '',
+          naissance: g(row, c.naissance), points: g(row, c.points).replace(/[^0-9]/g, ''),
+          tel: g(row, c.tel).replace(/[^0-9+]/g, '').replace(/^\+33/, '0'),
+          categorie: ffttCategorie(g(row, c.catAdm), g(row, c.catSport)) };
+      });
+      ffttImportPreview();
+    }).catch(function (err) { box.innerHTML = '<div class="error">' + escHtml(err.message || String(err)) + '</div>'; });
+  }
+  function ffttImportPreview() {
+    var box = document.getElementById('ffttImportPreview');
+    if (!STATE.ffttRows) return;
+    var container = document.getElementById('rosterTable');
+    var players = container.dataset.players ? JSON.parse(container.dataset.players) : [];
+    if (!players.length) { box.innerHTML = '<div class="error">Effectif pas encore chargé : patientez puis choisissez à nouveau le fichier.</div>'; return; }
+    var majPoints = document.getElementById('ffttMajPoints').checked;
+    var vide = function (v) { return v === '' || v === null || v === undefined; };
+    var byLic = {}, byName = {};
+    players.forEach(function (p) {
+      if (!vide(p.Licence)) byLic[String(p.Licence).replace(/\s+/g, '')] = p;
+      byName[ffttKey(p.Nom) + '|' + ffttKey(p.Prénom)] = p;
+    });
+    var updates = [], unknown = [], seen = {};
+    STATE.ffttRows.forEach(function (r) {
+      var p = (r.licence && byLic[r.licence]) || byName[ffttKey(r.nom) + '|' + ffttKey(r.prenom)];
+      if (!p) { unknown.push(r); return; }
+      if (seen[p.ID]) return;
+      seen[p.ID] = true;
+      var f = {}, label = [];
+      var add = function (field, v, txt) { if (v && vide(p[field])) { f[field] = v; label.push(txt); } };
+      add('Licence', r.licence, 'licence ' + r.licence);
+      add('Téléphone', r.tel, 'tél. ' + r.tel);
+      add('Catégorie', r.categorie, r.categorie);
+      add('Sexe', r.sexe, 'sexe ' + r.sexe);
+      add('Naissance', r.naissance, 'né(e) le ' + r.naissance);
+      if (r.points && (vide(p.Points) || (majPoints && Number(p.Points) !== Number(r.points)))) {
+        f.Points = r.points; label.push(vide(p.Points) ? r.points + ' pts' : 'points ' + p.Points + ' → ' + r.points);
+      }
+      if (label.length) updates.push({ id: p.ID, fields: f, nom: p.Prénom + ' ' + p.Nom, label: label });
+    });
+    STATE.ffttUpdates = updates;
+    var html = '<p style="margin:10px 0 6px;"><b>' + STATE.ffttRows.length + '</b> licencié(s) dans le fichier · <b>' + updates.length + '</b> joueur(s) à compléter' +
+      (unknown.length ? ' · ' + unknown.length + ' absent(s) de l\'effectif' : '') + '.</p>';
+    if (updates.length) {
+      html += '<div class="table-scroll"><table class="insc-table"><thead><tr><th>Joueur</th><th>Cases vides complétées</th></tr></thead><tbody>' +
+        updates.map(function (u) { return '<tr><td>' + escHtml(u.nom) + '</td><td>' + escHtml(u.label.join(' · ')) + '</td></tr>'; }).join('') +
+        '</tbody></table></div><button class="primary" onclick="ffttImportApply()">✓ Compléter ' + updates.length + ' joueur' + (updates.length > 1 ? 's' : '') + '</button>';
+    } else {
+      html += '<p style="color:var(--muted);">Rien à compléter : les joueurs reconnus ont déjà toutes ces informations.</p>';
+    }
+    if (unknown.length) {
+      html += '<details style="margin-top:8px;"><summary style="cursor:pointer;">Licenciés du fichier absents de l\'effectif (' + unknown.length + ')</summary><p style="font-size:13px;">' +
+        unknown.map(function (r) { return escHtml(r.prenom + ' ' + r.nom); }).join(', ') + '</p><p style="font-size:12px;color:var(--muted);">Ajoutez-les avec « Ajouter un joueur » si besoin, puis relancez l\'import.</p></details>';
+    }
+    box.innerHTML = html;
+  }
+  function ffttImportApply() {
+    var updates = (STATE.ffttUpdates || []).map(function (u) { return { id: u.id, fields: u.fields }; });
+    if (!updates.length) return;
+    if (!confirm('Compléter ' + updates.length + ' joueur(s) ? Seules les cases vides seront remplies.')) return;
+    var majPoints = document.getElementById('ffttMajPoints').checked;
+    callServer('completerJoueurs', [adhToken(), updates, majPoints]).then(function (res) {
+      saveCache('roster', res.players);
+      STATE.lastRaw.roster = JSON.stringify(res.players);
+      renderRoster(res.players);
+      STATE.ffttRows = null; STATE.ffttUpdates = null;
+      document.getElementById('ffttImportFile').value = '';
+      document.getElementById('ffttImportPreview').innerHTML = '<p class="convoc-ok">✓ ' + res.cellules + ' information(s) ajoutée(s) pour ' + res.joueurs + ' joueur(s).</p>';
+    }).catch(onGsError);
   }
 
   function addPlayer() {

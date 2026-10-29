@@ -20,7 +20,7 @@
 // "group" identifie l'ensemble de dates (jour de match) partagé par les équipes.
 // Version du script (affichée au comité et dans l'admin) : permet de savoir
 // quels clubs ont recollé la dernière version de Code.gs.
-const REBONTT_VERSION = '2026.10.24d';
+const REBONTT_VERSION = '2026.10.29';
 
 // Équipes par défaut (celles du FRI). Chaque club règle les siennes dans
 // l'onglet « Equipes » de son classeur (créé avec ces valeurs) : ID, Nom,
@@ -168,6 +168,7 @@ const API_FUNCTIONS_ = {
   setAdhesionAdmin: setAdhesionAdmin,
   setAdhesionMessageStatut: setAdhesionMessageStatut,
   createPlayerFromAdhesion: createPlayerFromAdhesion,
+  completerJoueurs: completerJoueurs,
   setChequesDeposes: setChequesDeposes,
   // Comité départemental
   getComiteExport: getComiteExport,
@@ -2739,6 +2740,65 @@ function updatePlayer(id, nom, prenom, teamId, pin, actif, capitaine, telephone,
     }
   }
   return { ok: false };
+}
+
+/** Admin : complète l'effectif depuis un export FFTT (fichier lu dans
+ * l'appli, jamais enregistré ailleurs). Pour chaque joueur reconnu
+ * ({ id, fields }), seules les cases VIDES sont remplies : Téléphone,
+ * Catégorie, Licence, Points, Sexe, Naissance. Les points déjà renseignés
+ * ne sont remplacés que si majPoints. Aucun joueur ajouté ni supprimé, les
+ * autres colonnes (nom, équipe, code, capitaine…) ne sont jamais touchées. */
+function completerJoueurs(token, updates, majPoints) {
+  requireAdmin_(token);
+  ensureSheets_();
+  const cols = { Téléphone: 8, Catégorie: 9, Licence: 10, Points: 11, Sexe: 12, Naissance: 14 };
+  const cats = YOUTH_CATEGORIES_.concat(ADULT_CATEGORIES_);
+  let cellules = 0, joueurs = 0;
+  withScriptLock_(function () {
+    const sheet = ss_().getSheetByName('Joueurs');
+    const values = sheet.getDataRange().getValues();
+    (updates || []).slice(0, 2000).forEach(function (u) {
+      const i = values.findIndex(function (r, k) { return k > 0 && String(r[0]) === String(u && u.id); });
+      if (i < 1) return;
+      let touched = false;
+      Object.keys(cols).forEach(function (f) {
+        const raw = u.fields && u.fields[f];
+        let v = String(raw === null || raw === undefined ? '' : raw).trim();
+        if (!v) return;
+        const c = cols[f];
+        const cur = values[i][c - 1];
+        const empty = cur === '' || cur === null || cur === undefined;
+        if (!empty && !(f === 'Points' && majPoints)) return;
+        if (f === 'Points') {
+          const n = Number(v.replace(/[^0-9]/g, ''));
+          if (!n || n === Number(cur)) return;
+          sheet.getRange(i + 1, c).setValue(n);
+        } else if (f === 'Naissance') {
+          if (!adhBirth_(v) && !/^\d{4}$/.test(v)) return;
+          setNaissance_(sheet, i + 1, v);
+        } else if (f === 'Catégorie') {
+          if (cats.indexOf(v) < 0) return;
+          sheet.getRange(i + 1, c).setValue(v);
+        } else if (f === 'Sexe') {
+          v = normSexe_(v);
+          if (!v) return;
+          sheet.getRange(i + 1, c).setValue(v);
+        } else {
+          // Téléphone, licence : en texte (zéro de tête conservé).
+          v = f === 'Téléphone' ? v.replace(/[^0-9+]/g, '').replace(/^\+33/, '0') : v.replace(/\s+/g, '');
+          if (!v) return;
+          const cell = sheet.getRange(i + 1, c);
+          textFmt_(cell);
+          cell.setValue(v);
+        }
+        cellules++;
+        touched = true;
+      });
+      if (touched) joueurs++;
+    });
+  });
+  if (cellules) bumpDataVersion_();
+  return { cellules: cellules, joueurs: joueurs, players: listPlayers() };
 }
 
 /** Colonne N « Naissance » : année (2017) ou date (27/07/2017), en texte. */
