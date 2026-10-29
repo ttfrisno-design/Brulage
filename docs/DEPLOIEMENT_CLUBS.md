@@ -39,7 +39,7 @@ Il sert à tester chaque nouvelle version avant de la proposer aux clubs.
    moi, accès : tout le monde), puis copier l'adresse /exec dans `clubs.js`,
    ligne `"id": "essai"`, champ `serverUrl`.
 4. Ouvrir l'appli avec **`?essai=1`** (par exemple
-   `https://ttfrisno-design.github.io/Brulage/?essai=1`) : le club d'essai
+   `https://rebontt.fr/?essai=1`) : le club d'essai
    apparaît dans la liste. Il reste masqué pour tout le monde sinon, et `?essai=0`
    le masque à nouveau. Côté comité, `comite.html?essai=1` l'inclut.
 

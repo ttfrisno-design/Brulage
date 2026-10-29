@@ -4309,7 +4309,7 @@
   var LIC_CATS = ['Poussin', 'Benjamin', 'Minime', 'Cadet', 'Junior', 'Senior', 'V40', 'V50', 'V60', 'V70', 'V80'];
   function inscriptionUrl() {
     var base = (window.APP_CONFIG && window.APP_CONFIG.INSCRIPTION_URL) ||
-      (/github\.io$|^localhost$|^127\./.test(location.hostname) ? 'inscription.html' : 'https://ttfrisno-design.github.io/Brulage/inscription.html');
+      (/github\.io$|rebontt\.fr$|^localhost$|^127\./.test(location.hostname) ? 'inscription.html' : 'https://rebontt.fr/inscription.html');
     return base + clubParam();
   }
   // Plusieurs clubs dans l'annuaire : le site d'inscription doit savoir lequel.

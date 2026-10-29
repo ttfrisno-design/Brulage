@@ -55,7 +55,7 @@ function comiteClubs_() {
 /** Sans COMITE_CLUBS : clubs lus dans l'annuaire RebonTT (clubs.js publié
  * sur GitHub Pages, ou propriété COMITE_ANNUAIRE_URL), hors clubs d'essai. */
 function clubsAnnuaire_() {
-  const url = PropertiesService.getScriptProperties().getProperty('COMITE_ANNUAIRE_URL') || 'https://ttfrisno-design.github.io/Brulage/clubs.js';
+  const url = PropertiesService.getScriptProperties().getProperty('COMITE_ANNUAIRE_URL') || 'https://rebontt.fr/clubs.js';
   const txt = UrlFetchApp.fetch(url, { muteHttpExceptions: true }).getContentText();
   let list = [];
   try { list = JSON.parse(txt.slice(txt.indexOf('['), txt.lastIndexOf(']') + 1)); } catch (e) { throw new Error('Annuaire des clubs illisible : ' + url); }
