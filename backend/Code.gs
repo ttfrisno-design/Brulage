@@ -20,7 +20,7 @@
 // "group" identifie l'ensemble de dates (jour de match) partagé par les équipes.
 // Version du script (affichée au comité et dans l'admin) : permet de savoir
 // quels clubs ont recollé la dernière version de Code.gs.
-const REBONTT_VERSION = '2026.10.29';
+const REBONTT_VERSION = '2026.10.30';
 
 // Équipes par défaut (celles du FRI). Chaque club règle les siennes dans
 // l'onglet « Equipes » de son classeur (créé avec ces valeurs) : ID, Nom,
@@ -1820,7 +1820,7 @@ function helloAssoConfig_() {
     id: id, secret: secret, org: String(org).trim(),
     api: sandbox ? 'https://api.helloasso-sandbox.com' : 'https://api.helloasso.com',
     sandbox: sandbox,
-    appUrl: p.getProperty('APP_URL') || 'https://ttfrisno-design.github.io/Brulage/',
+    appUrl: p.getProperty('APP_URL') || 'https://rebontt.fr/',
   };
 }
 
@@ -3483,7 +3483,7 @@ function adhCompute_(d, st, crs) {
 
 function adhPublicUrl_() {
   const p = PropertiesService.getScriptProperties();
-  const app = p.getProperty('APP_URL') || 'https://ttfrisno-design.github.io/Brulage/';
+  const app = p.getProperty('APP_URL') || 'https://rebontt.fr/';
   return app.replace(/[?#].*$/, '').replace(/[^/]*$/, '') + 'inscription.html';
 }
 

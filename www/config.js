@@ -13,5 +13,5 @@ window.APP_CONFIG = {
   COMITE: { nom: 'CD76TT', sheetUrl: 'https://docs.google.com/spreadsheets/d/11Q5sF76it4w4TWKHgh2wfHrnfriDhzo_NIt_kGMEdzQ/edit', apiUrl: 'https://script.google.com/macros/s/AKfycbyrqCf5FpPG6MQaKSnk1c0sIYLGAO6-aLAfF-cfeSoqUsg7d1EGS2vD76V6h-w7g76gIA/exec' },
   // Annuaire des clubs : www/clubs.js (chargé avant ce fichier).
   CLUBS: window.REBONTT_CLUBS,
-  CLUBS_URL: 'https://ttfrisno-design.github.io/Brulage/clubs.js',
+  CLUBS_URL: 'https://rebontt.fr/clubs.js',
 };

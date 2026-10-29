@@ -62,7 +62,7 @@ Le même code (`www/`) est publié sur **GitHub Pages** par le workflow
 **Version web (PC)** (`.github/workflows/pages.yml`) à chaque mise à jour de
 la branche `main` :
 
-> https://ttfrisno-design.github.io/Brulage/
+> https://rebontt.fr/
 
 Sur PC, ouvrir ce lien dans **Chrome ou Edge**, puis cliquer sur l'icône
 **« Installer »** dans la barre d'adresse (ou menu ⋮ › *Installer
@@ -243,7 +243,7 @@ phase est terminée). Ensuite, la position choisie est conservée.
 
 `…/?club=<id>` ouvre directement la page d'un club, sans passer par la
 liste. L'`id` est celui du club dans `www/clubs.js`, par exemple
-`https://ttfrisno-design.github.io/Brulage/?club=fri`.
+`https://rebontt.fr/?club=fri`.
 - **Où le trouver :** l'admin le copie dans *Dates & Réglages › 📲 Lien de
   l'appli pour votre club*.
 - **Changement de club :** si le navigateur avait une session ouverte pour un
@@ -256,11 +256,10 @@ liste. L'`id` est celui du club dans `www/clubs.js`, par exemple
 2. Chez ce registrar, créer les enregistrements DNS :
    - pour le domaine nu, 4 enregistrements `A` vers `185.199.108.153`,
      `185.199.109.153`, `185.199.110.153` et `185.199.111.153` ;
-   - ou, pour un sous-domaine comme `appli.cd76tt.fr`, un `CNAME` vers
-     `ttfrisno-design.github.io`.
+   - et un `CNAME` `www` vers `ttfrisno-design.github.io`.
 3. Dans GitHub, aller dans *Settings › Pages › Custom domain*, saisir le
    domaine, attendre la vérification, puis cocher *Enforce HTTPS*.
-4. Mettre à jour les adresses qui citent `ttfrisno-design.github.io` :
+4. Mettre à jour les adresses de l'appli (fait pour `rebontt.fr`) :
    - `CLUBS_URL` dans `www/config.js` ;
    - la propriété `APP_URL` des scripts (retour HelloAsso) ;
    - les liens déjà partagés.
@@ -512,7 +511,7 @@ présentation du club.
 
 Page publique (sans code) pour l'adhésion des familles au club de tennis de
 table, organisée comme le site d'inscription du FRI :
-`https://ttfrisno-design.github.io/Brulage/inscription.html` (bouton
+`https://rebontt.fr/inscription.html` (bouton
 « S'inscrire au club » de la page du club quand le champ *Lien vers le site
 d'inscription* est vide).
 
@@ -658,7 +657,7 @@ et mettre son adresse /exec dans `config.js › COMITE.apiUrl`.
 
 ## Espace comité départemental (CD76TT)
 
-Page **`comite.html`** (https://ttfrisno-design.github.io/Brulage/comite.html),
+Page **`comite.html`** (https://rebontt.fr/comite.html),
 affichée nulle part dans l'appli : le comité y voit les **inscriptions validées
 par les clubs** (jeunes, adultes, stages… hors participations annulées), par
 **compétition** (puis par club) ou par **club**, avec filtres, recherche et
