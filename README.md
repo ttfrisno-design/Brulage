@@ -237,6 +237,27 @@ changement de phase), chaque tableau défile automatiquement jusqu'à la
 **prochaine date de match** (aujourd'hui compris ; la dernière date si la
 phase est terminée). Ensuite, la position choisie est conservée.
 
+## Compétitions inscrites pour la saison
+
+Certaines compétitions se règlent une seule fois pour plusieurs tours :
+- le Critérium fédéral et les championnats (Jeunes, Vétérans…) ;
+- la Coupe de Rouen et le Challenge SERANO ;
+- toute compétition qui a un montant HelloAsso « saison ».
+
+Pour ces compétitions :
+- **Demande d'inscription** : elle vaut pour tous les tours à venir encore
+  ouverts (`seasonCompet_` / `requestInscriptions`).
+- **Une fois inscrit** (demande en attente ou validée), le joueur ne se voit
+  plus proposer d'inscription, de paiement ni de rappel pour les autres tours.
+  L'appli affiche « Inscrit(e) pour la saison ».
+- **Relances SMS « non-inscrits »** de l'admin : elles ignorent les joueurs
+  déjà inscrits à un tour de la saison.
+- **Double paiement impossible** : un second paiement HelloAsso est refusé si
+  la saison est déjà réglée.
+
+Le Challenge 500, le Circuit Jeunes et les stages restent gérés épreuve par
+épreuve.
+
 ## Compléter l'effectif depuis un export FFTT
 
 Onglet **Effectif › 📥 Compléter depuis un export FFTT** : choisir le fichier

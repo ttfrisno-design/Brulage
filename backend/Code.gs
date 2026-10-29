@@ -1878,6 +1878,20 @@ function perEpreuvePayment_(nom) {
 function singleInscription_(nom) {
   return /coupe\s*de\s*rouen|serano/i.test(String(nom || ''));
 }
+/** Compétition inscrite et réglée pour la saison (plusieurs tours, un seul
+ * règlement) : Critérium fédéral, championnats (Jeunes, Vétérans…), Coupe
+ * de Rouen, SERANO, ou toute compétition à montant « saison ». Une demande
+ * d'inscription vaut pour tous ses tours à venir ; une fois inscrit, le
+ * joueur ne se voit plus proposer d'inscription ni de paiement. Hors
+ * épreuves réglées une par une (Challenge 500, Circuit Jeunes, stages) et
+ * rendez-vous « Tous » (rassemblements). */
+function seasonCompet_(c, settings) {
+  const nom = String(c && c.nom || '');
+  if (perEpreuvePayment_(nom) || c.type === 'Tous') return false;
+  return singleInscription_(nom) || /crit[ée]rium|championnat/i.test(nom) ||
+    Number((((settings || {}).prices || {}).serie || {})[nom]) > 0;
+}
+
 /** Date du 1er tour de la compétition (même nom, même type). */
 function seriesFirstDate_(competitions, c) {
   let first = null;
@@ -1944,6 +1958,10 @@ function createCheckout(playerId, competitionId) {
       : 'Inscription impossible : date limite dépassée ou catégorie non concernée.');
   }
   const perEp = perEpreuvePayment_(c.nom);
+  if (!perEp && data.competitions.some(function (x) {
+    const i = data.inscriptions[x.id];
+    return x.nom === c.nom && x.type === c.type && i && i.reglement && i.statut !== 'Refusée';
+  })) throw new Error('Inscription déjà réglée pour la saison de « ' + c.nom + ' ».');
   const targets = perEp ? [c] : data.competitions.filter(function (x) {
     const d = parseFrDate_(x.date);
     return x.nom === c.nom && x.type === c.type && x.eligible && d && d >= today;
@@ -2386,6 +2404,13 @@ function requestInscriptions(playerId, competitionIds, tableau) {
       data.competitions.forEach(function (x) {
         const d = parseFrDate_(x.date);
         if (x.nom === c.nom && x.type === c.type && d && d >= today && ids.indexOf(x.id) < 0) ids.push(x.id);
+      });
+    } else if (c && seasonCompet_(c, data.settings)) {
+      // Inscription pour la saison (Critérium, championnats…) : tous les
+      // tours à venir encore ouverts.
+      if (ids.indexOf(c.id) < 0) ids.push(c.id);
+      data.competitions.forEach(function (x) {
+        if (x.nom === c.nom && x.type === c.type && ids.indexOf(x.id) < 0 && inscriptionOpen_(data.competitions, x, today)) ids.push(x.id);
       });
     } else if (ids.indexOf(Number(cid)) < 0) ids.push(Number(cid));
   });
