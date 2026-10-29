@@ -237,6 +237,28 @@ changement de phase), chaque tableau défile automatiquement jusqu'à la
 **prochaine date de match** (aujourd'hui compris ; la dernière date si la
 phase est terminée). Ensuite, la position choisie est conservée.
 
+## Compléter l'effectif depuis un export FFTT
+
+Onglet **Effectif › 📥 Compléter depuis un export FFTT** : choisir le fichier
+.xlsx ou .csv exporté de l'espace club FFTT. Les colonnes reconnues sont :
+n° de licence, nom, prénom, sexe, naissance, points, téléphone portable,
+catégorie administrative ou sportive.
+- **Lecture locale** : le fichier est lu dans le navigateur et n'est conservé
+  nulle part. Les adresses, e-mails et informations médicales sont ignorés.
+- **Rapprochement** : chaque licencié est rapproché d'un joueur de l'effectif,
+  par n° de licence ou sinon par nom et prénom (sans tenir compte des accents
+  ni des majuscules).
+- **Aperçu** : un aperçu liste, joueur par joueur, les cases vides qui seront
+  remplies : téléphone, catégorie (V45 → V40, V55 → V50, V65 → V60…), licence,
+  points, sexe, naissance.
+- **Aucun écrasement** : aucune case déjà remplie n'est modifiée, aucun joueur
+  n'est ajouté. Seule exception : les points, si la case « Remplacer aussi les
+  points » est cochée.
+- **Absents de l'effectif** : les licenciés du fichier qui ne sont pas dans
+  l'effectif sont listés à part.
+- **Côté serveur** : `completerJoueurs` exige la session administrateur et
+  revérifie que chaque case est vide avant de l'écrire.
+
 ## Brûlage non rétroactif et matchs passés
 
 Une case n'est orange (brûlé) que si le joueur était **déjà brûlé à cette
