@@ -2168,6 +2168,20 @@
     var sh = window.screen.availHeight || window.innerHeight;
     return 'popup=yes,width=' + sw + ',height=' + sh + ',left=' + (window.screen.availLeft || 0) + ',top=' + (window.screen.availTop || 0) + ',resizable=yes,scrollbars=yes';
   }
+  // Espace PingPocket / FFTT d'un joueur (tableau de brûlage) : fenêtre sur
+  // le tiers droit de l'écran, à côté du tableau, réutilisée d'un joueur à
+  // l'autre. Sur téléphone ou dans l'appli : ouverture classique.
+  function openSideWindow(url) {
+    if (isMobileDevice() || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return true;
+    var sw = window.screen.availWidth || window.innerWidth;
+    var sh = window.screen.availHeight || window.innerHeight;
+    var w = Math.max(360, Math.round(sw / 3));
+    var left = (window.screen.availLeft || 0) + sw - w;
+    var win = window.open(url, 'rebontt_espace', 'popup=yes,width=' + w + ',height=' + sh + ',left=' + left + ',top=' + (window.screen.availTop || 0) + ',resizable=yes,scrollbars=yes');
+    if (!win) return true; // fenêtre bloquée : ouverture classique
+    try { win.moveTo(left, window.screen.availTop || 0); win.resizeTo(w, sh); win.focus(); } catch (e) { /* pas bloquant */ }
+    return false;
+  }
   function openFullWindow(url) {
     if (isMobileDevice() || (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return true;
     var win = window.open(url, '_blank', fullWindowFeatures());
@@ -2320,7 +2334,7 @@
     // il est connu (lien personnel ou modèle commun + n° de licence).
     var nameHtml = '<span class="pc-nom">' + escHtml(p.nom) + '</span><span class="pc-prenom">' + escHtml(p.prenom) + (p.points ? ' <span class="pc-pts">' + p.points + ' pts</span>' : '') + '</span>';
     if (p.espace) {
-      nameHtml = '<a class="pc-link" href="' + escAttr(p.espace) + '" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)" title="Voir ' + escAttr(p.prenom + ' ' + p.nom) + ' sur PingPocket / FFTT">' + nameHtml + '</a>';
+      nameHtml = '<a class="pc-link" href="' + escAttr(p.espace) + '" target="_blank" rel="noopener" onclick="return openSideWindow(this.href)" title="Voir ' + escAttr(p.prenom + ' ' + p.nom) + ' sur PingPocket / FFTT (fenêtre à droite)">' + nameHtml + '</a>';
     }
     var html = '<tr><td class="player-col" title="' + escAttr(p.prenom + ' ' + p.nom) + '">' + nameHtml + homeBadge + '</td>';
 
