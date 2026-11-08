@@ -138,6 +138,9 @@
     td.avail-none select.assign-select { background: #fff; }
     td.burned-cell { background: var(--burn-bg) !important; }
     td.burned-cell select.assign-select { border-color: var(--burn-border); }
+    .player-col a.pc-link { color: inherit; text-decoration: none; display: block; }
+    .player-col a.pc-link .pc-nom { text-decoration: underline dotted; text-underline-offset: 2px; color: var(--primary); }
+    .player-col a.pc-link:hover .pc-nom { text-decoration-style: solid; }
     .convoc-lock-team { font-size: 12px; font-weight: 700; color: var(--green); white-space: nowrap; }
     .past-lock { border: 0; background: none; padding: 0 2px; font-size: 11px; cursor: default; }
     button.past-lock { cursor: pointer; }
@@ -2213,8 +2216,13 @@
       var homeTeam = STATE.config.teams.find(function (t) { return t.id === p.homeTeam; });
       if (homeTeam) { homeBadge = '<span class="pc-home">(' + homeTeam.name + ')</span>'; }
     }
-    var html = '<tr><td class="player-col" title="' + escAttr(p.prenom + ' ' + p.nom) + '"><span class="pc-nom">' + escHtml(p.nom) + '</span>' +
-      '<span class="pc-prenom">' + escHtml(p.prenom) + (p.points ? ' <span class="pc-pts">' + p.points + ' pts</span>' : '') + '</span>' + homeBadge + '</td>';
+    // Nom et prénom : lien vers l'espace du joueur (PingPocket / FFTT) quand
+    // il est connu (lien personnel ou modèle commun + n° de licence).
+    var nameHtml = '<span class="pc-nom">' + escHtml(p.nom) + '</span><span class="pc-prenom">' + escHtml(p.prenom) + (p.points ? ' <span class="pc-pts">' + p.points + ' pts</span>' : '') + '</span>';
+    if (p.espace) {
+      nameHtml = '<a class="pc-link" href="' + escAttr(p.espace) + '" target="_blank" rel="noopener" onclick="return openFullWindow(this.href)" title="Voir ' + escAttr(p.prenom + ' ' + p.nom) + ' sur PingPocket / FFTT">' + nameHtml + '</a>';
+    }
+    var html = '<tr><td class="player-col" title="' + escAttr(p.prenom + ' ' + p.nom) + '">' + nameHtml + homeBadge + '</td>';
 
     // Une même "journée" (colonne F de la feuille Dates, ex. "J1") peut
     // regrouper plusieurs dates réelles (une par groupe) : un joueur ne

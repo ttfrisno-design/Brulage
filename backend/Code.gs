@@ -20,7 +20,7 @@
 // "group" identifie l'ensemble de dates (jour de match) partagé par les équipes.
 // Version du script (affichée au comité et dans l'admin) : permet de savoir
 // quels clubs ont recollé la dernière version de Code.gs.
-const REBONTT_VERSION = '2026.10.30';
+const REBONTT_VERSION = '2026.11.08';
 
 // Équipes par défaut (celles du FRI). Chaque club règle les siennes dans
 // l'onglet « Equipes » de son classeur (créé avec ces valeurs) : ID, Nom,
@@ -1240,6 +1240,7 @@ function upsertDatedRow_(sheetName, playerId, phase, date, value) {
 function getAdminData(phase) {
   ensureSheets_();
   const players = readTable_('Joueurs');
+  const espaceTemplate = String(readConfigValue_('LienFicheFFTT', '') || '');
   const avail = readTable_('Disponibilites').filter(function (r) { return Number(r.Phase) === Number(phase); });
   const assign = readTable_('Affectations').filter(function (r) { return Number(r.Phase) === Number(phase); });
 
@@ -1282,6 +1283,9 @@ function getAdminData(phase) {
         burned: computeBurnedTeams_(matchesByPlayerTeam[p.ID] || {}),
         phone: String(p.Téléphone || ''),
         convocations: convocByPlayer[p.ID] || {},
+        // Lien vers l'espace du joueur (PingPocket / FFTT) : nom cliquable
+        // dans le tableau de brûlage.
+        espace: playerEspaceUrl_(p, espaceTemplate),
       };
     });
 
@@ -2612,8 +2616,7 @@ function getProfile(playerId) {
     points: points,
     // Classement FFTT = points / 100 (arrondi inférieur), 5 au minimum.
     classement: points ? Math.max(5, Math.floor(points / 100)) : null,
-    ffttUrl: String(p.LienEspace || '').trim() ||
-      (licence && template ? template.replace(/\{licence\}/g, encodeURIComponent(licence)) : ''),
+    ffttUrl: playerEspaceUrl_(p, template),
     lienEspace: String(p.LienEspace || '').trim(),
     assignments: assignments,
     indispos: indispos,
@@ -2624,6 +2627,16 @@ function getProfile(playerId) {
 
 /** Admin : modèle de lien vers la fiche FFTT d'un joueur, où {licence} est
  * remplacé par son numéro de licence. Vide = pas de lien. */
+/** Espace du joueur sur PingPocket / l'appli FFTT : son lien personnel
+ * (colonne LienEspace), sinon le modèle commun (LienFicheFFTT) complété par
+ * son n° de licence ; '' si aucun des deux. */
+function playerEspaceUrl_(p, template) {
+  const own = String(p.LienEspace || '').trim();
+  if (own) return own;
+  const licence = String(p.Licence || '').trim();
+  return licence && template ? String(template).replace(/\{licence\}/g, encodeURIComponent(licence)) : '';
+}
+
 function setFfttLink(template) {
   return setSetting('LienFicheFFTT', template);
 }
