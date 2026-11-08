@@ -354,6 +354,16 @@
     .pill.wait { background: #fff3cd; color: #8a6d00; }
     .pill.ko { background: var(--red-bg); color: var(--red); }
     .btn-sm { border: 1px solid var(--primary); background: #fff; color: var(--primary); border-radius: 6px; padding: 6px 10px; font-size: 13px; cursor: pointer; }
+    /* Retour visuel des boutons : survol, appui, envoi en cours, message. */
+    button, .btn-sm { transition: transform .06s ease, filter .12s ease, box-shadow .12s ease; }
+    button:hover:not(:disabled), .btn-sm:hover { filter: brightness(.95); box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+    button:active:not(:disabled), .btn-sm:active, button.pressed, .btn-sm.pressed { transform: translateY(1px) scale(.97); filter: brightness(.88); box-shadow: none; }
+    button.busy, .btn-sm.busy { cursor: progress; opacity: .75; }
+    button.busy::after, .btn-sm.busy::after { content: ''; display: inline-block; width: 11px; height: 11px; margin-left: 6px; vertical-align: -2px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: btn-spin .7s linear infinite; }
+    @keyframes btn-spin { to { transform: rotate(360deg); } }
+    #toast { position: fixed; left: 50%; bottom: 24px; z-index: 10000; transform: translate(-50%, 16px); opacity: 0; pointer-events: none; background: #1b5e20; color: #fff; padding: 10px 18px; border-radius: 22px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 14px rgba(0,0,0,.25); transition: opacity .2s, transform .2s; max-width: calc(100% - 32px); }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+    #toast.err { background: #b71c1c; }
     .btn-sm.fill { background: var(--primary); color: #fff; }
     .btn-sm.green { border-color: var(--green); color: var(--green); }
     .btn-sm.green.fill { background: var(--green); color: #fff; }
@@ -1118,7 +1128,56 @@
   // On appelle donc le même script via une requête réseau standard (fetch),
   // qui suit le même chemin fiable que le chargement de la page elle-même.
   // SERVER_URL est injecté par le serveur au chargement (voir doGet/scriptUrl).
+  // Retour visuel des actions : au clic, le bouton s'enfonce ; s'il lance un
+  // appel au serveur, il passe « en cours » (rond qui tourne, désactivé),
+  // puis un message confirme l'enregistrement. Seuls les appels lancés
+  // directement par le clic sont concernés (pas les lectures de fond).
+  var lastClick = { btn: null };
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('button, a.btn-sm') : null;
+    if (!b) return;
+    b.classList.add('pressed');
+    setTimeout(function () { b.classList.remove('pressed'); }, 220);
+    lastClick = { btn: b };
+    // Après les gestionnaires du clic (confirm() compris) : on oublie le
+    // bouton, pour ne pas l'associer à un appel lancé plus tard.
+    setTimeout(function () { if (lastClick.btn === b) lastClick = { btn: null }; }, 0);
+  }, true);
+  var READ_FN = /^(get|list|check|login)/i;
+  var toastTimer = null;
+  function toast(msg, isError) {
+    var el = document.getElementById('toast');
+    if (!el) { el = document.createElement('div'); el.id = 'toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
+    el.textContent = msg;
+    el.classList.toggle('err', !!isError);
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2200);
+  }
   function callServer(fnName, args, attempt) {
+    var btn = !attempt ? lastClick.btn : null;
+    if (!btn) return callServerNet(fnName, args, attempt);
+    lastClick = { btn: null };
+    btn.classList.add('busy');
+    btn.setAttribute('aria-busy', 'true');
+    var wasDisabled = btn.disabled;
+    if (btn.tagName === 'BUTTON') btn.disabled = true;
+    var done = function () {
+      btn.classList.remove('busy');
+      btn.removeAttribute('aria-busy');
+      if (btn.tagName === 'BUTTON') btn.disabled = wasDisabled;
+    };
+    return callServerNet(fnName, args, attempt).then(function (res) {
+      done();
+      if (!READ_FN.test(fnName)) toast('✓ Enregistré');
+      return res;
+    }, function (err) {
+      done();
+      toast('Échec : ' + ((err && err.message) || 'erreur'), true);
+      throw err;
+    });
+  }
+  function callServerNet(fnName, args, attempt) {
     attempt = attempt || 1;
     // Délai maximal par tentative : sur mobile (changement réseau Wifi/4G,
     // mise en veille de l'écran...) une requête peut rester bloquée sans
@@ -1167,7 +1226,7 @@
       // connexions mobiles (iPhone en particulier) coupent plus souvent.
       if (!err.isAppError && attempt < 6) {
         return new Promise(function (resolve) { setTimeout(resolve, Math.min(attempt * 900, 4000)); })
-          .then(function () { return callServer(fnName, args, attempt + 1); });
+          .then(function () { return callServerNet(fnName, args, attempt + 1); });
       }
       throw err;
     });
