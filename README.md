@@ -406,6 +406,17 @@ de la FFTT (identifiants à demander par le club).
 
 ## Paiement des inscriptions par HelloAsso
 
+**Ajout d'une épreuve :** le formulaire « Ajouter une épreuve » a un champ
+**Montant HelloAsso (€)**. Rempli, il fixe le montant de paiement en ligne :
+- pour une épreuve réglée une par une (Challenge 500, Circuit Jeunes,
+  stages), c'est le montant de cette épreuve ;
+- sinon, c'est le montant de la saison de la compétition.
+
+Laissé vide, aucun bouton de paiement n'est proposé aux joueurs. Le champ
+« Tarif » n'est qu'un texte affiché. La rubrique 💳 Tarifs de chaque
+compétition signale quand le paiement en ligne ne peut pas apparaître : clés
+HelloAsso du club absentes, ou montant vide.
+
 Les joueurs paient leur inscription sur **HelloAsso** (paiement de type
 « checkout ») ; c'est **HelloAsso qui valide** : le joueur n'est inscrit
 qu'une fois le paiement confirmé.
