@@ -443,6 +443,7 @@
     .pay-link-box input { width: 100%; font-size: 13px; padding: 5px 8px; margin-top: 4px; }
     .pay-link-box.plb-date { border-left-color: #f59e0b; background: #fffbeb; }
     .pay-link-box.plb-pay { border-left-color: #16a34a; background: #f0fdf4; }
+    .plb-warn { margin-top: 6px; font-size: 12px; font-weight: 600; color: #92400e; }
     .plb-h { font-weight: 700; font-size: 13px; color: var(--ink); }
     .plb-h small { font-weight: 400; color: var(--muted); font-size: 12px; }
     /* Compétitions individuelles (admin) : une couleur par type. */
@@ -793,7 +794,8 @@
             <div><label>Date</label><input type="text" id="ncDate" placeholder="jj/mm/aaaa"></div>
             <div><label>Date limite (optionnelle)</label><input type="text" id="ncLimite" placeholder="jj/mm/aaaa"></div>
             <div><label>Lieu</label><input type="text" id="ncLieu"></div>
-            <div><label>Tarif</label><input type="text" id="ncTarif"></div>
+            <div><label>Tarif <small>(texte affiché)</small></label><input type="text" id="ncTarif" placeholder="ex. 20 € la saison"></div>
+            <div><label>Montant HelloAsso (€)</label><input type="number" id="ncPrix" min="0" step="0.5" placeholder="vide = pas de paiement en ligne"></div>
             <div><label>Infos</label><input type="text" id="ncInfos"></div>
           </div>
           <label>Catégories <small>(aucune cochée = toutes celles du type)</small></label>
@@ -3926,7 +3928,7 @@
 
   function savePrice(target, value) {
     var v = String(value || '').trim().replace(',', '.');
-    callServer('setSetting', ['PrixHelloAsso:' + target, v]).then(function () {
+    return callServer('setSetting', ['PrixHelloAsso:' + target, v]).then(function () {
       var pr = STATE.adminCompet.settings.prices = STATE.adminCompet.settings.prices || { serie: {}, epreuve: {}, categorie: {} };
       pr.categorie = pr.categorie || {};
       var n = Number(v);
@@ -4126,7 +4128,11 @@
       // unique, ou lien par défaut des épreuves pour Challenge 500 /
       // Circuit Jeunes).
       html += '<div class="adm-sec-title">💳 Tarifs</div><div class="pay-link-box plb-pay"><div class="plb-h">' + (perEpreuvePayment(nom) ? 'Montant HelloAsso par épreuve <small>(€, par défaut)</small>' : 'Montant HelloAsso pour la saison <small>(€, paiement unique = inscription à toutes les épreuves)</small>') + '</div>' +
-        '<input type="number" min="0" step="0.5" value="' + escAttr(((data.settings.prices || {}).serie || {})[nom] || '') + '" placeholder="ex. 25" onchange="savePrice(' + escAttr(JSON.stringify(nom)) + ', this.value)">';
+        '<input type="number" min="0" step="0.5" value="' + escAttr(((data.settings.prices || {}).serie || {})[nom] || '') + '" placeholder="ex. 25" onchange="savePrice(' + escAttr(JSON.stringify(nom)) + ', this.value)">' +
+        // Pourquoi les joueurs ne voient pas de bouton de paiement.
+        (!data.settings.helloasso ? '<div class="plb-warn">⚠ Paiement en ligne désactivé : les clés HelloAsso du club ne sont pas configurées (Dates &amp; Réglages › Paiement HelloAsso).</div>'
+          : !(Number(((data.settings.prices || {}).serie || {})[nom]) > 0) && !perEpreuvePayment(nom) && !Object.keys(((data.settings.prices || {}).categorie || {})[nom] || {}).length
+            ? '<div class="plb-warn">Sans montant, aucun bouton de paiement HelloAsso n\'est proposé aux joueurs.</div>' : '');
       // Tarif selon la catégorie du joueur (prioritaire sur le montant
       // ci-dessus), ex. Critérium fédéral : jeunes 20 €, juniors 25 €…
       var catPrices = ((data.settings.prices || {}).categorie || {})[nom] || {};
@@ -4315,9 +4321,20 @@
     callServer('saveCompetition', [{ type: v('ncType'), nom: v('ncNom'), epreuve: v('ncEpreuve'), date: v('ncDate'), dateLimite: v('ncLimite'),
       lieu: v('ncLieu'), categories: cats, tarif: v('ncTarif'), infos: v('ncInfos') }]).then(function (res) {
       STATE.adminCompet = res;
-      ['ncEpreuve', 'ncDate', 'ncLimite'].forEach(function (id) { document.getElementById(id).value = ''; });
+      // Montant HelloAsso saisi : bouton de paiement proposé aux joueurs
+      // (montant de l'épreuve pour Challenge 500 / Circuit Jeunes / stages,
+      // sinon montant de la saison de la compétition).
+      var prix = v('ncPrix').replace(',', '.');
+      if (!(Number(prix) > 0)) return null;
+      // Épreuve ajoutée = la plus récente (plus grand ID) de cette compétition.
+      var added = res.competitions.filter(function (c) { return c.nom === v('ncNom') && c.type === v('ncType'); })
+        .sort(function (a, b) { return b.id - a.id; })[0];
+      var target = perEpreuvePayment(v('ncNom')) ? (added ? '#' + added.id : '') : v('ncNom');
+      return target ? savePrice(target, prix) : null;
+    }).then(function () {
+      ['ncEpreuve', 'ncDate', 'ncLimite', 'ncPrix'].forEach(function (id) { document.getElementById(id).value = ''; });
       renderAdminCompet();
-      alert('Épreuve ajoutée.');
+      alert('Épreuve ajoutée.' + (STATE.adminCompet.settings.helloasso ? '' : '\n\nLe paiement HelloAsso n\'est pas configuré pour le club : aucun bouton de paiement ne sera proposé aux joueurs.'));
     }).catch(onGsError);
   }
   function saveCompetSettings() {
