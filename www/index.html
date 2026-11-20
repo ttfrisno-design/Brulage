@@ -345,6 +345,11 @@
     .reminder-item { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
     .reminder-item:last-child { border-bottom: none; }
     .compet-group h2 { margin-bottom: 4px; }
+    .compet-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .compet-head h2 { margin: 0 0 4px; }
+    .compet-head .btn-sm { flex: 0 0 auto; }
+    .compet-group.compet-reduite { padding-top: 10px; padding-bottom: 10px; }
+    .compet-group.compet-reduite h2 { margin: 0; color: var(--muted); }
     .compet-meta { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
     .compet-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--border); }
     .compet-row .when { font-weight: 600; }
@@ -3720,7 +3725,17 @@
       // plus aucune inscription ni paiement proposé pour les autres tours.
       var seasonIn = seasonInscrit(first);
       var openIds = seasonIn ? [] : g.items.filter(function (c) { return canRequest(c) && !mine[c.id]; }).map(function (c) { return c.id; });
-      html += '<div class="card compet-group"' + (eligible ? '' : ' style="opacity:.6;"') + '><h2>' + escHtml(g.nom) + '</h2>' +
+      // Bouton Réduire / Afficher : la fiche se replie sur son titre (choix
+      // gardé sur l'appareil, par joueur).
+      var gKey = type + '|' + g.nom;
+      var reduit = !!competReduites()[gKey];
+      var head = '<div class="compet-head"><h2>' + escHtml(g.nom) + '</h2>' +
+        '<button type="button" class="btn-sm" aria-expanded="' + !reduit + '" onclick="toggleCompetReduite(' + escAttr(JSON.stringify(gKey)) + ')">' + (reduit ? '▸ Afficher' : '▾ Réduire') + '</button></div>';
+      if (reduit) {
+        html += '<div class="card compet-group compet-reduite">' + head + '</div>';
+        return;
+      }
+      html += '<div class="card compet-group"' + (eligible ? '' : ' style="opacity:.6;"') + '>' + head +
         '<div class="compet-meta">' + escHtml(first.infos) +
         (first.tarif ? ' <b>Tarif :</b> ' + escHtml(first.tarif) + '.' : '') +
         (first.categories.length ? ' <b>Catégories :</b> ' + escHtml(first.categories.join(', ')) + '.' : '') +
@@ -3780,6 +3795,17 @@
       html += '</div>';
     });
     document.getElementById('competList').innerHTML = html || '<div class="card">Aucune compétition ouverte aux inscriptions pour le moment.</div>';
+  }
+
+  function competReduitesKey() { return 'rebontt_compet_reduites_' + ((STATE.club && STATE.club.id) || '') + '_' + ((STATE.session && STATE.session.playerId) || ''); }
+  function competReduites() {
+    try { return JSON.parse(localStorage.getItem(competReduitesKey()) || '{}') || {}; } catch (e) { return {}; }
+  }
+  function toggleCompetReduite(key) {
+    var r = competReduites();
+    if (r[key]) delete r[key]; else r[key] = 1;
+    try { localStorage.setItem(competReduitesKey(), JSON.stringify(r)); } catch (e) { /* pas bloquant */ }
+    renderCompetView();
   }
 
   function competRowHtml(c, insc, past, seasonIn) {
