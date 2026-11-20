@@ -269,6 +269,16 @@ liste. L'`id` est celui du club dans `www/clubs.js`, par exemple
 Le lien direct affiché à l'admin suit automatiquement l'adresse du site.
 `APP_CONFIG.APP_URL` (config.js) permet de l'imposer.
 
+### Challenge C600 (adultes)
+
+Réservé aux joueurs de **moins de 600 points**. Les joueurs de 600 points et
+plus ne voient pas la compétition et ne peuvent pas s'y inscrire. Les
+relances « non-inscrits » de l'admin les ignorent. Un joueur sans points
+renseignés n'est pas bloqué.
+
+La règle est dans `COMPETITION_REGLES_`. Elle reconnaît les noms
+« Challenge C600 », « C600 » et « Challenge 600 ».
+
 ## Compétitions inscrites pour la saison
 
 Certaines compétitions se règlent une seule fois pour plusieurs tours :

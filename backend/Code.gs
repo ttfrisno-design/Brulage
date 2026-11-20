@@ -20,7 +20,7 @@
 // "group" identifie l'ensemble de dates (jour de match) partagé par les équipes.
 // Version du script (affichée au comité et dans l'admin) : permet de savoir
 // quels clubs ont recollé la dernière version de Code.gs.
-const REBONTT_VERSION = '2026.11.08';
+const REBONTT_VERSION = '2026.11.20';
 
 // Équipes par défaut (celles du FRI). Chaque club règle les siennes dans
 // l'onglet « Equipes » de son classeur (créé avec ces valeurs) : ID, Nom,
@@ -2142,6 +2142,8 @@ const COMPETITION_REGLES_ = [
     tableaux: { Benjamin: 'Benjamins-Minimes', Minime: 'Benjamins-Minimes', Cadet: 'Cadets-Juniors', Junior: 'Cadets-Juniors' },
     note: 'Tours 1 à 3 : 500 points maximum sur la licence officielle de la phase 1. Tours 4 à 6 : ouverts aussi aux joueurs de 501 à 550 points ' +
       '(inscription transmise par mail au responsable). Licence FFTT compétition ou loisir valide pour la saison et certificat médical en règle.' },
+  // Challenge C600 (adultes) : joueurs de moins de 600 points.
+  { nom: /\bc\s*-?\s*600\b|challenge\s*600/i, pointsMax: 599, texte: 'Réservé aux joueurs de moins de 600 points.' },
 ];
 /** Règle de l'épreuve, avec les années de naissance de sa saison et son
  * maximum de points, et son texte pour l'affichage. */
@@ -2163,7 +2165,7 @@ function competitionRegle_(nom, date, epreuve) {
   } else if (r.categories) t.push(r.categories.join(', '));
   if (out.anneeMin) t.push('nés de ' + out.anneeMin + ' à ' + out.anneeMax + ' (garçons et filles)');
   if (r.pointsMax) t.push(r.pointsMax + ' points maximum');
-  out.texte = t.join(', ') + '.' + (r.note ? ' ' + r.note : '');
+  out.texte = r.texte || (t.join(', ') + '.' + (r.note ? ' ' + r.note : ''));
   return out;
 }
 /** Tableau d'un joueur d'après sa catégorie (Challenge 500), '' sinon. */
